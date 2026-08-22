@@ -1,8 +1,81 @@
 @import "tailwindcss";
 @import "uniwind";
-
 @import "heroui-native/styles";
+
+@theme {
+  --font-sans: "Inter", "sans-serif";
+  --font-normal: "Inter";
+  --font-medium: "Inter-Medium";
+  --font-semibold: "Inter-SemiBold";
+  --font-bold: "Inter-Bold";
+}
 
 /* End-user path: heroui-native lives in the project's node_modules, one
    level up from this src/global.css file. */
 @source '../node_modules/heroui-native/lib';
+
+/* ─── Light Theme Overrides ─────────────────────────────────────── */
+@layer theme {
+  @variant light {
+    /* Base */
+    --background: oklch(0.975 0.007 258);
+    --foreground: oklch(0.16 0.035 258);
+
+    /* Surfaces */
+    --surface: oklch(1 0 0);
+    --surface-foreground: oklch(0.18 0.03 258);
+    --surface-secondary: oklch(0.97 0.006 258);
+    --surface-secondary-foreground: oklch(0.18 0.03 258);
+    --surface-tertiary: oklch(0.94 0.01 258);
+    --surface-tertiary-foreground: oklch(0.18 0.03 258);
+
+    /* Overlay */
+    --overlay: oklch(1 0 0);
+    --overlay-foreground: oklch(0.18 0.03 258);
+    --backdrop: oklch(0% 0 0 / 25%);
+
+    /* Muted */
+    --muted: oklch(0.52 0.024 258);
+
+    /* Default (used for form fields, tab backgrounds, etc.) */
+    --default: oklch(0.93 0.012 258);
+    --default-foreground: oklch(0.32 0.04 258);
+
+    /* Accent (primary brand color) */
+    --accent: oklch(0.55 0.22 268);
+    --accent-foreground: oklch(1 0 0);
+
+    /* Form fields */
+    --field-background: oklch(0.965 0.009 258);
+    --field-foreground: oklch(0.16 0.035 258);
+    --field-placeholder: var(--muted);
+    --field-border: transparent;
+
+    /* Status */
+    --success: oklch(0.58 0.16 148);
+    --success-foreground: oklch(0.97 0.01 148);
+    --warning: oklch(0.7 0.14 85);
+    --warning-foreground: oklch(0.2 0.04 85);
+    --danger: oklch(0.58 0.2 18);
+    --danger-foreground: oklch(0.97 0.01 18);
+
+    /* Misc */
+    --border: oklch(0 0 0 / 0%);
+    --separator: oklch(0.88 0.012 258);
+    --segment: oklch(1 0 0);
+    --segment-foreground: oklch(0.18 0.03 258);
+
+    /* Shadows — more visible in light mode */
+    --surface-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.06),
+      0 2px 8px 0 rgba(0, 0, 0, 0.05),
+      0 0 1px 0 rgba(0, 0, 0, 0.04);
+    --overlay-shadow:
+      0 4px 16px 0 rgba(0, 0, 0, 0.08),
+      0 1px 4px 0 rgba(0, 0, 0, 0.06);
+    --field-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.06),
+      0 0 1px 0 rgba(0, 0, 0, 0.04);
+  }
+}
+
