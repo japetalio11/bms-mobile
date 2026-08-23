@@ -47,5 +47,15 @@
     "eslint-config-expo": "^57.0.0",
     "prettier": "^3.8.3",
     "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "tar": "^7.5.21",
+    "uuid": "^11.1.1",
+    "qs": "^6.14.1",
+    "body-parser": "^1.20.5",
+    "xml2js": "^0.6.2",
+    "semver": "^7.6.3",
+    "send": "^0.19.0",
+    "image-size": "^1.2.1"
   }
 }

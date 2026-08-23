@@ -1,39 +1,89 @@
-import { View, ScrollView, Pressable } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "../../components/Header";
+import { useAuth } from "../../context/UserContext";
+import { getAppointmentsByUserApi } from "../../config/api";
+import type { AppointmentRecord } from "../../config/api";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const DATES = [
-  [29, 30, 31, 1, 2, 3, 4],
-  [5, 6, 7, 8, 9, 10, 11],
-  [12, 13, 14, 15, 16, 17, 18],
-  [19, 20, 21, 22, 23, 24, 25],
-  [26, 27, 28, 29, 30, 31, 1],
-];
-const DOT_DATES = [2, 6, 14, 27, 28];
-const SELECTED_DATE = 16;
 
 export default function AppointmentsScreen(): JSX.Element {
   const router = useRouter();
+  const { user, token } = useAuth();
+
   const [activeTab, setActiveTab] = useState("all");
   const [searchValue, setSearchValue] = useState("");
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.user_id && token) {
+      getAppointmentsByUserApi(user.user_id, token)
+        .then((res) => { if (isMounted) setAppointments(res); })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.user_id, token]);
+
+  const filteredAppointments = appointments.filter((item) => {
+    if (searchValue.trim()) {
+      const q = searchValue.toLowerCase();
+      const matchType = item.appointment_type.toLowerCase().includes(q);
+      const matchReason = (item.reason || "").toLowerCase().includes(q);
+      if (!matchType && !matchReason) return false;
+    }
+    if (activeTab === "all") return true;
+    if (activeTab === "prenatal") return item.appointment_type.toLowerCase().includes("prenatal");
+    if (activeTab === "postnatal") return item.appointment_type.toLowerCase().includes("postpartum") || item.appointment_type.toLowerCase().includes("postnatal");
+    if (activeTab === "neonatal") return item.appointment_type.toLowerCase().includes("newborn") || item.appointment_type.toLowerCase().includes("neonatal");
+    return true;
+  });
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const calendarRows: (number | null)[][] = [];
+  let dayCounter = 1;
+  for (let r = 0; r < 5; r++) {
+    const row: (number | null)[] = [];
+    for (let c = 0; c < 7; c++) {
+      if ((r === 0 && c < firstDay) || dayCounter > daysInMonth) {
+        row.push(null);
+      } else {
+        row.push(dayCounter++);
+      }
+    }
+    calendarRows.push(row);
+  }
 
   const renderCalendar = () => (
     <Card variant="secondary" className="mx-5 mb-5 rounded-xl p-5 bg-surface border-0">
       <View className="flex-row items-center justify-between mb-4">
-        <View className="flex-row items-center gap-1">
-          <Text className="text-[#6366f1] font-semibold text-base">December 2025</Text>
-          <Ionicons name="chevron-down" size={14} color="#6366f1" />
-        </View>
+        <Text className="text-[#6366f1] font-semibold text-base">{monthName}</Text>
         <View className="flex-row gap-1">
-          <Pressable className="size-8 items-center justify-center rounded-full bg-default">
+          <Pressable
+            className="size-8 items-center justify-center rounded-full bg-default"
+            onPress={() => setCurrentDate(new Date(year, month - 1, 1))}
+          >
             <Ionicons name="chevron-back" size={16} color="#a1a1aa" />
           </Pressable>
-          <Pressable className="size-8 items-center justify-center rounded-full bg-default">
+          <Pressable
+            className="size-8 items-center justify-center rounded-full bg-default"
+            onPress={() => setCurrentDate(new Date(year, month + 1, 1))}
+          >
             <Ionicons name="chevron-forward" size={16} color="#a1a1aa" />
           </Pressable>
         </View>
@@ -47,37 +97,34 @@ export default function AppointmentsScreen(): JSX.Element {
         ))}
       </View>
 
-      {DATES.map((row, rowIndex) => (
+      {calendarRows.map((row, rowIndex) => (
         <View key={rowIndex} className="flex-row justify-between mb-2">
-          {row.map((date, colIndex) => {
-            const isPrevMonth = rowIndex === 0 && date > 20;
-            const isNextMonth = rowIndex === 4 && date < 10;
-            const isMuted = isPrevMonth || isNextMonth;
-            const isSelected = !isMuted && date === SELECTED_DATE;
-            const hasDot = !isMuted && DOT_DATES.includes(date);
+          {row.map((dateNum, colIndex) => {
+            const isToday =
+              dateNum !== null &&
+              dateNum === new Date().getDate() &&
+              month === new Date().getMonth() &&
+              year === new Date().getFullYear();
 
             return (
               <View key={colIndex} className="flex-1 items-center justify-center py-1">
                 <View
                   className={`size-8 items-center justify-center rounded-full ${
-                    isSelected ? "bg-accent" : ""
+                    isToday ? "bg-accent" : ""
                   }`}
                 >
                   <Text
                     className={`text-sm ${
-                      isMuted
-                        ? "text-muted opacity-40"
-                        : isSelected
+                      dateNum === null
+                        ? "opacity-0"
+                        : isToday
                         ? "text-white font-semibold"
                         : "text-foreground font-medium"
                     }`}
                   >
-                    {date}
+                    {dateNum || ""}
                   </Text>
                 </View>
-                {hasDot && !isSelected && (
-                  <View className="size-1 rounded-full bg-accent mt-0.5" />
-                )}
               </View>
             );
           })}
@@ -158,42 +205,51 @@ export default function AppointmentsScreen(): JSX.Element {
               </SearchField.Group>
             </SearchField>
           </View>
-          <Pressable className="size-12 bg-default rounded-xl items-center justify-center">
-            <Ionicons name="options-outline" size={20} color="#a1a1aa" />
-          </Pressable>
         </View>
 
         {/* Appointment cards */}
         <View className="px-5 gap-3">
-          <Pressable onPress={() => router.push("/(tabs)/appointment-detail")}>
-            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4 flex-row items-center gap-3">
-              <View className="items-center justify-center w-12 bg-[#ef4444]/15 rounded-xl py-2">
-                <Text className="text-[#ef4444] text-sm font-semibold">Thu</Text>
-                <Text className="text-foreground text-lg font-bold">11</Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-foreground font-semibold text-base mb-0.5">Prenatal Checkup</Text>
-                <Text className="text-muted text-sm">July 11, 2026 · 9:00 AM</Text>
-              </View>
-              <View className="size-8 rounded-full bg-[#6366f1]/15 items-center justify-center">
-                <Ionicons name="chevron-forward" size={14} color="#6366f1" />
-              </View>
-            </Card>
-          </Pressable>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#6366f1" className="py-6" />
+          ) : filteredAppointments.length > 0 ? (
+            filteredAppointments.map((item) => {
+              const d = new Date(item.appointment_date);
+              const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
+              const dateNum = d.getDate();
+              const formattedDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+              const isCompleted = item.status.toLowerCase() === "completed";
 
-          <Pressable onPress={() => router.push("/(tabs)/appointment-detail")}>
-            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4 flex-row items-center gap-3">
-              <View className="items-center justify-center w-12 bg-[#10b981]/15 rounded-xl py-2">
-                <Text className="text-[#10b981] text-sm font-semibold">Fri</Text>
-                <Text className="text-foreground text-lg font-bold">8</Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-foreground font-semibold text-base mb-0.5">Prenatal Checkup</Text>
-                <Text className="text-muted text-sm">June 8, 2026 · 9:00 AM</Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={22} color="#10b981" />
+              return (
+                <Pressable key={item.appointment_id} onPress={() => router.push("/(tabs)/appointment-detail")}>
+                  <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4 flex-row items-center gap-3">
+                    <View className={`items-center justify-center w-12 rounded-xl py-2 ${isCompleted ? "bg-[#10b981]/15" : "bg-[#ef4444]/15"}`}>
+                      <Text className={`text-sm font-semibold ${isCompleted ? "text-[#10b981]" : "text-[#ef4444]"}`}>{dayStr}</Text>
+                      <Text className="text-foreground text-lg font-bold">{dateNum}</Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-foreground font-semibold text-base mb-0.5">{item.appointment_type}</Text>
+                      <Text className="text-muted text-sm">{formattedDate} · {item.appointment_time}</Text>
+                    </View>
+                    {isCompleted ? (
+                      <Ionicons name="checkmark-circle" size={22} color="#10b981" />
+                    ) : (
+                      <View className="size-8 rounded-full bg-[#6366f1]/15 items-center justify-center">
+                        <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+                      </View>
+                    )}
+                  </Card>
+                </Pressable>
+              );
+            })
+          ) : (
+            <Card className="p-6 bg-surface rounded-xl border-0 items-center py-8">
+              <Ionicons name="calendar-outline" size={28} color="#71717a" className="mb-2" />
+              <Text className="text-foreground font-semibold text-base mb-1">No Appointments</Text>
+              <Text className="text-muted text-sm text-center">
+                You have no scheduled appointments.
+              </Text>
             </Card>
-          </Pressable>
+          )}
         </View>
       </ScrollView>
     </View>

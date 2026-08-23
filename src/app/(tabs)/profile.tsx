@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Header } from "../../components/Header";
 import type { JSX } from "react";
+import { useAuth } from "../../context/UserContext";
 
 function SettingRow({
   icon,
@@ -34,6 +35,12 @@ function SettingRow({
 
 export default function ProfileScreen(): JSX.Element {
   const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/(auth)/login");
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -47,8 +54,8 @@ export default function ProfileScreen(): JSX.Element {
               <View className="w-full h-full bg-orange-300" />
             </Avatar.Fallback>
           </Avatar>
-          <Text className="text-foreground text-lg font-bold">Maria Santos</Text>
-          <Text className="text-muted text-sm mb-5">msantos@gmail.com</Text>
+          <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
+          <Text className="text-muted text-sm mb-5">{user.email || user.phone_number || ""}</Text>
 
           <Button
             variant="secondary"
@@ -106,7 +113,7 @@ export default function ProfileScreen(): JSX.Element {
               icon="log-out-outline"
               title="Sign Out"
               showChevron={false}
-              onPress={() => router.replace("/(auth)/login")}
+              onPress={handleLogout}
             />
           </Card>
         </View>

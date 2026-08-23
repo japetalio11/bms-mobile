@@ -2,6 +2,7 @@ import { View, ScrollView } from "react-native";
 import { Card, Text } from "heroui-native";
 import { Header } from "../../components/Header";
 import type { JSX } from "react";
+import { useAuth } from "../../context/UserContext";
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row justify-between py-3 border-b border-separator last:border-0">
@@ -11,35 +12,51 @@ const DataRow = ({ label, value }: { label: string; value: string }) => (
 );
 
 export default function AppointmentDetailScreen(): JSX.Element {
+  const { activePregnancy } = useAuth();
+  const latestVisit = activePregnancy?.prenatalVisits?.[0];
+
+  const formattedDate = latestVisit?.visit_date
+    ? new Date(latestVisit.visit_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "Appointment Details";
+
   return (
     <View className="flex-1 bg-background">
-      <Header showBackButton title="Prenatal Checkup" subtitle="June 8, 2026 · 9:00 AM" rightIcon={null} />
+      <Header showBackButton title="Prenatal Visit Details" subtitle={formattedDate} rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
-        <View className="px-5 mb-5">
+        <View className="px-5 mb-5 pt-2">
           <Text className="text-foreground text-lg font-semibold mb-1">Maternal Vitals</Text>
           <Text className="text-muted text-sm mb-4">Recorded during your prenatal visit.</Text>
 
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
-            <DataRow label="Blood Pressure" value="120/80 mmHg" />
-            <DataRow label="Heart Rate" value="75 bpm" />
-            <DataRow label="Blood Sugar" value="90 mg/dL" />
-            <DataRow label="Body Temp" value="37.0 °C" />
-            <DataRow label="Weight" value="65 kg" />
-            <DataRow label="Respiratory Rate" value="16 breaths/min" />
-            <DataRow label="O2 Saturation" value="98%" />
-          </Card>
+          {latestVisit ? (
+            <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
+              <DataRow label="Blood Pressure" value={`${latestVisit.bp_systolic}/${latestVisit.bp_diastolic} mmHg`} />
+              <DataRow label="Heart Rate" value={`${latestVisit.pulse_rate_bpm} bpm`} />
+              <DataRow label="Body Temp" value={`${latestVisit.temperature_celsius} °C`} />
+              <DataRow label="Weight" value={`${latestVisit.weight_kg} kg`} />
+            </Card>
+          ) : (
+            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center">
+              <Text className="text-muted text-sm">No vital signs recorded for this visit yet.</Text>
+            </Card>
+          )}
         </View>
 
         <View className="px-5">
           <Text className="text-foreground text-lg font-semibold mb-1">Fetal & Visit Metrics</Text>
           <Text className="text-muted text-sm mb-4">Key indicators from this visit.</Text>
 
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
-            <DataRow label="Gestational Age" value="24 Weeks" />
-            <DataRow label="Fetal Heart Tone" value="140 bpm" />
-            <DataRow label="Fundic Height" value="22 cm" />
-          </Card>
+          {latestVisit ? (
+            <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
+              <DataRow label="Gestational Age" value={`${latestVisit.age_of_gestation_weeks} Weeks`} />
+              <DataRow label="Fetal Heart Tone" value={latestVisit.fetal_heart_tone_bpm ? `${latestVisit.fetal_heart_tone_bpm} bpm` : "N/A"} />
+              <DataRow label="Fundic Height" value={latestVisit.fundic_height_cm ? `${latestVisit.fundic_height_cm} cm` : "N/A"} />
+            </Card>
+          ) : (
+            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center">
+              <Text className="text-muted text-sm">No visit metrics recorded yet.</Text>
+            </Card>
+          )}
         </View>
       </ScrollView>
     </View>
