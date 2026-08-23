@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
@@ -6,15 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/UserContext";
-import { getLabScreeningsByMotherApi, getSupplementsByMotherApi } from "../../config/api";
+import { getLabScreeningsByMotherApi, getSupplementsByMotherApi, API_BASE_URL } from "../../config/api";
 import type { LabScreeningRecord, SupplementRecord } from "../../config/api";
-
-const defaultLabCards = [
-  { title: "Complete Blood Count", color: "#6366f1", type: "cbc" },
-  { title: "Urinalysis", color: "#3b82f6", route: "/(tabs)/urinalysis", type: "urinalysis" },
-  { title: "Blood Typing", color: "#10b981", type: "blood_typing" },
-  { title: "Hepatitis B Screening", color: "#f59e0b", type: "hep_b" },
-];
 
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
@@ -28,32 +21,52 @@ export default function RecordsScreen(): JSX.Element {
   const [labScreenings, setLabScreenings] = useState<LabScreeningRecord[]>([]);
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     if (motherRecord?.mother_id && token) {
-      getLabScreeningsByMotherApi(motherRecord.mother_id, token)
-        .then((res) => { if (isMounted) setLabScreenings(res); })
-        .catch(() => {});
-
-      getSupplementsByMotherApi(motherRecord.mother_id, token)
-        .then((res) => { if (isMounted) setSupplements(res); })
-        .catch(() => {});
+      setIsLoading(true);
+      Promise.all([
+        getLabScreeningsByMotherApi(motherRecord.mother_id, token),
+        getSupplementsByMotherApi(motherRecord.mother_id, token),
+      ])
+        .then(([labs, supps]) => {
+          if (isMounted) {
+            setLabScreenings(labs);
+            setSupplements(supps);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
     }
     return () => {
       isMounted = false;
     };
   }, [motherRecord?.mother_id, token]);
 
-  const filteredLabs = defaultLabCards.filter((card) => {
+  const filteredLabs = labScreenings.filter((lab) => {
     if (!searchLab.trim()) return true;
-    return card.title.toLowerCase().includes(searchLab.toLowerCase());
+    const q = searchLab.toLowerCase();
+    return (
+      lab.screening_type.toLowerCase().includes(q) ||
+      lab.result.toLowerCase().includes(q) ||
+      (lab.remarks || "").toLowerCase().includes(q)
+    );
   });
 
   const filteredSupplements = supplements.filter((supp) => {
     if (!searchPrescription.trim()) return true;
     return supp.supplement_type.toLowerCase().includes(searchPrescription.toLowerCase());
   });
+
+  const getFullFileUrl = (url?: string) => {
+    if (!url) return null;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -83,7 +96,7 @@ export default function RecordsScreen(): JSX.Element {
           </Tabs>
         </View>
 
-        {/* Lab Records Tab */}
+        {/* Laboratory Records Tab */}
         {activeMainTab === "lab" && (
           <View className="px-5">
             <View className="flex-row items-center justify-between mb-1">
@@ -91,13 +104,14 @@ export default function RecordsScreen(): JSX.Element {
               <Button 
                 size="sm" 
                 variant="primary" 
-                className="rounded-xl px-3"
+                className="rounded-xl px-3 flex-row items-center gap-1"
                 onPress={() => router.push("/(tabs)/upload-record")}
               >
+                <Ionicons name="cloud-upload-outline" size={15} color="white" />
                 <Button.Label className="text-sm font-medium">Upload</Button.Label>
               </Button>
             </View>
-            <Text className="text-muted text-sm mb-4">View your maternal health screening records and lab results.</Text>
+            <Text className="text-muted text-sm mb-4">View uploaded maternal screening documents & lab results.</Text>
 
             <SearchField value={searchLab} onChange={setSearchLab}>
               <SearchField.Group className="bg-default border-0 rounded-xl h-12 mb-5">
@@ -108,50 +122,84 @@ export default function RecordsScreen(): JSX.Element {
             </SearchField>
 
             {isLoading ? (
-              <ActivityIndicator size="small" color="#6366f1" className="py-6" />
-            ) : (
-              <View className="flex-row flex-wrap justify-between">
-                {filteredLabs.map((item, index) => {
-                  const matchingRecord = labScreenings.find((s) =>
-                    s.screening_type.toLowerCase().includes(item.type) ||
-                    item.title.toLowerCase().includes(s.screening_type.toLowerCase())
-                  );
+              <ActivityIndicator size="small" color="#6366f1" className="py-8" />
+            ) : filteredLabs.length > 0 ? (
+              <View className="gap-3.5">
+                {filteredLabs.map((lab) => {
+                  const fileUrl = getFullFileUrl(lab.file_url);
+                  const dateStr = lab.date_of_screening
+                    ? new Date(lab.date_of_screening).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "";
 
                   return (
-                    <Pressable
-                      key={index}
-                      className="w-[48%] mb-4"
-                      onPress={() => {
-                        if (item.route) {
-                          router.push(item.route as any);
-                        } else {
-                          router.push("/(tabs)/urinalysis");
-                        }
-                      }}
-                    >
-                      <Card variant="secondary" className="bg-surface border-0 rounded-xl overflow-hidden" style={{ height: 160 }}>
-                        <View
-                          className="flex-1 items-center justify-center"
-                          style={{ backgroundColor: item.color + "18" }}
-                        >
-                          <View
-                            className="size-12 rounded-full items-center justify-center"
-                            style={{ backgroundColor: item.color + "30" }}
-                          >
-                            <Ionicons name="document-text-outline" size={24} color={item.color} />
+                    <Card key={lab.screening_id} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                      <View className="flex-row items-start justify-between mb-2">
+                        <View className="flex-row items-center gap-3 flex-1 pr-2">
+                          <View className="size-10 rounded-xl bg-primary/15 items-center justify-center">
+                            <Ionicons name="document-text-outline" size={20} color="#0284c7" />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
+                              {lab.screening_type}
+                            </Text>
+                            <Text className="text-muted text-xs">{dateStr || "Screening Record"}</Text>
                           </View>
                         </View>
-                        <Card.Body className="px-3 py-2 flex-none bg-surface">
-                          <Text className="text-foreground text-sm font-semibold leading-tight">{item.title}</Text>
-                          <Text className="text-muted text-sm mt-0.5">
-                            {matchingRecord ? matchingRecord.result : "No file recorded"}
+
+                        <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
+                          <Text className="text-emerald-400 text-xs font-semibold">
+                            {lab.result || "Uploaded"}
                           </Text>
-                        </Card.Body>
-                      </Card>
-                    </Pressable>
+                        </View>
+                      </View>
+
+                      {/* Display Image thumbnail if file_url exists */}
+                      {fileUrl ? (
+                        <Pressable onPress={() => setSelectedImageModal(fileUrl)} className="mt-2.5 mb-2">
+                          <Image
+                            source={{ uri: fileUrl }}
+                            className="w-full h-44 rounded-xl bg-default/40"
+                            resizeMode="cover"
+                          />
+                          <View className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded-md flex-row items-center gap-1">
+                            <Ionicons name="eye-outline" size={12} color="white" />
+                            <Text className="text-white text-[11px] font-medium">View Full Image</Text>
+                          </View>
+                        </Pressable>
+                      ) : null}
+
+                      {lab.remarks ? (
+                        <Text className="text-muted text-xs mt-1" numberOfLines={2}>
+                          Remarks: {lab.remarks}
+                        </Text>
+                      ) : null}
+                    </Card>
                   );
                 })}
               </View>
+            ) : (
+              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-6 items-center py-10">
+                <Ionicons name="document-text-outline" size={32} color="#71717a" className="mb-2" />
+                <Text className="text-foreground font-semibold text-base mb-1">No Lab Records Found</Text>
+                <Text className="text-muted text-xs text-center max-w-xs mb-4">
+                  {searchLab.trim()
+                    ? "No laboratory records match your search criteria."
+                    : "You haven't uploaded or received any laboratory records yet."}
+                </Text>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="rounded-xl px-4 flex-row items-center gap-1.5"
+                  onPress={() => router.push("/(tabs)/upload-record")}
+                >
+                  <Ionicons name="cloud-upload-outline" size={16} color="white" />
+                  <Button.Label className="text-xs font-semibold">Upload First Record</Button.Label>
+                </Button>
+              </Card>
             )}
           </View>
         )}
@@ -241,6 +289,25 @@ export default function RecordsScreen(): JSX.Element {
           </View>
         )}
       </ScrollView>
+
+      {/* Full Preview Image Modal */}
+      <Modal visible={!!selectedImageModal} transparent animationType="fade" onRequestClose={() => setSelectedImageModal(null)}>
+        <View className="flex-1 bg-black/90 justify-center items-center p-4">
+          <Pressable
+            onPress={() => setSelectedImageModal(null)}
+            className="absolute top-12 right-5 z-10 size-10 rounded-full bg-white/20 items-center justify-center"
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </Pressable>
+          {selectedImageModal && (
+            <Image
+              source={{ uri: selectedImageModal }}
+              className="w-full h-4/5 rounded-2xl"
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }

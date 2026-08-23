@@ -47,9 +47,9 @@ export default function TabsLayout(): JSX.Element {
       <Tabs.Screen
         name="scanner"
         options={{
-          title: "Scanner",
+          title: "New Visit",
           tabBarIcon: ({ color }) => (
-            <StyledIonicons name="scan-outline" size={22} color="white" />
+            <StyledIonicons name="add-outline" size={26} color="white" />
           ),
         }}
       />

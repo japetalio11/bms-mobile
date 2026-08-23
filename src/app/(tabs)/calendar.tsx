@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
-import { useState, useEffect } from "react";
+import { useFocusEffect } from "expo-router";
+import { useState, useCallback } from "react";
 import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "../../components/Header";
@@ -16,17 +17,25 @@ export default function CalendarScreen(): JSX.Element {
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    if (user?.user_id && token) {
-      getAppointmentsByUserApi(user.user_id, token)
-        .then((res) => { if (isMounted) setAppointments(res); })
-        .catch(() => {});
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.user_id, token]);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      if (user?.user_id && token) {
+        setIsLoading(true);
+        getAppointmentsByUserApi(user.user_id, token)
+          .then((res) => {
+            if (isMounted) setAppointments(res);
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (isMounted) setIsLoading(false);
+          });
+      }
+      return () => {
+        isMounted = false;
+      };
+    }, [user?.user_id, token])
+  );
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -35,12 +44,24 @@ export default function CalendarScreen(): JSX.Element {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+  // Helper to parse date strings safely in local time
+  const parseLocalDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    // Handle 'YYYY-MM-DD' or ISO format
+    const cleanStr = dateStr.split("T")[0];
+    const parts = cleanStr.split("-");
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    }
+    return new Date(dateStr);
+  };
+
   const calendarRows: (number | null)[][] = [];
   let dayCounter = 1;
-  for (let r = 0; r < 5; r++) {
+  while (dayCounter <= daysInMonth) {
     const row: (number | null)[] = [];
     for (let c = 0; c < 7; c++) {
-      if ((r === 0 && c < firstDay) || dayCounter > daysInMonth) {
+      if ((calendarRows.length === 0 && c < firstDay) || dayCounter > daysInMonth) {
         row.push(null);
       } else {
         row.push(dayCounter++);
@@ -50,7 +71,7 @@ export default function CalendarScreen(): JSX.Element {
   }
 
   const upcomingEvents = appointments.filter((a) => {
-    const d = new Date(a.appointment_date);
+    const d = parseLocalDate(a.appointment_date);
     return d.getMonth() === month && d.getFullYear() === year;
   });
 
@@ -98,12 +119,12 @@ export default function CalendarScreen(): JSX.Element {
                 const hasEvent =
                   dateNum !== null &&
                   appointments.some((a) => {
-                    const d = new Date(a.appointment_date);
+                    const d = parseLocalDate(a.appointment_date);
                     return d.getDate() === dateNum && d.getMonth() === month && d.getFullYear() === year;
                   });
 
                 return (
-                  <View key={colIndex} className="flex-1 items-center justify-center">
+                  <View key={colIndex} className="flex-1 items-center justify-center h-10">
                     <View
                       className={`size-8 items-center justify-center rounded-full ${
                         isToday ? "bg-primary" : ""
@@ -114,15 +135,19 @@ export default function CalendarScreen(): JSX.Element {
                           dateNum === null
                             ? "opacity-0"
                             : isToday
-                            ? "text-white font-medium"
+                            ? "text-white font-bold"
                             : "text-foreground font-medium"
                         }`}
                       >
                         {dateNum || ""}
                       </Text>
                     </View>
-                    {hasEvent && !isToday && (
-                      <View className="size-1 rounded-full bg-primary mt-1" />
+                    {hasEvent && (
+                      <View
+                        className={`size-1.5 rounded-full ${
+                          isToday ? "bg-white" : "bg-blue-500"
+                        } mt-0.5`}
+                      />
                     )}
                   </View>
                 );
@@ -133,7 +158,7 @@ export default function CalendarScreen(): JSX.Element {
 
         {/* Upcoming Events */}
         <View className="px-5">
-          <Text className="text-white text-lg font-semibold mb-1">Upcoming Events</Text>
+          <Text className="text-foreground text-lg font-semibold mb-1">Upcoming Events</Text>
           <Text className="text-muted text-sm mb-4">Scheduled appointments for {monthName}.</Text>
 
           {isLoading ? (
@@ -141,7 +166,7 @@ export default function CalendarScreen(): JSX.Element {
           ) : upcomingEvents.length > 0 ? (
             <View className="gap-3">
               {upcomingEvents.map((item) => {
-                const d = new Date(item.appointment_date);
+                const d = parseLocalDate(item.appointment_date);
                 const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
                 const dateNum = d.getDate();
                 const formattedDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -153,12 +178,12 @@ export default function CalendarScreen(): JSX.Element {
                     className="bg-surface border-0 rounded-xl p-4 flex-row items-center"
                   >
                     <View className="items-center justify-center mr-4 w-12">
-                      <Text className="text-red-500 text-sm font-medium">{dayStr}</Text>
-                      <Text className="text-white text-lg font-semibold">{dateNum}</Text>
+                      <Text className="text-primary text-sm font-bold">{dayStr}</Text>
+                      <Text className="text-foreground text-lg font-bold">{dateNum}</Text>
                     </View>
-                    <View className="w-px h-full bg-separator mx-2" />
+                    <View className="w-px h-10 bg-separator mx-2" />
                     <View className="flex-1 ml-2">
-                      <Text className="text-white text-base font-medium mb-1">{item.appointment_type}</Text>
+                      <Text className="text-foreground text-base font-semibold mb-1">{item.appointment_type}</Text>
                       <Text className="text-muted text-sm">{formattedDate} · {item.appointment_time}</Text>
                     </View>
                   </Card>

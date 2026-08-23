@@ -40,9 +40,17 @@ export function Header({
           </Pressable>
         ) : (
           <Avatar size="sm">
-            <Avatar.Fallback delayMs={0}>
-              <View className="w-full h-full bg-orange-300" />
-            </Avatar.Fallback>
+            {(user as any).profile_picture_url || (user as any).avatar_url ? (
+              <Avatar.Image source={{ uri: (user as any).profile_picture_url || (user as any).avatar_url }} />
+            ) : (
+              <Avatar.Fallback delayMs={0}>
+                <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
+                  <Text className="text-white text-xs font-bold">
+                    {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
+                  </Text>
+                </View>
+              </Avatar.Fallback>
+            )}
           </Avatar>
         )}
 

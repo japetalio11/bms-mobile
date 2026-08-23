@@ -161,6 +161,10 @@ export async function loginApi(payload: LoginPayload): Promise<AuthResponse> {
     throw err;
   }
 
+  if (data.user && data.user.role && data.user.role.toLowerCase() !== "mother") {
+    throw new Error("No account found.");
+  }
+
   return data;
 }
 
@@ -221,6 +225,10 @@ export async function setupPasswordApi(payload: SetupPasswordPayload): Promise<A
     throw new Error(data.error || data.message || "Password setup failed");
   }
 
+  if (data.user && data.user.role && data.user.role.toLowerCase() !== "mother") {
+    throw new Error("No account found.");
+  }
+
   return data;
 }
 
@@ -269,7 +277,8 @@ export async function getAppointmentsByUserApi(userId: string, token: string): P
     return [];
   }
 
-  return Array.isArray(data.result) ? data.result : Array.isArray(data) ? data : [];
+  const list = data.result || data.data || data;
+  return Array.isArray(list) ? list : [];
 }
 
 export async function createAppointmentApi(payload: any, token: string): Promise<AppointmentRecord> {
@@ -287,7 +296,7 @@ export async function createAppointmentApi(payload: any, token: string): Promise
     throw new Error(data.error || "Failed to create appointment");
   }
 
-  return data.result || data;
+  return data.result || data.data || data;
 }
 
 export async function cancelAppointmentApi(appointmentId: string, token: string): Promise<{ message: string }> {
@@ -316,7 +325,8 @@ export async function getSupplementsByMotherApi(motherId: string, token: string)
     return [];
   }
 
-  return Array.isArray(data.result) ? data.result : Array.isArray(data) ? data : [];
+  const list = data.result || data.data || data;
+  return Array.isArray(list) ? list : [];
 }
 
 export async function updateSupplementStatusApi(payload: { supplement_id: string; is_completed: boolean }, token: string): Promise<{ message: string }> {
@@ -349,7 +359,8 @@ export async function getLabScreeningsByMotherApi(motherId: string, token: strin
     return [];
   }
 
-  return Array.isArray(data.result) ? data.result : Array.isArray(data) ? data : [];
+  const list = data.result || data.data || data;
+  return Array.isArray(list) ? list : [];
 }
 
 export async function uploadLabFileApi(formData: FormData, token: string): Promise<{ fileUrl: string }> {

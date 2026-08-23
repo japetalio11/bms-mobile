@@ -50,9 +50,17 @@ export default function ProfileScreen(): JSX.Element {
         {/* Profile Hero */}
         <View className="items-center px-5 pt-2 pb-6">
           <Avatar size="lg" className="mb-4">
-            <Avatar.Fallback delayMs={0}>
-              <View className="w-full h-full bg-orange-300" />
-            </Avatar.Fallback>
+            {(user as any).profile_picture_url || (user as any).avatar_url ? (
+              <Avatar.Image source={{ uri: (user as any).profile_picture_url || (user as any).avatar_url }} />
+            ) : (
+              <Avatar.Fallback delayMs={0}>
+                <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
+                  <Text className="text-white text-xl font-bold">
+                    {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
+                  </Text>
+                </View>
+              </Avatar.Fallback>
+            )}
           </Avatar>
           <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
           <Text className="text-muted text-sm mb-5">{user.email || user.phone_number || ""}</Text>

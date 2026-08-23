@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { View, Pressable } from 'react-native';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -100,11 +99,11 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
   );
 }
 
-export function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function AnimatedTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
 
   const visibleRoutes = state.routes.filter(
-    (route) => !HIDDEN_ROUTES.includes(route.name),
+    (route: any) => !HIDDEN_ROUTES.includes(route.name),
   );
 
   return (
@@ -128,10 +127,10 @@ export function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarP
         paddingHorizontal: 12,
       }}
     >
-      {visibleRoutes.map((route) => {
+      {visibleRoutes.map((route: any) => {
         const { options } = descriptors[route.key];
         const isFocused =
-          state.routes.findIndex((r) => r.key === route.key) === state.index;
+          state.routes.findIndex((r: any) => r.key === route.key) === state.index;
         const isScanner = route.name === 'scanner';
 
         const onPress = () => {
