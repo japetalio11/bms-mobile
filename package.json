@@ -63,6 +63,9 @@
     "xml2js": "^0.6.2",
     "semver": "^7.6.3",
     "send": "^0.19.0",
-    "image-size": "^1.2.1"
+    "image-size": "^2.0.2",
+    "metro": {
+      "image-size": "^2.0.2"
+    }
   }
 }
