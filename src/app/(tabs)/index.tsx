@@ -1,25 +1,50 @@
 import { View, ScrollView, Image, ActivityIndicator, Pressable } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Card, Text, Checkbox } from "heroui-native";
 import { Header } from "../../components/Header";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/UserContext";
-import { getSupplementsByMotherApi, updateSupplementStatusApi, getAppointmentsByUserApi } from "../../config/api";
+import { useNetwork } from "../../context/NetworkContext";
+import {
+  getSupplementsByMotherApi,
+  updateSupplementStatusApi,
+  getAppointmentsByUserApi,
+} from "../../config/api";
 import type { SupplementRecord, AppointmentRecord } from "../../config/api";
+import {
+  getSupplementsLocal,
+  saveSupplementsLocal,
+  updateSupplementStatusLocal,
+  getAppointmentsLocal,
+  saveAppointmentsLocal,
+} from "../../db/repository";
 
 export default function DashboardScreen(): JSX.Element {
   const router = useRouter();
   const { user, token, motherRecord, activePregnancy } = useAuth();
+  const { isOnline } = useNetwork();
 
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
 
   // Calculate Gestational Age based on LMP Date
-  const calculateGestationalWeeks = (): { weeks: number; progress: number; remainingWeeks: number; trimesterText: string; hasPregnancy: boolean } => {
+  const calculateGestationalWeeks = (): {
+    weeks: number;
+    progress: number;
+    remainingWeeks: number;
+    trimesterText: string;
+    hasPregnancy: boolean;
+  } => {
     if (!activePregnancy || !activePregnancy.lmp_date) {
-      return { weeks: 0, progress: 0, remainingWeeks: 0, trimesterText: "No active pregnancy record", hasPregnancy: false };
+      return {
+        weeks: 0,
+        progress: 0,
+        remainingWeeks: 0,
+        trimesterText: "No active pregnancy record",
+        hasPregnancy: false,
+      };
     }
 
     const lmp = new Date(activePregnancy.lmp_date);
@@ -41,91 +66,122 @@ export default function DashboardScreen(): JSX.Element {
 
   const gestationalData = calculateGestationalWeeks();
 
-  // Load Supplements & Appointments on mount / context update
-  useEffect(() => {
-    let isMounted = true;
-    if (motherRecord?.mother_id && token) {
-      getSupplementsByMotherApi(motherRecord.mother_id, token)
-        .then((res) => { if (isMounted) setSupplements(res); })
-        .catch(() => {});
+  const loadData = useCallback(async () => {
+    // 1. Read from local SQLite database first (instant UI, offline preservation)
+    if (motherRecord?.mother_id) {
+      try {
+        const localSupps = await getSupplementsLocal(motherRecord.mother_id);
+        if (localSupps && localSupps.length > 0) setSupplements(localSupps);
+      } catch (e) {
+        console.warn("Local supplements load error:", e);
+      }
     }
-    if (user?.user_id && token) {
-      getAppointmentsByUserApi(user.user_id, token)
-        .then((res) => { if (isMounted) setAppointments(res); })
-        .catch(() => {});
+
+    if (user?.user_id) {
+      try {
+        const localAppts = await getAppointmentsLocal(user.user_id);
+        if (localAppts && localAppts.length > 0) setAppointments(localAppts);
+      } catch (e) {
+        console.warn("Local appointments load error:", e);
+      }
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [motherRecord?.mother_id, user?.user_id, token]);
+
+    // 2. Fetch fresh API data if online
+    if (isOnline && token) {
+      if (motherRecord?.mother_id) {
+        getSupplementsByMotherApi(motherRecord.mother_id, token)
+          .then((res) => {
+            if (Array.isArray(res)) {
+              setSupplements(res);
+              saveSupplementsLocal(res, true);
+            }
+          })
+          .catch(() => {});
+      }
+
+      if (user?.user_id) {
+        getAppointmentsByUserApi(user.user_id, token)
+          .then((res) => {
+            if (Array.isArray(res)) {
+              setAppointments(res);
+              saveAppointmentsLocal(res, true);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const handleToggleSupplement = async (supplementId: string, currentStatus: boolean) => {
-    if (!token) return;
+    const nextStatus = !currentStatus;
+
+    // Optimistic UI & Local SQLite Update
+    setSupplements((prev) =>
+      prev.map((item) => (item.supplement_id === supplementId ? { ...item, is_completed: nextStatus } : item))
+    );
+
     try {
-      setSupplements((prev) =>
-        prev.map((item) => (item.supplement_id === supplementId ? { ...item, is_completed: !currentStatus } : item))
-      );
-      await updateSupplementStatusApi({ supplement_id: supplementId, is_completed: !currentStatus }, token);
-    } catch {
-      // Revert on error
-      setSupplements((prev) =>
-        prev.map((item) => (item.supplement_id === supplementId ? { ...item, is_completed: currentStatus } : item))
-      );
+      await updateSupplementStatusLocal(supplementId, nextStatus, isOnline);
+      if (isOnline && token) {
+        await updateSupplementStatusApi({ supplement_id: supplementId, is_completed: nextStatus }, token);
+      }
+    } catch (err) {
+      console.warn("Supplement update error:", err);
     }
   };
 
-  // Find next upcoming appointment
   const nextAppointment = appointments.length > 0 ? appointments[0] : null;
 
   return (
     <View className="flex-1 bg-background">
-      <Header />
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        <View className="px-5 pt-2">
-
-          {/* Greeting */}
-          <Text className="text-foreground text-lg font-bold mb-5">
-            Good day{user.first_name ? `, ${user.first_name}` : ""} 👋
-          </Text>
-
+      <Header title={`Good day${user.first_name ? `, ${user.first_name}` : ""} 👋`} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 220 }} showsVerticalScrollIndicator={false}>
+        <View className="px-5 pt-3">
           {/* Week Card */}
-          <Card className="mb-6 p-4 bg-surface gap-4 rounded-xl border-0">
+          <Card className="mb-6 p-4 bg-surface gap-3 rounded-3xl border-0">
             {gestationalData.hasPregnancy ? (
               <>
-                <View className="flex-row items-center justify-between">
-                  <View>
-                    <Text className="text-foreground text-lg font-semibold">Week {gestationalData.weeks}</Text>
-                    <Text className="text-muted text-sm mt-0.5">
-                      {gestationalData.trimesterText} · {gestationalData.remainingWeeks} weeks to go
-                    </Text>
+                <View className="mb-1">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-foreground text-xl font-bold">Week {gestationalData.weeks}</Text>
+                    <View className="bg-[#f43f5e]/15 px-3 py-1 rounded-full">
+                      <Text className="text-[#f43f5e] text-sm font-semibold">{gestationalData.progress}%</Text>
+                    </View>
                   </View>
-                  <View className="bg-[#6366f1]/15 px-3 py-1.5 rounded-full">
-                    <Text className="text-[#6366f1] text-sm font-semibold">{gestationalData.progress}%</Text>
-                  </View>
+                  <Text className="text-muted text-sm mt-1">
+                    {gestationalData.trimesterText} · {gestationalData.remainingWeeks} weeks to go
+                  </Text>
                 </View>
 
+                {/* Inner radius = outer card radius (24px) - padding (16px) = 8px (rounded-lg) */}
                 <Image
-                  source={require('../../../assets/fetus.jpg')}
-                  className="w-full h-40 rounded-xl"
+                  source={require("../../../assets/fetus.jpg")}
+                  className="w-full h-44 rounded-lg my-1"
                   resizeMode="cover"
                 />
 
-                <View className="gap-2">
+                <View className="gap-2 mt-1">
                   <View className="flex-row justify-between items-center">
                     <Text className="text-foreground text-sm font-medium">Maternal Progress Overview</Text>
                     <Text className="text-muted text-sm">{gestationalData.weeks} wks</Text>
                   </View>
                   <View className="h-2 w-full bg-default rounded-full overflow-hidden">
-                    <View 
-                      className="h-full bg-accent rounded-full" 
-                      style={{ width: `${gestationalData.progress}%` }} 
+                    <View
+                      className="h-full bg-[#f43f5e] rounded-full"
+                      style={{ width: `${gestationalData.progress}%` }}
                     />
                   </View>
                 </View>
               </>
             ) : (
               <View className="py-6 items-center">
-                <Ionicons name="medical-outline" size={32} color="#6366f1" className="mb-2" />
+                <Ionicons name="medical-outline" size={32} color="#f43f5e" className="mb-2" />
                 <Text className="text-foreground font-semibold text-base mb-1">Maternal Care Dashboard</Text>
                 <Text className="text-muted text-sm text-center">
                   Your pregnancy and prenatal visit records will appear here once registered by your healthcare facility.
@@ -136,21 +192,15 @@ export default function DashboardScreen(): JSX.Element {
 
           {/* Vitals & Analytics Navigation */}
           <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <View>
-                <Text className="text-foreground text-lg font-semibold">Vitals & Analytics</Text>
-                <Text className="text-muted text-sm">Maternal and newborn health metrics.</Text>
-              </View>
-            </View>
+            <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
 
             <Pressable onPress={() => router.push("/(tabs)/vitals")}>
-              <Card className="p-4 bg-surface flex-row items-center gap-4 rounded-xl border-0">
-                <View className="size-12 rounded-full bg-blue-500/15 items-center justify-center">
-                  <Ionicons name="pulse" size={22} color="#3b82f6" />
+              <Card className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
+                <View className="size-12 rounded-full bg-rose-500/15 items-center justify-center">
+                  <Ionicons name="pulse" size={22} color="#f43f5e" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-foreground font-semibold text-base">View Dashboard</Text>
-                  <Text className="text-muted text-sm">Blood pressure, heart rate, weight</Text>
+                  <Text className="text-foreground font-semibold text-base">Blood pressure, heart rate, weight</Text>
                 </View>
                 <View className="size-8 rounded-full bg-default items-center justify-center">
                   <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />
@@ -161,27 +211,23 @@ export default function DashboardScreen(): JSX.Element {
 
           {/* Daily Prescriptions / Supplements */}
           <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <View>
-                <Text className="text-foreground text-lg font-semibold">Daily Prescriptions</Text>
-                <Text className="text-muted text-sm">Remember to log your daily intake.</Text>
-              </View>
-            </View>
+            <Text className="text-foreground text-lg font-semibold mb-3">Daily Prescriptions</Text>
 
             {supplements.length > 0 ? (
               <View className="gap-3">
                 {supplements.map((item) => (
-                  <Card key={item.supplement_id} className="p-4 bg-surface flex-row items-center gap-4 rounded-xl border-0">
+                  <Card key={item.supplement_id} className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
                     <Checkbox
                       isSelected={item.is_completed}
                       onSelectedChange={() => handleToggleSupplement(item.supplement_id, item.is_completed)}
+                      className="border-2 border-zinc-400 dark:border-zinc-500"
                     />
                     <View className="flex-1">
                       <Text className="text-foreground font-semibold text-base">{item.supplement_type}</Text>
                       <Text className="text-muted text-sm">{item.tablets_given_count} tablets prescribed</Text>
                     </View>
-                    <View className={`px-2 py-1 rounded-full ${item.is_completed ? "bg-[#10b981]/15" : "bg-[#f59e0b]/15"}`}>
-                      <Text className={`text-sm font-medium ${item.is_completed ? "text-[#10b981]" : "text-[#f59e0b]"}`}>
+                    <View className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}>
+                      <Text className={`text-xs font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}>
                         {item.is_completed ? "Done" : "Pending"}
                       </Text>
                     </View>
@@ -189,7 +235,7 @@ export default function DashboardScreen(): JSX.Element {
                 ))}
               </View>
             ) : (
-              <Card className="p-4 bg-surface rounded-xl border-0 items-center py-6">
+              <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
                 <Ionicons name="leaf-outline" size={24} color="#71717a" className="mb-2" />
                 <Text className="text-muted text-sm">No active daily prescriptions logged.</Text>
               </Card>
@@ -202,10 +248,10 @@ export default function DashboardScreen(): JSX.Element {
 
             {nextAppointment ? (
               <Pressable onPress={() => router.push("/(tabs)/appointments")}>
-                <Card className="p-4 bg-surface flex-row items-center gap-3 rounded-xl border-0">
-                  <View className="items-center justify-center w-12 bg-[#ef4444]/15 rounded-xl py-2">
-                    <Text className="text-[#ef4444] text-sm font-semibold">
-                      {new Date(nextAppointment.appointment_date).toLocaleDateString('en-US', { weekday: 'short' })}
+                <Card className="p-4 bg-surface flex-row items-center gap-3 rounded-2xl border-0">
+                  <View className="items-center justify-center w-12 bg-[#f43f5e]/15 rounded-xl py-2">
+                    <Text className="text-[#f43f5e] text-sm font-semibold">
+                      {new Date(nextAppointment.appointment_date).toLocaleDateString("en-US", { weekday: "short" })}
                     </Text>
                     <Text className="text-foreground text-lg font-bold">
                       {new Date(nextAppointment.appointment_date).getDate()}
@@ -219,13 +265,13 @@ export default function DashboardScreen(): JSX.Element {
                     </Text>
                   </View>
 
-                  <View className="size-8 rounded-full bg-[#6366f1]/15 items-center justify-center">
-                    <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+                  <View className="size-8 rounded-full bg-[#f43f5e]/15 items-center justify-center">
+                    <Ionicons name="chevron-forward" size={14} color="#f43f5e" />
                   </View>
                 </Card>
               </Pressable>
             ) : (
-              <Card className="p-4 bg-surface rounded-xl border-0 items-center py-6">
+              <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
                 <Ionicons name="calendar-outline" size={24} color="#71717a" className="mb-2" />
                 <Text className="text-muted text-sm">No upcoming appointments scheduled.</Text>
               </Card>

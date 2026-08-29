@@ -23,7 +23,7 @@ export default function PrivacyScreen(): JSX.Element {
               </View>
               <Switch 
                 isSelected={shareData} 
-                onValueChange={setShareData} 
+                {...({ onValueChange: setShareData } as any)} 
               />
             </View>
             <View className="h-px bg-default mb-4" />
@@ -34,7 +34,7 @@ export default function PrivacyScreen(): JSX.Element {
               </View>
               <Switch 
                 isSelected={analytics} 
-                onValueChange={setAnalytics} 
+                {...({ onValueChange: setAnalytics } as any)} 
               />
             </View>
           </Card>

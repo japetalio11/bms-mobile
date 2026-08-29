@@ -1,17 +1,25 @@
 import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/UserContext";
+import { useNetwork } from "../../context/NetworkContext";
 import { getLabScreeningsByMotherApi, getSupplementsByMotherApi, API_BASE_URL } from "../../config/api";
 import type { LabScreeningRecord, SupplementRecord } from "../../config/api";
+import {
+  getLabScreeningsLocal,
+  saveLabScreeningsLocal,
+  getSupplementsLocal,
+  saveSupplementsLocal,
+} from "../../db/repository";
 
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
   const { token, motherRecord } = useAuth();
+  const { isOnline } = useNetwork();
 
   const [activeMainTab, setActiveMainTab] = useState("lab");
   const [activePrescriptionTab, setActivePrescriptionTab] = useState("medicine");
@@ -23,29 +31,51 @@ export default function RecordsScreen(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    if (motherRecord?.mother_id && token) {
+  const loadData = useCallback(async () => {
+    // 1. Read from local SQLite database first (instant UI, offline preservation)
+    try {
+      const [localLabs, localSupps] = await Promise.all([
+        getLabScreeningsLocal(motherRecord?.mother_id || ""),
+        getSupplementsLocal(motherRecord?.mother_id || ""),
+      ]);
+
+      if (localLabs && localLabs.length > 0) setLabScreenings(localLabs);
+      if (localSupps && localSupps.length > 0) setSupplements(localSupps);
+    } catch (e) {
+      console.warn("Local records load error:", e);
+    }
+
+    // 2. Fetch fresh API data if online
+    if (motherRecord?.mother_id && isOnline && token) {
       setIsLoading(true);
       Promise.all([
         getLabScreeningsByMotherApi(motherRecord.mother_id, token),
         getSupplementsByMotherApi(motherRecord.mother_id, token),
       ])
         .then(([labs, supps]) => {
-          if (isMounted) {
+          if (Array.isArray(labs)) {
             setLabScreenings(labs);
+            saveLabScreeningsLocal(labs, true);
+          }
+          if (Array.isArray(supps)) {
             setSupplements(supps);
+            saveSupplementsLocal(supps, true);
           }
         })
-        .catch(() => {})
+        .catch((err) => {
+          console.warn("API records fetch failed, preserving local data:", err);
+        })
         .finally(() => {
-          if (isMounted) setIsLoading(false);
+          setIsLoading(false);
         });
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [motherRecord?.mother_id, token]);
+  }, [motherRecord?.mother_id, token, isOnline]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const filteredLabs = labScreenings.filter((lab) => {
     if (!searchLab.trim()) return true;
@@ -62,9 +92,10 @@ export default function RecordsScreen(): JSX.Element {
     return supp.supplement_type.toLowerCase().includes(searchPrescription.toLowerCase());
   });
 
-  const getFullFileUrl = (url?: string) => {
+  const getFullFileUrl = (url?: string, localUri?: string) => {
+    if (localUri) return localUri;
     if (!url) return null;
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) return url;
     return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
   };
 
@@ -72,7 +103,6 @@ export default function RecordsScreen(): JSX.Element {
     <View className="flex-1 bg-background">
       <Header />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
         {/* Main Tabs */}
         <View className="px-5 mb-5">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
@@ -99,11 +129,11 @@ export default function RecordsScreen(): JSX.Element {
         {/* Laboratory Records Tab */}
         {activeMainTab === "lab" && (
           <View className="px-5">
-            <View className="flex-row items-center justify-between mb-1">
+            <View className="flex-row items-center justify-between mb-4">
               <Text className="text-foreground text-lg font-semibold">Laboratory Records</Text>
-              <Button 
-                size="sm" 
-                variant="primary" 
+              <Button
+                size="sm"
+                variant="primary"
                 className="rounded-xl px-3 flex-row items-center gap-1"
                 onPress={() => router.push("/(tabs)/upload-record")}
               >
@@ -111,7 +141,6 @@ export default function RecordsScreen(): JSX.Element {
                 <Button.Label className="text-sm font-medium">Upload</Button.Label>
               </Button>
             </View>
-            <Text className="text-muted text-sm mb-4">View uploaded maternal screening documents & lab results.</Text>
 
             <SearchField value={searchLab} onChange={setSearchLab}>
               <SearchField.Group className="bg-default border-0 rounded-xl h-12 mb-5">
@@ -121,12 +150,12 @@ export default function RecordsScreen(): JSX.Element {
               </SearchField.Group>
             </SearchField>
 
-            {isLoading ? (
+            {isLoading && labScreenings.length === 0 ? (
               <ActivityIndicator size="small" color="#6366f1" className="py-8" />
             ) : filteredLabs.length > 0 ? (
               <View className="gap-3.5">
                 {filteredLabs.map((lab) => {
-                  const fileUrl = getFullFileUrl(lab.file_url);
+                  const fileUrl = getFullFileUrl(lab.file_url, (lab as any).local_file_uri);
                   const dateStr = lab.date_of_screening
                     ? new Date(lab.date_of_screening).toLocaleDateString("en-US", {
                         month: "short",
@@ -134,6 +163,7 @@ export default function RecordsScreen(): JSX.Element {
                         year: "numeric",
                       })
                     : "";
+                  const isPendingSync = (lab as any).sync_status === "pending";
 
                   return (
                     <Card key={lab.screening_id} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
@@ -150,14 +180,20 @@ export default function RecordsScreen(): JSX.Element {
                           </View>
                         </View>
 
-                        <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
-                          <Text className="text-emerald-400 text-xs font-semibold">
-                            {lab.result || "Uploaded"}
-                          </Text>
+                        <View className="flex-row items-center gap-1.5">
+                          {isPendingSync && (
+                            <View className="px-2 py-0.5 rounded-full bg-amber-500/20">
+                              <Text className="text-amber-400 text-[10px] font-semibold">Pending Upload</Text>
+                            </View>
+                          )}
+                          <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
+                            <Text className="text-emerald-400 text-xs font-semibold">
+                              {lab.result || "Uploaded"}
+                            </Text>
+                          </View>
                         </View>
                       </View>
 
-                      {/* Display Image thumbnail if file_url exists */}
                       {fileUrl ? (
                         <Pressable onPress={() => setSelectedImageModal(fileUrl)} className="mt-2.5 mb-2">
                           <Image
@@ -207,8 +243,7 @@ export default function RecordsScreen(): JSX.Element {
         {/* Prescriptions Tab */}
         {activeMainTab === "prescriptions" && (
           <View className="px-5">
-            <Text className="text-foreground text-lg font-semibold mb-1">Prescriptions</Text>
-            <Text className="text-muted text-sm mb-4">View your active maternal health prescriptions and supplements.</Text>
+            <Text className="text-foreground text-lg font-semibold mb-4">Prescriptions</Text>
 
             <View className="mb-5 flex-row items-center gap-3">
               <View className="flex-1">
@@ -222,7 +257,6 @@ export default function RecordsScreen(): JSX.Element {
               </View>
             </View>
 
-            {/* Prescription sub-tabs */}
             <View className="mb-5">
               <Tabs value={activePrescriptionTab} onValueChange={setActivePrescriptionTab} variant="primary">
                 <Tabs.List className="bg-default p-1 rounded-xl">
@@ -245,7 +279,7 @@ export default function RecordsScreen(): JSX.Element {
               </Tabs>
             </View>
 
-            {isLoading ? (
+            {isLoading && supplements.length === 0 ? (
               <ActivityIndicator size="small" color="#6366f1" className="py-6" />
             ) : filteredSupplements.length > 0 ? (
               <View className="gap-3">

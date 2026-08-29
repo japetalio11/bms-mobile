@@ -41,8 +41,8 @@
     --default: oklch(0.93 0.012 258);
     --default-foreground: oklch(0.32 0.04 258);
 
-    /* Accent (primary brand color) */
-    --accent: oklch(0.55 0.22 268);
+    /* Accent (primary maternal brand color - warm rose / soft coral) */
+    --accent: oklch(0.60 0.20 18);
     --accent-foreground: oklch(1 0 0);
 
     /* Form fields */
@@ -76,6 +76,61 @@
     --field-shadow:
       0 1px 3px 0 rgba(0, 0, 0, 0.06),
       0 0 1px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  @variant dark {
+    /* Base - Warm Charcoal (#121214) */
+    --background: oklch(0.14 0.005 285);
+    --foreground: oklch(0.98 0 0);
+
+    /* Surfaces - Soft Dark Charcoal (#18171C / #1F1E24) */
+    --surface: oklch(0.18 0.006 285);
+    --surface-foreground: oklch(0.98 0 0);
+    --surface-secondary: oklch(0.22 0.006 285);
+    --surface-secondary-foreground: oklch(0.98 0 0);
+    --surface-tertiary: oklch(0.25 0.006 285);
+    --surface-tertiary-foreground: oklch(0.98 0 0);
+
+    /* Overlay */
+    --overlay: oklch(0.18 0.006 285);
+    --overlay-foreground: oklch(0.98 0 0);
+    --backdrop: oklch(0% 0 0 / 50%);
+
+    /* Muted */
+    --muted: oklch(0.68 0.01 285);
+
+    /* Default */
+    --default: oklch(0.24 0.006 285);
+    --default-foreground: oklch(0.98 0 0);
+
+    /* Accent */
+    --accent: oklch(0.60 0.20 18);
+    --accent-foreground: oklch(1 0 0);
+
+    /* Form fields */
+    --field-background: oklch(0.18 0.006 285);
+    --field-foreground: oklch(0.98 0 0);
+    --field-placeholder: var(--muted);
+    --field-border: transparent;
+
+    /* Status */
+    --success: oklch(0.68 0.18 148);
+    --success-foreground: oklch(0.98 0 0);
+    --warning: oklch(0.78 0.16 75);
+    --warning-foreground: oklch(0.15 0 0);
+    --danger: oklch(0.62 0.22 25);
+    --danger-foreground: oklch(0.98 0 0);
+
+    /* Misc */
+    --border: oklch(0.24 0.006 285);
+    --separator: oklch(0.26 0.006 285);
+    --segment: oklch(0.22 0.006 285);
+    --segment-foreground: oklch(0.98 0 0);
+
+    /* Shadows */
+    --surface-shadow: 0 0 0 0 transparent;
+    --overlay-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
+    --field-shadow: 0 0 0 0 transparent;
   }
 }
 

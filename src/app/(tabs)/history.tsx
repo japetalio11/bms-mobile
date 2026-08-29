@@ -7,27 +7,45 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../context/UserContext";
 import { getAppointmentsByUserApi } from "../../config/api";
 import type { AppointmentRecord } from "../../config/api";
+import { getAppointmentsLocal, saveAppointmentsLocal } from "../../db/repository";
 
 export default function HistoryScreen(): JSX.Element {
-  const { user, token } = useAuth();
+  const { user, token, isOnline } = useAuth();
   const [historyItems, setHistoryItems] = useState<AppointmentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    if (user?.user_id && token) {
-      getAppointmentsByUserApi(user.user_id, token)
-        .then((res) => {
-          if (isMounted) {
-            setHistoryItems(res.filter((a) => a.status.toLowerCase() === "completed"));
+    if (user?.user_id) {
+      // 1. Read from local SQLite immediately
+      getAppointmentsLocal(user.user_id)
+        .then((local) => {
+          if (isMounted && local) {
+            setHistoryItems(local.filter((a) => a.status.toLowerCase() === "completed"));
           }
         })
         .catch(() => {});
+
+      // 2. Fetch fresh from API if online
+      if (isOnline && token) {
+        setIsLoading(true);
+        getAppointmentsByUserApi(user.user_id, token)
+          .then((res) => {
+            if (isMounted && Array.isArray(res)) {
+              saveAppointmentsLocal(res, true);
+              setHistoryItems(res.filter((a) => a.status.toLowerCase() === "completed"));
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (isMounted) setIsLoading(false);
+          });
+      }
     }
     return () => {
       isMounted = false;
     };
-  }, [user?.user_id, token]);
+  }, [user?.user_id, token, isOnline]);
 
   return (
     <View className="flex-1 bg-background pb-24">
@@ -39,7 +57,7 @@ export default function HistoryScreen(): JSX.Element {
         </View>
 
         <View className="px-5">
-          {isLoading ? (
+          {isLoading && historyItems.length === 0 ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-6" />
           ) : historyItems.length > 0 ? (
             <View className="gap-3">

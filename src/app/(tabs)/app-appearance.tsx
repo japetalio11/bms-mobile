@@ -65,11 +65,11 @@ export default function AppAppearanceScreen() {
             <Pressable
               onPress={() => setTheme("system")}
               className={`flex-1 py-4 items-center justify-center rounded-xl ${
-                theme === "system" ? "bg-[#27272a]" : ""
+                (theme as string) === "system" ? "bg-[#27272a]" : ""
               }`}
             >
-              <Ionicons name="phone-portrait-outline" size={24} color={theme === "system" ? "white" : "#a1a1aa"} className="mb-2" />
-              <Text className={`font-medium ${theme === "system" ? "text-white" : "text-muted"}`}>System</Text>
+              <Ionicons name="phone-portrait-outline" size={24} color={(theme as string) === "system" ? "white" : "#a1a1aa"} className="mb-2" />
+              <Text className={`font-medium ${(theme as string) === "system" ? "text-white" : "text-muted"}`}>System</Text>
             </Pressable>
           </Card>
 

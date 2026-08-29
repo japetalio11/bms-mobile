@@ -49,7 +49,7 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
   }));
 
   const iconColor = isScanner ? '#ffffff' : isFocused ? '#ffffff' : '#71717a';
-  const bgColor = isScanner ? '#6366f1' : '#27272a';
+  const bgColor = isScanner ? '#f43f5e' : isFocused ? '#f43f5e' : '#27272a';
 
   return (
     <Pressable
@@ -114,13 +114,15 @@ export function AnimatedTabBar({ state, descriptors, navigation }: any) {
         left: 20,
         right: 20,
         height: 68,
-        backgroundColor: '#09090b',
+        backgroundColor: 'rgba(24, 23, 28, 0.85)',
         borderRadius: 34,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.12)',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 12,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.35,
+        shadowRadius: 20,
+        elevation: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',

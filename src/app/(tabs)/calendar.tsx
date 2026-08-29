@@ -6,35 +6,54 @@ import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/UserContext";
+import { useNetwork } from "../../context/NetworkContext";
 import { getAppointmentsByUserApi } from "../../config/api";
 import type { AppointmentRecord } from "../../config/api";
+import { getAppointmentsLocal, saveAppointmentsLocal } from "../../db/repository";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarScreen(): JSX.Element {
   const { user, token } = useAuth();
+  const { isOnline } = useNetwork();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const loadAppointments = useCallback(async () => {
+    if (!user?.user_id) return;
+
+    // 1. Read from local SQLite immediately
+    try {
+      const local = await getAppointmentsLocal(user.user_id);
+      if (local && local.length > 0) {
+        setAppointments(local);
+      }
+    } catch (e) {
+      console.warn("Failed reading local appointments:", e);
+    }
+
+    // 2. Fetch fresh from backend if online
+    if (isOnline && token) {
+      setIsLoading(true);
+      try {
+        const res = await getAppointmentsByUserApi(user.user_id, token);
+        if (Array.isArray(res)) {
+          setAppointments(res);
+          await saveAppointmentsLocal(res, true);
+        }
+      } catch (err) {
+        console.warn("Backend fetch failed, preserving local data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [user?.user_id, token, isOnline]);
+
   useFocusEffect(
     useCallback(() => {
-      let isMounted = true;
-      if (user?.user_id && token) {
-        setIsLoading(true);
-        getAppointmentsByUserApi(user.user_id, token)
-          .then((res) => {
-            if (isMounted) setAppointments(res);
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (isMounted) setIsLoading(false);
-          });
-      }
-      return () => {
-        isMounted = false;
-      };
-    }, [user?.user_id, token])
+      loadAppointments();
+    }, [loadAppointments])
   );
 
   const year = currentDate.getFullYear();
@@ -44,10 +63,8 @@ export default function CalendarScreen(): JSX.Element {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Helper to parse date strings safely in local time
   const parseLocalDate = (dateStr: string) => {
     if (!dateStr) return new Date();
-    // Handle 'YYYY-MM-DD' or ISO format
     const cleanStr = dateStr.split("T")[0];
     const parts = cleanStr.split("-");
     if (parts.length === 3) {
@@ -161,7 +178,7 @@ export default function CalendarScreen(): JSX.Element {
           <Text className="text-foreground text-lg font-semibold mb-1">Upcoming Events</Text>
           <Text className="text-muted text-sm mb-4">Scheduled appointments for {monthName}.</Text>
 
-          {isLoading ? (
+          {isLoading && appointments.length === 0 ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-6" />
           ) : upcomingEvents.length > 0 ? (
             <View className="gap-3">
