@@ -50,6 +50,7 @@ const formatUser = (rawUser: AuthUser): User => {
   return {
     ...rawUser,
     name: nameParts.join(" ") || "Mother",
+    facility_name: rawUser.facility?.facility_name || rawUser.facility_name || undefined,
   };
 };
 

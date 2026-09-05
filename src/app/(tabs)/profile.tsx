@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { Text, Avatar, Button, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -5,6 +6,7 @@ import { useRouter } from "expo-router";
 import { Header } from "../../components/Header";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
+import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
 
 function SettingRow({
   icon,
@@ -35,12 +37,15 @@ function SettingRow({
 
 export default function ProfileScreen(): JSX.Element {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, motherRecord, logout } = useAuth();
+  const [qrModalOpen, setQrModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     router.replace("/(auth)/login");
   };
+
+  const facilityName = user.facility_name || user.facility?.facility_name;
 
   return (
     <View className="flex-1 bg-background">
@@ -63,7 +68,7 @@ export default function ProfileScreen(): JSX.Element {
             )}
           </Avatar>
           <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
-          <Text className="text-muted text-sm mb-5">{user.email || user.phone_number || ""}</Text>
+          <Text className="text-muted text-sm mb-4">{user.email || user.phone_number || ""}</Text>
 
           <Button
             variant="secondary"
@@ -72,6 +77,19 @@ export default function ProfileScreen(): JSX.Element {
           >
             <Button.Label className="text-foreground font-medium">Edit Profile</Button.Label>
           </Button>
+        </View>
+
+        {/* Facility Connection & Health Card QR */}
+        <View className="px-5 mb-4">
+          <Text className="text-muted text-sm font-medium mb-1 ml-1">Facility Connection</Text>
+          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
+            <SettingRow
+              icon="qr-code-outline"
+              title="Mother Health Card & QR"
+              subtitle="Scan or share code to connect facility"
+              onPress={() => setQrModalOpen(true)}
+            />
+          </Card>
         </View>
 
         {/* Preferences */}
@@ -128,6 +146,14 @@ export default function ProfileScreen(): JSX.Element {
         </View>
 
       </ScrollView>
+
+      {/* Mother QR Modal */}
+      <MotherQRCodeModal
+        visible={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        user={user}
+        motherRecord={motherRecord}
+      />
     </View>
   );
 }

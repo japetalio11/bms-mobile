@@ -66,6 +66,12 @@ export type AuthUser = {
   address?: string;
   facility_id?: string | null;
   facility_name?: string;
+  facility?: {
+    facility_id: string;
+    facility_name: string;
+    address?: string;
+    contact_number?: string;
+  } | null;
 };
 
 export type MotherRecord = {
