@@ -303,6 +303,20 @@ export default function AppointmentsScreen(): JSX.Element {
           </Pressable>
         </View>
 
+        {!user?.facility_id && (
+          <View className="mx-5 mb-4 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex-row items-center gap-3">
+            <View className="size-9 rounded-xl bg-amber-500/20 items-center justify-center">
+              <Ionicons name="business-outline" size={18} color="#f59e0b" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-amber-400 font-bold text-xs mb-0.5">No Health Center Linked</Text>
+              <Text className="text-zinc-400 text-[11px] leading-4">
+                Your account is not currently linked to a health center. Contact your facility staff to link your account.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* ── 1. Collapsible Calendar Grid Card ── */}
         <View className="mx-5 mb-4 bg-[#18171C] border border-white/[0.08] rounded-2xl p-4">
           <View className="flex-row items-center justify-between mb-3 px-1">
@@ -586,6 +600,15 @@ export default function AppointmentsScreen(): JSX.Element {
 
             {/* Modal Content ScrollView (Steps 1 to 4) */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 16 }}>
+              {!user?.facility_id && (
+                <View className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex-row items-center gap-2.5">
+                  <Ionicons name="warning-outline" size={20} color="#f59e0b" />
+                  <Text className="text-amber-300 text-xs flex-1 leading-4">
+                    Note: Your account is not currently linked to a health center. Scheduled appointments will be pending facility assignment.
+                  </Text>
+                </View>
+              )}
+
               {/* 1. Visit Type Cards */}
               <View>
                 <Text className="text-white text-xs font-bold mb-2">1. Visit Type</Text>
