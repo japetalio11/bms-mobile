@@ -473,19 +473,20 @@ export type ChatContact = {
   profile_url?: string;
 };
 
-export async function getMessagesApi(token: string): Promise<{ data: InAppMessage[]; contact?: ChatContact }> {
+export async function getMessagesApi(token: string): Promise<{ data: InAppMessage[]; contact?: ChatContact; hasFacility?: boolean }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/message/getAll`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   const data = await response.json();
   if (!response.ok) {
-    return { data: [] };
+    return { data: [], hasFacility: false };
   }
 
   return {
     data: Array.isArray(data.data) ? data.data : [],
     contact: data.contact,
+    hasFacility: data.hasFacility,
   };
 }
 

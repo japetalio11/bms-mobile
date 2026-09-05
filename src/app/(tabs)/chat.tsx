@@ -23,6 +23,7 @@ export default function ChatScreen(): JSX.Element {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [contact, setContact] = useState<ChatContact | null>(null);
+  const [hasFacility, setHasFacility] = useState<boolean | null>(user?.facility_id ? true : null);
   const [inputText, setInputText] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -34,6 +35,14 @@ export default function ChatScreen(): JSX.Element {
     if (!token) return;
     try {
       const res = await getMessagesApi(token);
+      if (res.hasFacility !== undefined) {
+        setHasFacility(res.hasFacility);
+      } else if (!user?.facility_id) {
+        setHasFacility(false);
+      } else {
+        setHasFacility(true);
+      }
+
       if (res.contact) {
         setContact(res.contact);
       }
@@ -42,7 +51,7 @@ export default function ChatScreen(): JSX.Element {
         const formatted: Message[] = res.data.map((msg) => ({
           id: msg.message_id,
           text: msg.message_content,
-          mine: msg.sender_id === user.user_id,
+          mine: msg.sender_id === user?.user_id,
           time: new Date(msg.message_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
         }));
         setMessages(formatted);
@@ -50,7 +59,7 @@ export default function ChatScreen(): JSX.Element {
     } catch (err) {
       console.warn("Failed to fetch messages:", err);
     }
-  }, [token, user.user_id]);
+  }, [token, user?.user_id, user?.facility_id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,16 +120,59 @@ export default function ChatScreen(): JSX.Element {
     ]);
   };
 
-  const handleCall = () => {
-    Alert.alert("Contact Facility", "Calling BMS Health Center hotline: (02) 8123-4567");
-  };
-
   const contactName = contact
     ? `Dr. ${contact.first_name} ${contact.last_name}`
-    : "BMS Health Center Care Team";
+    : user?.facility_name
+    ? `${user.facility_name} Care Team`
+    : "Healthcare Center Care Team";
   const contactRole = contact?.role
-    ? `${contact.role} · BMS Health Center`
-    : "Maternal Health Support";
+    ? `${contact.role}`
+    : "Maternal & Child Health Support";
+
+  // Render unaffiliated page if user is not connected to a facility
+  if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
+    return (
+      <View className="flex-1 bg-background">
+        {/* Custom Header */}
+        <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push("/(tabs)/profile");
+              }
+            }}
+            className="size-9 rounded-full bg-default items-center justify-center"
+          >
+            <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+          </Pressable>
+          <Text className="text-foreground font-bold text-lg">Direct Messaging</Text>
+        </View>
+
+        {/* Content Body */}
+        <View className="flex-1 items-center justify-center p-6">
+          <View className="size-20 rounded-full bg-rose-500/10 border border-rose-500/20 items-center justify-center mb-4">
+            <Ionicons name="business-outline" size={36} color="#f43f5e" />
+          </View>
+          <Text className="text-foreground font-bold text-xl mb-2 text-center">
+            Not Affiliated with any Facility
+          </Text>
+          <Text className="text-muted text-sm text-center max-w-sm leading-6 mb-6">
+            You are currently not affiliated with any healthcare facility or health center. Direct messaging is only available once your account is linked to a health center.
+          </Text>
+
+          <Pressable
+            onPress={() => router.push("/(tabs)/profile")}
+            className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2"
+          >
+            <Ionicons name="person-circle-outline" size={20} color="white" />
+            <Text className="text-white font-semibold text-sm">View Profile</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -130,7 +182,7 @@ export default function ChatScreen(): JSX.Element {
     >
       {/* Custom Chat Header */}
       <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3 flex-1 mr-2">
+        <View className="flex-row items-center gap-3 flex-1">
           {/* Back Button */}
           <Pressable
             onPress={() => {
@@ -180,16 +232,6 @@ export default function ChatScreen(): JSX.Element {
               {contactRole}
             </Text>
           </View>
-        </View>
-
-        {/* Header Actions */}
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            onPress={handleCall}
-            className="size-9 rounded-full bg-default items-center justify-center"
-          >
-            <Ionicons name="call-outline" size={17} color="#a1a1aa" />
-          </Pressable>
         </View>
       </View>
 
