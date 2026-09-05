@@ -12,7 +12,7 @@ import {
   updateSupplementStatusApi,
   getAppointmentsByUserApi,
 } from "../../config/api";
-import type { SupplementRecord, AppointmentRecord, PrenatalVisitRecord, DeliveryOutcomeRecord, NewbornRecord } from "../../config/api";
+import type { SupplementRecord, AppointmentRecord } from "../../config/api";
 import {
   getSupplementsLocal,
   saveSupplementsLocal,
@@ -28,7 +28,6 @@ export default function DashboardScreen(): JSX.Element {
 
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
-  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<"mother" | "newborn">("mother");
 
   // Calculate Gestational Age based on LMP Date
   const calculateGestationalWeeks = (): {
@@ -67,46 +66,8 @@ export default function DashboardScreen(): JSX.Element {
 
   const gestationalData = calculateGestationalWeeks();
 
-  // Extract analytics for Mother & Newborn
-  const getAnalyticsData = () => {
-    let latestVisit: PrenatalVisitRecord | null = activePregnancy?.prenatalVisits?.[0] || null;
-    let latestDelivery: DeliveryOutcomeRecord | null = activePregnancy?.deliveryOutcomes?.[0] || null;
-    let latestNewborn: NewbornRecord | null = latestDelivery?.newbornRecords?.[0] || null;
-
-    if (!latestVisit && motherRecord?.pregnancies) {
-      for (const preg of motherRecord.pregnancies) {
-        if (preg.prenatalVisits && preg.prenatalVisits.length > 0) {
-          latestVisit = preg.prenatalVisits[0];
-          break;
-        }
-      }
-    }
-
-    if (!latestDelivery && motherRecord?.pregnancies) {
-      for (const preg of motherRecord.pregnancies) {
-        if (preg.deliveryOutcomes && preg.deliveryOutcomes.length > 0) {
-          latestDelivery = preg.deliveryOutcomes[0];
-          if (latestDelivery.newbornRecords && latestDelivery.newbornRecords.length > 0) {
-            latestNewborn = latestDelivery.newbornRecords[0];
-          }
-          break;
-        }
-      }
-    }
-
-    let expectedDueDate: string | null = null;
-    if (activePregnancy?.lmp_date) {
-      const edd = new Date(new Date(activePregnancy.lmp_date).getTime() + 280 * 24 * 60 * 60 * 1000);
-      expectedDueDate = edd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    }
-
-    return { latestVisit, latestDelivery, latestNewborn, expectedDueDate };
-  };
-
-  const analytics = getAnalyticsData();
-
   const loadData = useCallback(async () => {
-    // 1. Read from local SQLite database first (instant UI)
+    // 1. Read from local SQLite database first (instant UI, offline preservation)
     if (motherRecord?.mother_id) {
       try {
         const localSupps = await getSupplementsLocal(motherRecord.mother_id);
@@ -160,6 +121,7 @@ export default function DashboardScreen(): JSX.Element {
   const handleToggleSupplement = async (supplementId: string, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
 
+    // Optimistic UI & Local SQLite Update
     setSupplements((prev) =>
       prev.map((item) => (item.supplement_id === supplementId ? { ...item, is_completed: nextStatus } : item))
     );
@@ -227,228 +189,24 @@ export default function DashboardScreen(): JSX.Element {
             )}
           </Card>
 
-          {/* Maternal & Newborn Health Analytics Section */}
+          {/* Cascaded Vitals & Analytics Navigation Option */}
           <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-foreground text-lg font-semibold">Health Analytics</Text>
+            <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
 
-              {/* Segmented Switcher */}
-              <View className="flex-row bg-surface p-1 rounded-xl border border-default">
-                <Pressable
-                  onPress={() => setActiveAnalyticsTab("mother")}
-                  className={`px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 ${
-                    activeAnalyticsTab === "mother" ? "bg-primary" : ""
-                  }`}
-                >
-                  <Ionicons
-                    name="person"
-                    size={14}
-                    color={activeAnalyticsTab === "mother" ? "white" : "#a1a1aa"}
-                  />
-                  <Text
-                    className={`text-xs font-semibold ${
-                      activeAnalyticsTab === "mother" ? "text-white" : "text-muted"
-                    }`}
-                  >
-                    Mother
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => setActiveAnalyticsTab("newborn")}
-                  className={`px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 ${
-                    activeAnalyticsTab === "newborn" ? "bg-primary" : ""
-                  }`}
-                >
-                  <Ionicons
-                    name="happy-outline"
-                    size={14}
-                    color={activeAnalyticsTab === "newborn" ? "white" : "#a1a1aa"}
-                  />
-                  <Text
-                    className={`text-xs font-semibold ${
-                      activeAnalyticsTab === "newborn" ? "text-white" : "text-muted"
-                    }`}
-                  >
-                    Newborn
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {activeAnalyticsTab === "mother" ? (
-              /* MOTHER ANALYTICS CARD */
-              <Card className="p-4 bg-surface rounded-2xl border-0 gap-4">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center gap-2.5">
-                    <View className="size-10 rounded-full bg-rose-500/15 items-center justify-center">
-                      <Ionicons name="pulse-outline" size={20} color="#f43f5e" />
-                    </View>
-                    <View>
-                      <Text className="text-foreground font-semibold text-base">Latest Vitals Summary</Text>
-                      <Text className="text-muted text-xs">
-                        {analytics.latestVisit
-                          ? `Recorded ${new Date(analytics.latestVisit.visit_date).toLocaleDateString()}`
-                          : "Standard Baseline"}
-                      </Text>
-                    </View>
-                  </View>
-                  <Pressable
-                    onPress={() => router.push("/(tabs)/vitals")}
-                    className="px-2.5 py-1 bg-default rounded-full flex-row items-center gap-1"
-                  >
-                    <Text className="text-primary text-xs font-semibold">Full Logs</Text>
-                    <Ionicons name="chevron-forward" size={12} className="text-primary" />
-                  </Pressable>
+            <Pressable onPress={() => router.push("/(tabs)/vitals")}>
+              <Card className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
+                <View className="size-12 rounded-full bg-rose-500/15 items-center justify-center">
+                  <Ionicons name="pulse" size={22} color="#f43f5e" />
                 </View>
-
-                {/* Vitals Grid */}
-                <View className="flex-row flex-wrap gap-2.5">
-                  {/* Blood Pressure */}
-                  <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                    <Text className="text-muted text-xs font-medium mb-1">Blood Pressure</Text>
-                    <Text className="text-foreground font-bold text-base">
-                      {analytics.latestVisit
-                        ? `${analytics.latestVisit.bp_systolic}/${analytics.latestVisit.bp_diastolic}`
-                        : "120/80"}
-                      <Text className="text-muted text-xs font-normal"> mmHg</Text>
-                    </Text>
-                  </View>
-
-                  {/* Fetal Heart Tone */}
-                  <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                    <Text className="text-muted text-xs font-medium mb-1">Fetal Heart Tone</Text>
-                    <Text className="text-foreground font-bold text-base">
-                      {analytics.latestVisit?.fetal_heart_tone_bpm
-                        ? analytics.latestVisit.fetal_heart_tone_bpm
-                        : "140"}
-                      <Text className="text-muted text-xs font-normal"> bpm</Text>
-                    </Text>
-                  </View>
-
-                  {/* Weight */}
-                  <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                    <Text className="text-muted text-xs font-medium mb-1">Weight</Text>
-                    <Text className="text-foreground font-bold text-base">
-                      {analytics.latestVisit?.weight_kg
-                        ? analytics.latestVisit.weight_kg
-                        : "Normal"}
-                      {analytics.latestVisit?.weight_kg && <Text className="text-muted text-xs font-normal"> kg</Text>}
-                    </Text>
-                  </View>
-
-                  {/* Risk Assessed */}
-                  <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                    <Text className="text-muted text-xs font-medium mb-1">Assessed Risk</Text>
-                    <Text className="text-emerald-500 font-bold text-base">
-                      {analytics.latestVisit?.risk_level_assessed || "Low Risk"}
-                    </Text>
-                  </View>
+                <View className="flex-1">
+                  <Text className="text-foreground font-semibold text-base">Blood pressure, heart rate, weight</Text>
+                  <Text className="text-muted text-xs mt-0.5">Mother & newborn health tracking</Text>
+                </View>
+                <View className="size-8 rounded-full bg-default items-center justify-center">
+                  <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />
                 </View>
               </Card>
-            ) : (
-              /* NEWBORN ANALYTICS CARD */
-              <Card className="p-4 bg-surface rounded-2xl border-0 gap-4">
-                {analytics.latestNewborn ? (
-                  <>
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center gap-2.5">
-                        <View className="size-10 rounded-full bg-sky-500/15 items-center justify-center">
-                          <Ionicons name="happy" size={20} color="#0284c7" />
-                        </View>
-                        <View>
-                          <Text className="text-foreground font-semibold text-base">Newborn Health Summary</Text>
-                          <Text className="text-muted text-xs">
-                            {analytics.latestDelivery?.delivery_date
-                              ? `Delivered ${new Date(analytics.latestDelivery.delivery_date).toLocaleDateString()}`
-                              : "Registered Record"}
-                          </Text>
-                        </View>
-                      </View>
-                      <View className="px-2.5 py-1 bg-emerald-500/15 rounded-full">
-                        <Text className="text-emerald-500 text-xs font-semibold">
-                          {analytics.latestNewborn.status_at_birth || "Healthy"}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Newborn Vitals Grid */}
-                    <View className="flex-row flex-wrap gap-2.5">
-                      <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                        <Text className="text-muted text-xs font-medium mb-1">APGAR Score</Text>
-                        <Text className="text-foreground font-bold text-base">
-                          {analytics.latestNewborn.apgar_score}
-                          <Text className="text-muted text-xs font-normal"> / 10</Text>
-                        </Text>
-                      </View>
-
-                      <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                        <Text className="text-muted text-xs font-medium mb-1">Birth Weight</Text>
-                        <Text className="text-foreground font-bold text-base">
-                          {analytics.latestNewborn.birth_weight_kg}
-                          <Text className="text-muted text-xs font-normal"> kg</Text>
-                        </Text>
-                      </View>
-
-                      <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                        <Text className="text-muted text-xs font-medium mb-1">Sex</Text>
-                        <Text className="text-foreground font-bold text-base">
-                          {analytics.latestNewborn.sex}
-                        </Text>
-                      </View>
-
-                      <View className="flex-1 min-w-[140px] bg-default/50 p-3 rounded-xl">
-                        <Text className="text-muted text-xs font-medium mb-1">Delivery Mode</Text>
-                        <Text className="text-foreground font-bold text-base" numberOfLines={1}>
-                          {analytics.latestDelivery?.mode_of_delivery || "Spontaneous"}
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                ) : (
-                  /* EXPECTANT NEWBORN CARD */
-                  <View className="py-2 gap-3">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center gap-2.5">
-                        <View className="size-10 rounded-full bg-amber-500/15 items-center justify-center">
-                          <Ionicons name="time-outline" size={20} color="#f59e0b" />
-                        </View>
-                        <View>
-                          <Text className="text-foreground font-semibold text-base">Newborn Fetal Analytics</Text>
-                          <Text className="text-muted text-xs">Fetal growth & expected delivery tracker</Text>
-                        </View>
-                      </View>
-                      <View className="px-2.5 py-1 bg-amber-500/15 rounded-full">
-                        <Text className="text-amber-500 text-xs font-semibold">Expectant</Text>
-                      </View>
-                    </View>
-
-                    <View className="bg-default/50 p-3.5 rounded-xl gap-2">
-                      <View className="flex-row justify-between items-center">
-                        <Text className="text-muted text-sm">Estimated Due Date (EDD):</Text>
-                        <Text className="text-foreground font-bold text-sm">
-                          {analytics.expectedDueDate || "Calculating..."}
-                        </Text>
-                      </View>
-                      <View className="flex-row justify-between items-center">
-                        <Text className="text-muted text-sm">Fetal Heart Tone:</Text>
-                        <Text className="text-foreground font-bold text-sm">
-                          {analytics.latestVisit?.fetal_heart_tone_bpm
-                            ? `${analytics.latestVisit.fetal_heart_tone_bpm} bpm`
-                            : "Healthy Fetal Rate"}
-                        </Text>
-                      </View>
-                      <View className="flex-row justify-between items-center">
-                        <Text className="text-muted text-sm">Development Stage:</Text>
-                        <Text className="text-primary font-bold text-sm">
-                          {gestationalData.weeks > 0 ? `Week ${gestationalData.weeks} (${gestationalData.trimesterText})` : "Active Care"}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </Card>
-            )}
+            </Pressable>
           </View>
 
           {/* Daily Prescriptions / Supplements */}
