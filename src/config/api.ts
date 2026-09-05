@@ -454,3 +454,61 @@ export async function deleteAccountApi(motherId: string, token: string): Promise
 
   return data;
 }
+
+export type InAppMessage = {
+  message_id: string;
+  sender_id: string;
+  receiver_id: string;
+  message_type: string;
+  message_content: string;
+  message_date: string;
+  is_read: boolean;
+};
+
+export type ChatContact = {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  profile_url?: string;
+};
+
+export async function getMessagesApi(token: string): Promise<{ data: InAppMessage[]; contact?: ChatContact }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/message/getAll`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return { data: [] };
+  }
+
+  return {
+    data: Array.isArray(data.data) ? data.data : [],
+    contact: data.contact,
+  };
+}
+
+export async function sendMessageApi(
+  payload: { receiver_id?: string; message_content: string; message_type?: string },
+  token: string
+): Promise<InAppMessage> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/message/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      ...payload,
+      message_date: new Date().toISOString(),
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to send message");
+  }
+
+  return data.data || data;
+}
