@@ -88,6 +88,29 @@ export type PregnancyRecord = {
   parity: number;
   pregnancy_status: string;
   prenatalVisits?: PrenatalVisitRecord[];
+  deliveryOutcomes?: DeliveryOutcomeRecord[];
+};
+
+export type NewbornRecord = {
+  newborn_id: string;
+  delivery_id: string;
+  sex: string;
+  birth_weight_kg: number | string;
+  status_at_birth: string;
+  apgar_score: number;
+  created_at?: string;
+};
+
+export type DeliveryOutcomeRecord = {
+  delivery_id: string;
+  pregnancy_id: string;
+  delivery_date: string;
+  place_of_delivery: string;
+  mode_of_delivery: string;
+  duration_of_labor_hours?: number | string;
+  blood_loss_ml?: number;
+  delivery_complications?: string;
+  newbornRecords?: NewbornRecord[];
 };
 
 export type PrenatalVisitRecord = {
