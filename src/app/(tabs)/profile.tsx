@@ -82,6 +82,7 @@ export default function ProfileScreen(): JSX.Element {
               icon="notifications-outline"
               title="Notification Preferences"
               subtitle="Reminders for supplements, appointments"
+              onPress={() => router.push("/(tabs)/notifications")}
             />
             <View className="h-px bg-separator mx-1" />
             <SettingRow

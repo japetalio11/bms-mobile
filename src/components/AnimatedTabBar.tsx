@@ -18,6 +18,7 @@ const HIDDEN_ROUTES = [
   'urinalysis',
   'edit-profile',
   'app-appearance',
+  'notifications',
   'chat',
   'vitals',
   'search',
@@ -26,6 +27,7 @@ const HIDDEN_ROUTES = [
   'security',
   'privacy',
   'upload-record',
+  'scanner',
 ];
 
 type TabBarItemProps = {
@@ -102,9 +104,18 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
 export function AnimatedTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
 
-  const visibleRoutes = state.routes.filter(
-    (route: any) => !HIDDEN_ROUTES.includes(route.name),
-  );
+  const currentRoute = state.routes[state.index];
+  const { options: currentOptions } = descriptors[currentRoute?.key] || {};
+
+  // Hide tab bar completely when viewing sub-screens / hidden screens
+  if (HIDDEN_ROUTES.includes(currentRoute?.name) || currentOptions?.href === null) {
+    return null;
+  }
+
+  const visibleRoutes = state.routes.filter((route: any) => {
+    const { options } = descriptors[route.key] || {};
+    return options?.href !== null && !HIDDEN_ROUTES.includes(route.name);
+  });
 
   return (
     <View

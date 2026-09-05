@@ -161,8 +161,8 @@ export async function loginApi(payload: LoginPayload): Promise<AuthResponse> {
     throw err;
   }
 
-  if (data.user && data.user.role && data.user.role.toLowerCase() !== "mother") {
-    throw new Error("No account found.");
+  if (data.user && data.user.role && data.user.role.trim().toLowerCase() !== "mother") {
+    throw new Error(`Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`);
   }
 
   return data;
@@ -396,4 +396,38 @@ export async function createLabScreeningApi(payload: any, token: string): Promis
   }
 
   return data.result || data;
+}
+
+export async function changePasswordApi(payload: { currentPassword: string; newPassword: string }, token: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to change password");
+  }
+
+  return data;
+}
+
+export async function deleteAccountApi(motherId: string, token: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mother/soft-delete/${motherId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to delete account");
+  }
+
+  return data;
 }
