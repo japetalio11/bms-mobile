@@ -313,7 +313,7 @@ export default function LoginScreen(): JSX.Element {
             <TextField isRequired>
               <View className="flex-row justify-between w-full items-center">
                 <Label>Password</Label>
-                <Pressable onPress={() => setError("Password reset link will be sent to your registered email.")}>
+                <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
                   <Text className="text-primary font-medium text-sm">Forgot?</Text>
                 </Pressable>
               </View>

@@ -26,14 +26,14 @@ export type LoginPayload = {
 export type SendOtpPayload = {
   identifier: string;
   type: "email" | "sms";
-  purpose: "registration";
+  purpose: "registration" | "reset_password";
   provider: "email" | "sms";
 };
 
 export type VerifyOtpPayload = {
   identifier: string;
   code: string;
-  purpose: "registration";
+  purpose: "registration" | "reset_password";
 };
 
 export type RegisterPayload = {
@@ -279,6 +279,31 @@ export async function setupPasswordApi(payload: SetupPasswordPayload): Promise<A
 
   if (data.user && data.user.role && data.user.role.toLowerCase() !== "mother") {
     throw new Error("No account found.");
+  }
+
+  return data;
+}
+
+export type ResetPasswordPayload = {
+  identifier: string;
+  otp: string;
+  newPassword: string;
+};
+
+export async function resetPasswordApi(payload: ResetPasswordPayload): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Password reset failed");
+  }
+
+  if (data.user && data.user.role && data.user.role.toLowerCase() !== "mother") {
+    throw new Error("Account found, but it is not registered as a Mother account.");
   }
 
   return data;
