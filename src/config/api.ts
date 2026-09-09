@@ -175,6 +175,29 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type GoogleAuthPayload = {
+  idToken?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  profile_url?: string;
+};
+
+export async function googleAuthApi(payload: GoogleAuthPayload): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Google authentication failed");
+  }
+
+  return data;
+}
+
 export async function loginApi(payload: LoginPayload): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
     method: "POST",

@@ -5,14 +5,26 @@ import { Text, TextField, Label, Input, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
-import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi } from "../../config/api";
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
+import { makeRedirectUri } from "expo-auth-session";
+import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const StyledIonicons = withUniwind(Ionicons);
 
 export default function LoginScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+
+  // Google OAuth Hook
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "YOUR_GOOGLE_WEB_CLIENT_ID",
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "YOUR_GOOGLE_ANDROID_CLIENT_ID",
+    redirectUri: makeRedirectUri({ scheme: "bmsmobile" }),
+  });
 
   // Mode: "login" -> "setup_otp" -> "setup_password"
   const [mode, setMode] = useState<"login" | "setup_otp" | "setup_password">("login");
@@ -31,9 +43,58 @@ export default function LoginScreen(): JSX.Element {
 
   // Feedback states
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const responseAny = googleResponse as any;
+      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
+      const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
+      handleGoogleBackendLogin(idToken, accessToken);
+    }
+  }, [googleResponse]);
+
+  const handleGoogleBackendLogin = async (idToken?: string, accessToken?: string) => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      let email: string | undefined = undefined;
+      let firstName: string | undefined = undefined;
+      let lastName: string | undefined = undefined;
+      let profileUrl: string | undefined = undefined;
+
+      if (accessToken && !idToken) {
+        const userInfoRes = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (userInfoRes.ok) {
+          const userInfo = await userInfoRes.json();
+          email = userInfo.email;
+          firstName = userInfo.given_name;
+          lastName = userInfo.family_name;
+          profileUrl = userInfo.picture;
+        }
+      }
+
+      const data = await googleAuthApi({
+        idToken,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        profile_url: profileUrl,
+      });
+
+      login(data.user, data.token);
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      setError(err.message || "Google Sign-In failed. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   // Timer countdown hook for OTP resend
   useEffect(() => {
@@ -278,7 +339,7 @@ export default function LoginScreen(): JSX.Element {
             </TextField>
           </View>
 
-          <Button variant="primary" onPress={handleLogin} className="mb-8" isDisabled={isLoading}>
+          <Button variant="primary" onPress={handleLogin} className="mb-4" isDisabled={isLoading || googleLoading}>
             <View className="flex-row items-center justify-center gap-2">
               {isLoading ? (
                 <ActivityIndicator color="white" size="small" />
@@ -288,6 +349,27 @@ export default function LoginScreen(): JSX.Element {
               <Button.Label>{isLoading ? "Logging in..." : "Log In"}</Button.Label>
             </View>
           </Button>
+
+          <View className="flex-row items-center my-4">
+            <View className="flex-1 h-[1px] bg-border" />
+            <Text className="mx-4 text-xs font-semibold text-muted-foreground uppercase">OR</Text>
+            <View className="flex-1 h-[1px] bg-border" />
+          </View>
+
+          <Pressable
+            onPress={() => promptGoogleAsync()}
+            disabled={!googleRequest || googleLoading || isLoading}
+            className="flex-row items-center justify-center gap-3 bg-card border border-border rounded-xl h-13 px-4 mb-8 shadow-sm active:opacity-80"
+          >
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#4285F4" />
+            ) : (
+              <StyledIonicons name="logo-google" size={20} color="#EA4335" />
+            )}
+            <Text className="text-foreground font-semibold text-base">
+              {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
+            </Text>
+          </Pressable>
 
           <View className="flex-row justify-center items-center">
             <Text className="text-foreground">Beginning your journey? </Text>

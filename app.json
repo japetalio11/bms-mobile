@@ -5,12 +5,13 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "heroui-native-app",
+    "scheme": "bmsmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.bms.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -30,7 +31,8 @@
       ],
       "expo-status-bar",
       "expo-sqlite",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
