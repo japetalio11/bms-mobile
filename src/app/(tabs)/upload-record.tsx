@@ -32,7 +32,7 @@ const RECORD_TYPES = [
 
 export default function UploadRecordScreen(): JSX.Element {
   const router = useRouter();
-  const { token, activePregnancy } = useAuth();
+  const { token, activePregnancy, motherRecord, user } = useAuth();
   const { isOnline } = useNetwork();
 
   const [recordType, setRecordType] = useState<string>("Urinalysis");
@@ -143,25 +143,31 @@ export default function UploadRecordScreen(): JSX.Element {
             token
           );
 
+          const currentMotherId = motherRecord?.mother_id || user.user_id;
+
           if (res) {
-            await saveLabScreeningsLocal([res], true);
+            await saveLabScreeningsLocal([res], true, currentMotherId);
           }
         } catch (apiErr: any) {
           console.warn("Backend lab registration failed, saving to local SQLite outbox:", apiErr);
+          const currentMotherId = motherRecord?.mother_id || user.user_id;
           await createLabScreeningLocal(
             payload,
             selectedFile?.uri || null,
             selectedFile?.size || null,
-            false
+            false,
+            currentMotherId
           );
         }
       } else {
         // Offline Save to SQLite & outbox queue
+        const currentMotherId = motherRecord?.mother_id || user.user_id;
         await createLabScreeningLocal(
           payload,
           selectedFile?.uri || null,
           selectedFile?.size || null,
-          false
+          false,
+          currentMotherId
         );
       }
 

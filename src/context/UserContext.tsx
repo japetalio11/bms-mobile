@@ -8,6 +8,7 @@ import {
   saveMotherProfileLocal,
   getMotherProfileLocal,
 } from "../db/repository";
+import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
 
 const STORAGE_KEYS = {
@@ -226,6 +227,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         STORAGE_KEYS.MOTHER_RECORD,
         STORAGE_KEYS.ACTIVE_PREGNANCY,
       ]);
+      await clearAllTablesLocal();
     } catch (err) {
       console.error("Failed to clear auth storage:", err);
     }

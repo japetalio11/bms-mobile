@@ -524,15 +524,84 @@ export type InAppMessage = {
   message_content: string;
   message_date: string;
   is_read: boolean;
+  sender?: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    profile_url?: string;
+  };
+  receiver?: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    profile_url?: string;
+  };
 };
 
 export type ChatContact = {
   user_id: string;
   first_name: string;
+  middle_name?: string;
   last_name: string;
   role: string;
+  phone_number?: string;
+  email?: string;
   profile_url?: string;
+  is_active?: boolean;
+  facility_id?: string;
+  facility?: {
+    facility_id: string;
+    facility_name: string;
+    type?: string;
+  };
 };
+
+export async function getFacilityStaffApi(token: string, facilityId?: string): Promise<ChatContact[]> {
+  const query = facilityId ? `?facility_id=${facilityId}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/facility${query}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return [];
+  }
+
+  return Array.isArray(data.result) ? data.result : [];
+}
+
+export async function uploadMessageFileApi(
+  formData: FormData,
+  token: string
+): Promise<{ fileUrl: string; fileName: string; fileType: string; fileSize?: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/message/upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to upload file");
+  }
+
+  return data;
+}
+
+export async function markMessagesAsReadApi(senderId: string, token: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/v1/message/markAllAsRead`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sender_id: senderId }),
+  }).catch(() => {});
+}
 
 export async function getMessagesApi(token: string): Promise<{ data: InAppMessage[]; contact?: ChatContact; hasFacility?: boolean }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/message/getAll`, {

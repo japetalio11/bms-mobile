@@ -32,34 +32,46 @@ export default function RecordsScreen(): JSX.Element {
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    // 1. Read from local SQLite database first (instant UI, offline preservation)
+    if (!motherRecord?.mother_id) {
+      setLabScreenings([]);
+      setSupplements([]);
+      return;
+    }
+
+    // 1. Read from local SQLite database first (scoped strictly to current mother)
     try {
       const [localLabs, localSupps] = await Promise.all([
-        getLabScreeningsLocal(motherRecord?.mother_id || ""),
-        getSupplementsLocal(motherRecord?.mother_id || ""),
+        getLabScreeningsLocal(motherRecord.mother_id),
+        getSupplementsLocal(motherRecord.mother_id),
       ]);
 
-      if (localLabs && localLabs.length > 0) setLabScreenings(localLabs);
-      if (localSupps && localSupps.length > 0) setSupplements(localSupps);
+      setLabScreenings(localLabs || []);
+      setSupplements(localSupps || []);
     } catch (e) {
       console.warn("Local records load error:", e);
     }
 
     // 2. Fetch fresh API data if online
-    if (motherRecord?.mother_id && isOnline && token) {
+    if (isOnline && token) {
       setIsLoading(true);
       Promise.all([
         getLabScreeningsByMotherApi(motherRecord.mother_id, token),
         getSupplementsByMotherApi(motherRecord.mother_id, token),
       ])
-        .then(([labs, supps]) => {
+        .then(async ([labs, supps]) => {
           if (Array.isArray(labs)) {
-            setLabScreenings(labs);
-            saveLabScreeningsLocal(labs, true);
+            // Keep local pending items that haven't synced to server yet
+            const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
+            const pendingLabs = currentLocal.filter((l: any) => l.sync_status === "pending");
+            const serverIds = new Set(labs.map((l) => l.screening_id));
+            const merged = [...labs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
+
+            setLabScreenings(merged);
+            await saveLabScreeningsLocal(labs, true, motherRecord.mother_id);
           }
           if (Array.isArray(supps)) {
             setSupplements(supps);
-            saveSupplementsLocal(supps, true);
+            await saveSupplementsLocal(supps, true);
           }
         })
         .catch((err) => {

@@ -412,26 +412,49 @@ export async function updateSupplementStatusLocal(
 
 // --- Lab Screenings Operations ---
 export async function getLabScreeningsLocal(motherId: string): Promise<LabScreeningRecord[]> {
+  if (!motherId) return [];
   const db = await getDatabase();
   const rows = await db.getAllAsync<LabScreeningRecord>(
-    `SELECT * FROM lab_screenings ORDER BY date_of_screening DESC`
+    `SELECT ls.* FROM lab_screenings ls
+     LEFT JOIN pregnancies p ON ls.pregnancy_id = p.pregnancy_id
+     WHERE ls.mother_id = ? OR p.mother_id = ?
+     ORDER BY ls.date_of_screening DESC`,
+    [motherId]
   );
   return rows;
 }
 
 export async function saveLabScreeningsLocal(
   screenings: LabScreeningRecord[],
-  isFromBackend = true
+  isFromBackend = true,
+  motherId?: string
 ) {
   const db = await getDatabase();
   const now = new Date().toISOString();
 
+  // If reconciling with the server, prune stale 'synced' records for this mother so ghost records do not persist
+  if (isFromBackend && motherId) {
+    const validIds = new Set(screenings.map((s) => s.screening_id));
+    const currentRecords = await getLabScreeningsLocal(motherId);
+
+    for (const item of currentRecords) {
+      // Only prune records that were marked as synced (preserve pending local uploads)
+      if ((item as any).sync_status === "synced" && !validIds.has(item.screening_id)) {
+        await db.runAsync(
+          `DELETE FROM lab_screenings WHERE screening_id = ?`,
+          [item.screening_id]
+        );
+      }
+    }
+  }
+
   for (const ls of screenings) {
     await db.runAsync(
-      `INSERT OR REPLACE INTO lab_screenings (screening_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO lab_screenings (screening_id, mother_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ls.screening_id,
+        motherId || (ls as any).mother_id || null,
         ls.pregnancy_id,
         ls.visit_id,
         ls.screening_type,
@@ -454,7 +477,8 @@ export async function createLabScreeningLocal(
   payload: any,
   localFileUri: string | null,
   fileSizeBytes: number | null,
-  isOnline: boolean
+  isOnline: boolean,
+  motherId?: string
 ): Promise<LabScreeningRecord> {
   if (fileSizeBytes && fileSizeBytes > MAX_FILE_SIZE_BYTES) {
     throw new Error(
@@ -478,10 +502,11 @@ export async function createLabScreeningLocal(
   };
 
   await db.runAsync(
-    `INSERT INTO lab_screenings (screening_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    `INSERT INTO lab_screenings (screening_id, mother_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     [
       record.screening_id,
+      motherId || payload.mother_id || null,
       record.pregnancy_id,
       record.visit_id,
       record.screening_type,
@@ -500,6 +525,7 @@ export async function createLabScreeningLocal(
   if (!isOnline) {
     await enqueueSyncAction("CREATE_LAB_SCREENING", "/api/v1/lab-screening/register", "POST", {
       ...payload,
+      mother_id: motherId || payload.mother_id,
       screening_id: screeningId,
       localFileUri,
       fileSizeBytes,

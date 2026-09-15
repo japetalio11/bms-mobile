@@ -105,6 +105,7 @@ async function initTables(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS lab_screenings (
       screening_id TEXT PRIMARY KEY,
+      mother_id TEXT,
       pregnancy_id TEXT,
       visit_id TEXT,
       screening_type TEXT,
@@ -141,6 +142,12 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       error TEXT
     );
   `);
+
+  try {
+    await db.execAsync("ALTER TABLE lab_screenings ADD COLUMN mother_id TEXT;");
+  } catch {
+    // Column already exists or table newly created
+  }
 }
 
 function createWebFallbackDatabase() {
@@ -241,19 +248,36 @@ function createWebFallbackDatabase() {
           item.updated_at = params[9];
         } else if (table === "lab_screenings") {
           item.screening_id = params[0];
-          item.pregnancy_id = params[1];
-          item.visit_id = params[2];
-          item.screening_type = params[3];
-          item.result = params[4];
-          item.file_url = params[5];
-          item.local_file_uri = params[6];
-          item.file_size_bytes = params[7];
-          item.upload_status = params[8];
-          item.date_of_screening = params[9];
-          item.remarks = params[10];
-          item.version = params[11] || 1;
-          item.sync_status = params[12] || "synced";
-          item.updated_at = params[13];
+          if (params.length >= 15) {
+            item.mother_id = params[1];
+            item.pregnancy_id = params[2];
+            item.visit_id = params[3];
+            item.screening_type = params[4];
+            item.result = params[5];
+            item.file_url = params[6];
+            item.local_file_uri = params[7];
+            item.file_size_bytes = params[8];
+            item.upload_status = params[9];
+            item.date_of_screening = params[10];
+            item.remarks = params[11];
+            item.version = params[12] || 1;
+            item.sync_status = params[13] || "synced";
+            item.updated_at = params[14];
+          } else {
+            item.pregnancy_id = params[1];
+            item.visit_id = params[2];
+            item.screening_type = params[3];
+            item.result = params[4];
+            item.file_url = params[5];
+            item.local_file_uri = params[6];
+            item.file_size_bytes = params[7];
+            item.upload_status = params[8];
+            item.date_of_screening = params[9];
+            item.remarks = params[10];
+            item.version = params[11] || 1;
+            item.sync_status = params[12] || "synced";
+            item.updated_at = params[13];
+          }
         } else if (table === "users") {
           item.user_id = params[0];
           item.first_name = params[1];
@@ -349,4 +373,29 @@ function createWebFallbackDatabase() {
       return (rows[0] as T) || null;
     },
   };
+}
+
+export async function clearAllTablesLocal(): Promise<void> {
+  const db = await getDatabase();
+  const tables = [
+    "users",
+    "mother_records",
+    "pregnancies",
+    "prenatal_visits",
+    "appointments",
+    "supplements",
+    "lab_screenings",
+    "record_history",
+  ];
+  for (const table of tables) {
+    try {
+      await db.runAsync(`DELETE FROM ${table}`);
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(`@sqlite_web_${table}`);
+      }
+      await AsyncStorage.removeItem(`@sqlite_web_${table}`);
+    } catch (e) {
+      console.warn(`Failed clearing table ${table}:`, e);
+    }
+  }
 }

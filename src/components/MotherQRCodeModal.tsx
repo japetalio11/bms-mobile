@@ -84,6 +84,7 @@ export function MotherQRCodeModal({
                 size={220}
                 color="#0f172a"
                 backgroundColor="#ffffff"
+                quietZone={8}
               />
             </View>
 
