@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button, Checkbox } from "heroui-native";
@@ -10,14 +10,39 @@ import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 import { sendOtpApi, registerApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
+import { usePhoneAuth } from "../../hooks/usePhoneAuth";
+import { formatToE164, isTestPhoneNumber } from "../../lib/phoneAuthUtils";
 
 WebBrowser.maybeCompleteAuthSession();
 
 const StyledIonicons = withUniwind(Ionicons);
 
+function decodeJwtPayload(token: string): any {
+  try {
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export default function SignupScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+
+  // Phone Auth Hook (Firebase Primary + Backend SMS Fallback)
+  const phoneAuth = usePhoneAuth({
+    containerId: "recaptcha-container",
+    cooldownDuration: 60,
+  });
 
   // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
@@ -51,15 +76,6 @@ export default function SignupScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const responseAny = googleResponse as any;
-      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
-      const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
-      handleGoogleBackendRegister(idToken, accessToken);
-    }
-  }, [googleResponse]);
-
   const handleGoogleBackendRegister = async (idToken?: string, accessToken?: string) => {
     setGoogleLoading(true);
     setError(null);
@@ -69,16 +85,30 @@ export default function SignupScreen(): JSX.Element {
       let googleLastName: string | undefined = undefined;
       let profileUrl: string | undefined = undefined;
 
-      if (accessToken && !idToken) {
-        const userInfoRes = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (userInfoRes.ok) {
-          const userInfo = await userInfoRes.json();
-          googleEmail = userInfo.email;
-          googleFirstName = userInfo.given_name;
-          googleLastName = userInfo.family_name;
-          profileUrl = userInfo.picture;
+      if (idToken) {
+        const decoded = decodeJwtPayload(idToken);
+        if (decoded) {
+          googleEmail = decoded.email;
+          googleFirstName = decoded.given_name || decoded.name;
+          googleLastName = decoded.family_name;
+          profileUrl = decoded.picture;
+        }
+      }
+
+      if (accessToken && (!googleEmail || !googleFirstName)) {
+        try {
+          const userInfoRes = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (userInfoRes.ok) {
+            const userInfo = await userInfoRes.json();
+            googleEmail = googleEmail || userInfo.email;
+            googleFirstName = googleFirstName || userInfo.given_name;
+            googleLastName = googleLastName || userInfo.family_name;
+            profileUrl = profileUrl || userInfo.picture;
+          }
+        } catch (fetchErr) {
+          console.warn("Could not fetch userinfo from Google:", fetchErr);
         }
       }
 
@@ -88,6 +118,8 @@ export default function SignupScreen(): JSX.Element {
         first_name: googleFirstName,
         last_name: googleLastName,
         profile_url: profileUrl,
+        role: "Mother",
+        is_signup: true,
       });
 
       login(data.user, data.token);
@@ -99,6 +131,17 @@ export default function SignupScreen(): JSX.Element {
     }
   };
 
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const responseAny = googleResponse as any;
+      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
+      const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleGoogleBackendRegister(idToken, accessToken);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleResponse]);
+
   // Timer countdown hook
   useEffect(() => {
     if (timer <= 0) return;
@@ -108,10 +151,24 @@ export default function SignupScreen(): JSX.Element {
     return () => clearInterval(interval);
   }, [timer]);
 
+  const { initRecaptcha } = phoneAuth;
+
+  // Re-initialize reCAPTCHA if switching back to SMS OTP mode
+  useEffect(() => {
+    if (!email.trim() && Platform.OS === "web") {
+      const t = setTimeout(() => {
+        initRecaptcha();
+      }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [email, initRecaptcha]);
+
   // Request OTP API trigger
   const handleRequestOtp = async (): Promise<boolean> => {
-    const identifier = email.trim() || phone.trim();
-    if (!identifier) {
+    const isEmailMode = Boolean(email.trim());
+    const targetIdentifier = isEmailMode ? email.trim() : phone.trim();
+
+    if (!targetIdentifier) {
       setError("Please provide an email or phone number to receive the verification code.");
       return false;
     }
@@ -119,24 +176,41 @@ export default function SignupScreen(): JSX.Element {
     setOtpLoading(true);
     setError(null);
 
-    const type = email.trim() ? "email" : "sms";
+    if (isEmailMode) {
+      try {
+        await sendOtpApi({
+          identifier: targetIdentifier,
+          type: "email",
+          purpose: "registration",
+          provider: "email",
+        });
 
-    try {
-      await sendOtpApi({
-        identifier,
-        type,
-        purpose: "registration",
-        provider: type,
-      });
-
-      setTimer(60);
-      setInfoMessage(`Verification code sent to ${identifier}`);
-      return true;
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code. Please try again.");
-      return false;
-    } finally {
-      setOtpLoading(false);
+        setTimer(60);
+        setInfoMessage(`Verification code sent to ${targetIdentifier}`);
+        return true;
+      } catch (err: any) {
+        setError(err.message || "Failed to send verification code. Please try again.");
+        return false;
+      } finally {
+        setOtpLoading(false);
+      }
+    } else {
+      try {
+        const sent = await phoneAuth.sendOtp(targetIdentifier, "registration");
+        if (sent) {
+          setTimer(phoneAuth.cooldown || 60);
+          setInfoMessage(phoneAuth.statusMessage || `Verification code sent to ${targetIdentifier}`);
+          return true;
+        } else {
+          setError(phoneAuth.statusMessage || "Failed to send SMS OTP code.");
+          return false;
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to send SMS OTP code.");
+        return false;
+      } finally {
+        setOtpLoading(false);
+      }
     }
   };
 
@@ -165,6 +239,22 @@ export default function SignupScreen(): JSX.Element {
       return;
     }
 
+    const isEmailMode = Boolean(email.trim());
+    if (isEmailMode) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+    } else {
+      // SMS OTP mode: require reCAPTCHA to be solved on Web
+      const formatted = formatToE164(phone.trim());
+      if (Platform.OS === "web" && !isTestPhoneNumber(formatted) && !phoneAuth.isRecaptchaSolved) {
+        setError("Please check the 'I\'m not a robot' verification box before continuing.");
+        return;
+      }
+    }
+
     const success = await handleRequestOtp();
     if (success) {
       setStep(2);
@@ -182,6 +272,19 @@ export default function SignupScreen(): JSX.Element {
     setError(null);
 
     try {
+      let finalOtpCode = otp.trim();
+      const isEmailMode = Boolean(email.trim());
+
+      if (!isEmailMode) {
+        const verifyRes = await phoneAuth.verifyOtp(otp);
+        if (!verifyRes.success) {
+          setError(verifyRes.error || "Invalid or expired OTP code.");
+          setIsLoading(false);
+          return;
+        }
+        finalOtpCode = verifyRes.finalOtpCode;
+      }
+
       const data = await registerApi({
         first_name: firstName.trim(),
         middle_name: middleName.trim() || undefined,
@@ -189,9 +292,9 @@ export default function SignupScreen(): JSX.Element {
         role: "Mother", // Mobile self-registration role for mothers
         phone_number: phone.trim(),
         email: email.trim() || undefined,
-        address: address.trim() || undefined,
+        address: address.trim() || "Not specified",
         password,
-        otp: otp.trim(),
+        otp: finalOtpCode,
       });
 
       login(data.user, data.token);
@@ -289,7 +392,12 @@ export default function SignupScreen(): JSX.Element {
                 </View>
                 <Input 
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(val) => {
+                    setPhone(val);
+                    if (val.trim().length >= 10) {
+                      phoneAuth.initRecaptcha();
+                    }
+                  }}
                   placeholder="9123456789"
                   keyboardType="phone-pad"
                   className="flex-1 px-0 border-0 bg-transparent h-full"
@@ -351,10 +459,29 @@ export default function SignupScreen(): JSX.Element {
                 </Pressable>
               </View>
             </TextField>
+
+            {/* Visible reCAPTCHA 'I am not a robot' Checkbox Container - Bottom placement, only for SMS OTP */}
+            {!email.trim() && (
+              <View 
+                className="my-2 w-full items-center justify-center overflow-visible"
+                style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
+              >
+                <View 
+                  id="recaptcha-container"
+                  nativeID="recaptcha-container"
+                  style={{
+                    minHeight: 78,
+                    minWidth: 304,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                />
+              </View>
+            )}
           </View>
 
           {/* Maternal Consent Checkbox */}
-          <View className="flex-row gap-3 mb-8">
+          <View className="flex-row gap-3 mb-6">
             <Checkbox isSelected={agreed} onSelectedChange={setAgreed} />
             <View className="flex-1 pr-4">
               <Text className="text-foreground font-medium mb-1 leading-5">
@@ -365,6 +492,13 @@ export default function SignupScreen(): JSX.Element {
               </Text>
             </View>
           </View>
+
+          {/* Helper indication for OTP routing */}
+          <Text className="text-muted-foreground text-xs text-center mb-3">
+            {email.trim() 
+              ? `Verification code will be sent to your email (${email.trim()}).`
+              : `Verification code will be sent to your phone (+63 ${phone.trim() || "..."}) via SMS.`}
+          </Text>
 
           <Button 
             variant="primary" 
@@ -379,7 +513,11 @@ export default function SignupScreen(): JSX.Element {
                 <StyledIonicons name="arrow-forward" size={20} color="white" />
               )}
               <Button.Label>
-                {otpLoading ? "Sending Verification Code..." : "Continue to Verification"}
+                {otpLoading 
+                  ? "Sending Verification Code..." 
+                  : email.trim() 
+                  ? "Verify via Email" 
+                  : "Verify via SMS"}
               </Button.Label>
             </View>
           </Button>
