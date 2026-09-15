@@ -10,14 +10,38 @@ import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
+import { usePhoneAuth } from "../../hooks/usePhoneAuth";
 
 WebBrowser.maybeCompleteAuthSession();
 
 const StyledIonicons = withUniwind(Ionicons);
 
+function decodeJwtPayload(token: string): any {
+  try {
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export default function LoginScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+
+  // Phone Auth Hook for Setup Password OTP
+  const phoneAuth = usePhoneAuth({
+    containerId: "recaptcha-container-login",
+    cooldownDuration: 60,
+  });
 
   // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
@@ -36,6 +60,7 @@ export default function LoginScreen(): JSX.Element {
 
   // Setup Password Fields
   const [otp, setOtp] = useState("");
+  const [verifiedOtpCode, setVerifiedOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
@@ -66,16 +91,30 @@ export default function LoginScreen(): JSX.Element {
       let lastName: string | undefined = undefined;
       let profileUrl: string | undefined = undefined;
 
-      if (accessToken && !idToken) {
-        const userInfoRes = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (userInfoRes.ok) {
-          const userInfo = await userInfoRes.json();
-          email = userInfo.email;
-          firstName = userInfo.given_name;
-          lastName = userInfo.family_name;
-          profileUrl = userInfo.picture;
+      if (idToken) {
+        const decoded = decodeJwtPayload(idToken);
+        if (decoded) {
+          email = decoded.email;
+          firstName = decoded.given_name || decoded.name;
+          lastName = decoded.family_name;
+          profileUrl = decoded.picture;
+        }
+      }
+
+      if (accessToken && (!email || !firstName)) {
+        try {
+          const userInfoRes = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (userInfoRes.ok) {
+            const userInfo = await userInfoRes.json();
+            email = email || userInfo.email;
+            firstName = firstName || userInfo.given_name;
+            lastName = lastName || userInfo.family_name;
+            profileUrl = profileUrl || userInfo.picture;
+          }
+        } catch (fetchErr) {
+          console.warn("Could not fetch userinfo from Google:", fetchErr);
         }
       }
 
@@ -85,6 +124,8 @@ export default function LoginScreen(): JSX.Element {
         first_name: firstName,
         last_name: lastName,
         profile_url: profileUrl,
+        role: "Mother",
+        auto_register: true,
       });
 
       login(data.user, data.token);
@@ -113,24 +154,42 @@ export default function LoginScreen(): JSX.Element {
     setOtpLoading(true);
     setError(null);
     const isEmail = cleanId.includes("@");
-    const type = isEmail ? "email" : "sms";
 
-    try {
-      await sendOtpApi({
-        identifier: cleanId,
-        type,
-        purpose: "registration",
-        provider: type,
-      });
+    if (isEmail) {
+      try {
+        await sendOtpApi({
+          identifier: cleanId,
+          type: "email",
+          purpose: "registration",
+          provider: "email",
+        });
 
-      setTimer(60);
-      setInfoMessage(`Verification code sent to ${cleanId}`);
-      return true;
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code for password setup.");
-      return false;
-    } finally {
-      setOtpLoading(false);
+        setTimer(60);
+        setInfoMessage(`Verification code sent to ${cleanId}`);
+        return true;
+      } catch (err: any) {
+        setError(err.message || "Failed to send verification code for password setup.");
+        return false;
+      } finally {
+        setOtpLoading(false);
+      }
+    } else {
+      try {
+        const sent = await phoneAuth.sendOtp(cleanId, "registration");
+        if (sent) {
+          setTimer(phoneAuth.cooldown || 60);
+          setInfoMessage(phoneAuth.statusMessage || `Verification code sent to ${cleanId}`);
+          return true;
+        } else {
+          setError(phoneAuth.statusMessage || "Failed to send SMS OTP code.");
+          return false;
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to send SMS OTP code.");
+        return false;
+      } finally {
+        setOtpLoading(false);
+      }
     }
   };
 
@@ -188,12 +247,25 @@ export default function LoginScreen(): JSX.Element {
     setIsLoading(true);
     setError(null);
 
+    const isEmail = cleanId.includes("@");
+
     try {
-      await verifyOtpApi({
-        identifier: cleanId,
-        code: otp.trim(),
-        purpose: "registration",
-      });
+      if (isEmail) {
+        await verifyOtpApi({
+          identifier: cleanId,
+          code: otp.trim(),
+          purpose: "registration",
+        });
+        setVerifiedOtpCode(otp.trim());
+      } else {
+        const verifyRes = await phoneAuth.verifyOtp(otp.trim());
+        if (!verifyRes.success) {
+          setError(verifyRes.error || "Invalid verification code. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+        setVerifiedOtpCode(verifyRes.finalOtpCode);
+      }
 
       setInfoMessage("OTP verified successfully! Now set a secure password for your account.");
       setMode("setup_password");
@@ -226,7 +298,7 @@ export default function LoginScreen(): JSX.Element {
     try {
       const data = await setupPasswordApi({
         identifier: cleanId,
-        otp: otp.trim(),
+        otp: verifiedOtpCode || otp.trim(),
         newPassword,
       });
 
@@ -383,6 +455,23 @@ export default function LoginScreen(): JSX.Element {
       ) : mode === "setup_otp" ? (
         /* MODE 2: STEP 1 - OTP VERIFICATION FOR PASSWORD SETUP */
         <>
+          {/* Visible reCAPTCHA Container for Web */}
+          <View 
+            className="my-2 w-full items-center justify-center overflow-visible"
+            style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
+          >
+            <View 
+              id="recaptcha-container-login"
+              nativeID="recaptcha-container-login"
+              style={{
+                minHeight: 78,
+                minWidth: 304,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            />
+          </View>
+
           <View className="gap-6 mb-8">
             <Text className="text-foreground text-base">
               Verification code sent to{" "}

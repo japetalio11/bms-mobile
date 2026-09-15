@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import { sendOtpApi, resetPasswordApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
+import { usePhoneAuth } from "../../hooks/usePhoneAuth";
 
 const StyledIonicons = withUniwind(Ionicons);
 
@@ -14,12 +15,19 @@ export default function ForgotPasswordScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
 
+  // Phone Auth Hook
+  const phoneAuth = usePhoneAuth({
+    containerId: "recaptcha-container-forgot",
+    cooldownDuration: 60,
+  });
+
   // Mode: "enter_identifier" | "verify_otp" | "reset_password" | "success"
   const [mode, setMode] = useState<"enter_identifier" | "verify_otp" | "reset_password" | "success">("enter_identifier");
 
   // Form Fields
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
+  const [verifiedOtpCode, setVerifiedOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -46,11 +54,11 @@ export default function ForgotPasswordScreen(): JSX.Element {
 
   // Determine provider format
   const isEmail = identifier.includes("@");
-  const provider = isEmail ? "email" : "sms";
 
   // Step 1: Send OTP for Reset Password
   const handleRequestOtp = async () => {
-    if (!identifier.trim()) {
+    const cleanId = identifier.trim();
+    if (!cleanId) {
       setError("Please enter your registered email or phone number.");
       return;
     }
@@ -59,26 +67,43 @@ export default function ForgotPasswordScreen(): JSX.Element {
     setError(null);
     setInfoMessage(null);
 
-    try {
-      await sendOtpApi({
-        identifier: identifier.trim(),
-        type: provider,
-        purpose: "reset_password",
-        provider: provider,
-      });
+    if (isEmail) {
+      try {
+        await sendOtpApi({
+          identifier: cleanId,
+          type: "email",
+          purpose: "reset_password",
+          provider: "email",
+        });
 
-      setInfoMessage(`Verification code sent to ${identifier.trim()}.`);
-      setTimer(60);
-      setMode("verify_otp");
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code. Please verify your details.");
-    } finally {
-      setIsLoading(false);
+        setInfoMessage(`Verification code sent to ${cleanId}.`);
+        setTimer(60);
+        setMode("verify_otp");
+      } catch (err: any) {
+        setError(err.message || "Failed to send verification code. Please verify your details.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      try {
+        const sent = await phoneAuth.sendOtp(cleanId, "reset_password");
+        if (sent) {
+          setInfoMessage(phoneAuth.statusMessage || `Verification code sent to ${cleanId}.`);
+          setTimer(phoneAuth.cooldown || 60);
+          setMode("verify_otp");
+        } else {
+          setError(phoneAuth.statusMessage || "Failed to send SMS verification code.");
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to send SMS verification code.");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   // Step 2: Proceed to Reset Password input stage
-  const handleProceedToReset = () => {
+  const handleProceedToReset = async () => {
     if (!otp.trim()) {
       setError("Please enter the 6-digit OTP verification code.");
       return;
@@ -89,6 +114,21 @@ export default function ForgotPasswordScreen(): JSX.Element {
     }
 
     setError(null);
+
+    if (!isEmail) {
+      setIsLoading(true);
+      const verifyRes = await phoneAuth.verifyOtp(otp.trim());
+      setIsLoading(false);
+
+      if (!verifyRes.success) {
+        setError(verifyRes.error || "Invalid verification code. Please try again.");
+        return;
+      }
+      setVerifiedOtpCode(verifyRes.finalOtpCode);
+    } else {
+      setVerifiedOtpCode(otp.trim());
+    }
+
     setMode("reset_password");
   };
 
@@ -114,7 +154,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
     try {
       const res = await resetPasswordApi({
         identifier: identifier.trim(),
-        otp: otp.trim(),
+        otp: verifiedOtpCode || otp.trim(),
         newPassword: newPassword,
       });
 
@@ -206,25 +246,49 @@ export default function ForgotPasswordScreen(): JSX.Element {
 
           {/* STEP 1: Enter Identifier */}
           {mode === "enter_identifier" && (
-            <TextField isRequired>
-              <Label>Email or Phone Number</Label>
-              <View className="w-full justify-center">
-                <Input 
-                  value={identifier}
-                  onChangeText={setIdentifier}
-                  placeholder="Enter email or phone number" 
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  className="pr-12"
-                />
-                <StyledIonicons 
-                  name={isEmail ? "mail-outline" : "call-outline"} 
-                  size={20} 
-                  className="absolute right-4 text-muted-foreground" 
-                  pointerEvents="none"
+            <>
+              <TextField isRequired>
+                <Label>Email or Phone Number</Label>
+                <View className="w-full justify-center">
+                  <Input 
+                    value={identifier}
+                    onChangeText={(val) => {
+                      setIdentifier(val);
+                      if (!val.includes("@") && val.trim().length >= 10) {
+                        phoneAuth.initRecaptcha();
+                      }
+                    }}
+                    placeholder="Enter email or phone number" 
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    className="pr-12"
+                  />
+                  <StyledIonicons 
+                    name={isEmail ? "mail-outline" : "call-outline"} 
+                    size={20} 
+                    className="absolute right-4 text-muted-foreground" 
+                    pointerEvents="none"
+                  />
+                </View>
+              </TextField>
+
+              {/* Visible reCAPTCHA Container */}
+              <View 
+                className="my-1 w-full items-center justify-center overflow-visible"
+                style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
+              >
+                <View 
+                  id="recaptcha-container-forgot"
+                  nativeID="recaptcha-container-forgot"
+                  style={{
+                    minHeight: 78,
+                    minWidth: 304,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 />
               </View>
-            </TextField>
+            </>
           )}
 
           {/* STEP 2: Verify OTP */}

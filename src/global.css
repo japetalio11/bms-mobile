@@ -134,3 +134,54 @@
   }
 }
 
+/* ─── reCAPTCHA Responsive & Centering Styling ─────────────────── */
+#recaptcha-container,
+#recaptcha-container-login,
+#recaptcha-container-forgot {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-height: 78px !important;
+  margin: 12px auto !important;
+  overflow: visible !important;
+}
+
+#recaptcha-container > div,
+#recaptcha-container-login > div,
+#recaptcha-container-forgot > div {
+  margin: 0 auto !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+/* Ensure Google reCAPTCHA iframe scales nicely on small screens without clipping */
+@media (max-width: 390px) {
+  #recaptcha-container iframe,
+  #recaptcha-container-login iframe,
+  #recaptcha-container-forgot iframe {
+    transform: scale(0.92);
+    transform-origin: center center;
+  }
+}
+
+@media (max-width: 340px) {
+  #recaptcha-container iframe,
+  #recaptcha-container-login iframe,
+  #recaptcha-container-forgot iframe {
+    transform: scale(0.82);
+    transform-origin: center center;
+  }
+}
+
+/* Centered fallback for invisible badge */
+.grecaptcha-badge {
+  bottom: 24px !important;
+  right: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+  z-index: 99999 !important;
+}
+
+

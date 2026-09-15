@@ -181,6 +181,9 @@ export type GoogleAuthPayload = {
   first_name?: string;
   last_name?: string;
   profile_url?: string;
+  role?: string;
+  is_signup?: boolean;
+  auto_register?: boolean;
 };
 
 export async function googleAuthApi(payload: GoogleAuthPayload): Promise<AuthResponse> {
@@ -193,6 +196,10 @@ export async function googleAuthApi(payload: GoogleAuthPayload): Promise<AuthRes
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || data.message || "Google authentication failed");
+  }
+
+  if (data.user && data.user.role && data.user.role.trim().toLowerCase() !== "mother") {
+    throw new Error(`Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`);
   }
 
   return data;
