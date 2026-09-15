@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { View, Pressable } from 'react-native';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,6 +18,7 @@ const HIDDEN_ROUTES = [
   'urinalysis',
   'edit-profile',
   'app-appearance',
+  'notifications',
   'chat',
   'vitals',
   'search',
@@ -27,6 +27,7 @@ const HIDDEN_ROUTES = [
   'security',
   'privacy',
   'upload-record',
+  'scanner',
 ];
 
 type TabBarItemProps = {
@@ -50,7 +51,7 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
   }));
 
   const iconColor = isScanner ? '#ffffff' : isFocused ? '#ffffff' : '#71717a';
-  const bgColor = isScanner ? '#6366f1' : '#27272a';
+  const bgColor = isScanner ? '#f43f5e' : isFocused ? '#f43f5e' : '#27272a';
 
   return (
     <Pressable
@@ -100,12 +101,21 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
   );
 }
 
-export function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function AnimatedTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
 
-  const visibleRoutes = state.routes.filter(
-    (route) => !HIDDEN_ROUTES.includes(route.name),
-  );
+  const currentRoute = state.routes[state.index];
+  const { options: currentOptions } = descriptors[currentRoute?.key] || {};
+
+  // Hide tab bar completely when viewing sub-screens / hidden screens
+  if (HIDDEN_ROUTES.includes(currentRoute?.name) || currentOptions?.href === null) {
+    return null;
+  }
+
+  const visibleRoutes = state.routes.filter((route: any) => {
+    const { options } = descriptors[route.key] || {};
+    return options?.href !== null && !HIDDEN_ROUTES.includes(route.name);
+  });
 
   return (
     <View
@@ -115,23 +125,25 @@ export function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarP
         left: 20,
         right: 20,
         height: 68,
-        backgroundColor: '#09090b',
+        backgroundColor: 'rgba(24, 23, 28, 0.85)',
         borderRadius: 34,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.12)',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 12,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.35,
+        shadowRadius: 20,
+        elevation: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 12,
       }}
     >
-      {visibleRoutes.map((route) => {
+      {visibleRoutes.map((route: any) => {
         const { options } = descriptors[route.key];
         const isFocused =
-          state.routes.findIndex((r) => r.key === route.key) === state.index;
+          state.routes.findIndex((r: any) => r.key === route.key) === state.index;
         const isScanner = route.name === 'scanner';
 
         const onPress = () => {

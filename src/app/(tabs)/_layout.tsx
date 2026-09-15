@@ -45,15 +45,6 @@ export default function TabsLayout(): JSX.Element {
         }}
       />
       <Tabs.Screen
-        name="scanner"
-        options={{
-          title: "Scanner",
-          tabBarIcon: ({ color }) => (
-            <StyledIonicons name="scan-outline" size={22} color="white" />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="records"
         options={{
           title: "Lab Records",
@@ -68,6 +59,7 @@ export default function TabsLayout(): JSX.Element {
         }}
       />
       {/* ── Hidden screens (not shown in tab bar) ── */}
+      <Tabs.Screen name="scanner" options={{ href: null }} />
       <Tabs.Screen name="search" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />
       <Tabs.Screen name="calendar" options={{ href: null }} />
@@ -81,6 +73,7 @@ export default function TabsLayout(): JSX.Element {
       <Tabs.Screen name="urinalysis" options={{ href: null }} />
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
       <Tabs.Screen name="app-appearance" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

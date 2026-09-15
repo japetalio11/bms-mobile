@@ -1,32 +1,108 @@
-import { View, ScrollView, Pressable } from "react-native";
-import { useState } from "react";
+import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
+import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Header } from "../../components/Header";
-
-const LAB_RECORD_COLORS = ["#6366f1", "#3b82f6", "#10b981", "#f59e0b"];
-
-const labRecords = [
-  { title: "Complete Blood Count", color: "#6366f1" },
-  { title: "Urinalysis", color: "#3b82f6", route: "/(tabs)/urinalysis" },
-  { title: "Blood Typing", color: "#10b981" },
-  { title: "Hepatitis B Screening", color: "#f59e0b" },
-];
+import { useAuth } from "../../context/UserContext";
+import { useNetwork } from "../../context/NetworkContext";
+import { getLabScreeningsByMotherApi, getSupplementsByMotherApi, API_BASE_URL } from "../../config/api";
+import type { LabScreeningRecord, SupplementRecord } from "../../config/api";
+import {
+  getLabScreeningsLocal,
+  saveLabScreeningsLocal,
+  getSupplementsLocal,
+  saveSupplementsLocal,
+} from "../../db/repository";
 
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
+  const { token, motherRecord } = useAuth();
+  const { isOnline } = useNetwork();
+
   const [activeMainTab, setActiveMainTab] = useState("lab");
   const [activePrescriptionTab, setActivePrescriptionTab] = useState("medicine");
   const [searchLab, setSearchLab] = useState("");
   const [searchPrescription, setSearchPrescription] = useState("");
 
+  const [labScreenings, setLabScreenings] = useState<LabScreeningRecord[]>([]);
+  const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    // 1. Read from local SQLite database first (instant UI, offline preservation)
+    try {
+      const [localLabs, localSupps] = await Promise.all([
+        getLabScreeningsLocal(motherRecord?.mother_id || ""),
+        getSupplementsLocal(motherRecord?.mother_id || ""),
+      ]);
+
+      if (localLabs && localLabs.length > 0) setLabScreenings(localLabs);
+      if (localSupps && localSupps.length > 0) setSupplements(localSupps);
+    } catch (e) {
+      console.warn("Local records load error:", e);
+    }
+
+    // 2. Fetch fresh API data if online
+    if (motherRecord?.mother_id && isOnline && token) {
+      setIsLoading(true);
+      Promise.all([
+        getLabScreeningsByMotherApi(motherRecord.mother_id, token),
+        getSupplementsByMotherApi(motherRecord.mother_id, token),
+      ])
+        .then(([labs, supps]) => {
+          if (Array.isArray(labs)) {
+            setLabScreenings(labs);
+            saveLabScreeningsLocal(labs, true);
+          }
+          if (Array.isArray(supps)) {
+            setSupplements(supps);
+            saveSupplementsLocal(supps, true);
+          }
+        })
+        .catch((err) => {
+          console.warn("API records fetch failed, preserving local data:", err);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [motherRecord?.mother_id, token, isOnline]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const filteredLabs = labScreenings.filter((lab) => {
+    if (!searchLab.trim()) return true;
+    const q = searchLab.toLowerCase();
+    return (
+      lab.screening_type.toLowerCase().includes(q) ||
+      lab.result.toLowerCase().includes(q) ||
+      (lab.remarks || "").toLowerCase().includes(q)
+    );
+  });
+
+  const filteredSupplements = supplements.filter((supp) => {
+    if (!searchPrescription.trim()) return true;
+    return supp.supplement_type.toLowerCase().includes(searchPrescription.toLowerCase());
+  });
+
+  const getFullFileUrl = (url?: string, localUri?: string) => {
+    if (localUri) return localUri;
+    if (!url) return null;
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) return url;
+    return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
+
   return (
     <View className="flex-1 bg-background">
       <Header />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
         {/* Main Tabs */}
         <View className="px-5 mb-5">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
@@ -50,21 +126,21 @@ export default function RecordsScreen(): JSX.Element {
           </Tabs>
         </View>
 
-        {/* Lab Records Tab */}
+        {/* Laboratory Records Tab */}
         {activeMainTab === "lab" && (
           <View className="px-5">
-            <View className="flex-row items-center justify-between mb-1">
+            <View className="flex-row items-center justify-between mb-4">
               <Text className="text-foreground text-lg font-semibold">Laboratory Records</Text>
-              <Button 
-                size="sm" 
-                variant="primary" 
-                className="rounded-xl px-3"
+              <Button
+                size="sm"
+                variant="primary"
+                className="rounded-xl px-3 flex-row items-center gap-1"
                 onPress={() => router.push("/(tabs)/upload-record")}
               >
+                <Ionicons name="cloud-upload-outline" size={15} color="white" />
                 <Button.Label className="text-sm font-medium">Upload</Button.Label>
               </Button>
             </View>
-            <Text className="text-muted text-sm mb-4">You're in your second trimester with 16 weeks to go.</Text>
 
             <SearchField value={searchLab} onChange={setSearchLab}>
               <SearchField.Group className="bg-default border-0 rounded-xl h-12 mb-5">
@@ -74,42 +150,100 @@ export default function RecordsScreen(): JSX.Element {
               </SearchField.Group>
             </SearchField>
 
-            <View className="flex-row flex-wrap justify-between">
-              {labRecords.map((item, index) => (
-                <Pressable
-                  key={index}
-                  className="w-[48%] mb-4"
-                  onPress={() => { if (item.route) router.push(item.route as any); }}
-                >
-                  <Card variant="secondary" className="bg-surface border-0 rounded-xl overflow-hidden" style={{ height: 160 }}>
-                    {/* Colored gradient header */}
-                    <View
-                      className="flex-1 items-center justify-center"
-                      style={{ backgroundColor: item.color + "18" }}
-                    >
-                      <View
-                        className="size-12 rounded-full items-center justify-center"
-                        style={{ backgroundColor: item.color + "30" }}
-                      >
-                        <Ionicons name="document-text-outline" size={24} color={item.color} />
+            {isLoading && labScreenings.length === 0 ? (
+              <ActivityIndicator size="small" color="#6366f1" className="py-8" />
+            ) : filteredLabs.length > 0 ? (
+              <View className="gap-3.5">
+                {filteredLabs.map((lab) => {
+                  const fileUrl = getFullFileUrl(lab.file_url, (lab as any).local_file_uri);
+                  const dateStr = lab.date_of_screening
+                    ? new Date(lab.date_of_screening).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "";
+                  const isPendingSync = (lab as any).sync_status === "pending";
+
+                  return (
+                    <Card key={lab.screening_id} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                      <View className="flex-row items-start justify-between mb-2">
+                        <View className="flex-row items-center gap-3 flex-1 pr-2">
+                          <View className="size-10 rounded-xl bg-primary/15 items-center justify-center">
+                            <Ionicons name="document-text-outline" size={20} color="#0284c7" />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
+                              {lab.screening_type}
+                            </Text>
+                            <Text className="text-muted text-xs">{dateStr || "Screening Record"}</Text>
+                          </View>
+                        </View>
+
+                        <View className="flex-row items-center gap-1.5">
+                          {isPendingSync && (
+                            <View className="px-2 py-0.5 rounded-full bg-amber-500/20">
+                              <Text className="text-amber-400 text-[10px] font-semibold">Pending Upload</Text>
+                            </View>
+                          )}
+                          <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
+                            <Text className="text-emerald-400 text-xs font-semibold">
+                              {lab.result || "Uploaded"}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
-                    </View>
-                    <Card.Body className="px-3 py-2 flex-none bg-surface">
-                      <Text className="text-foreground text-sm font-semibold leading-tight">{item.title}</Text>
-                      <Text className="text-muted text-sm mt-0.5">2nd Trimester</Text>
-                    </Card.Body>
-                  </Card>
-                </Pressable>
-              ))}
-            </View>
+
+                      {fileUrl ? (
+                        <Pressable onPress={() => setSelectedImageModal(fileUrl)} className="mt-2.5 mb-2">
+                          <Image
+                            source={{ uri: fileUrl }}
+                            className="w-full h-44 rounded-xl bg-default/40"
+                            resizeMode="cover"
+                          />
+                          <View className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded-md flex-row items-center gap-1">
+                            <Ionicons name="eye-outline" size={12} color="white" />
+                            <Text className="text-white text-[11px] font-medium">View Full Image</Text>
+                          </View>
+                        </Pressable>
+                      ) : null}
+
+                      {lab.remarks ? (
+                        <Text className="text-muted text-xs mt-1" numberOfLines={2}>
+                          Remarks: {lab.remarks}
+                        </Text>
+                      ) : null}
+                    </Card>
+                  );
+                })}
+              </View>
+            ) : (
+              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-6 items-center py-10">
+                <Ionicons name="document-text-outline" size={32} color="#71717a" className="mb-2" />
+                <Text className="text-foreground font-semibold text-base mb-1">No Lab Records Found</Text>
+                <Text className="text-muted text-xs text-center max-w-xs mb-4">
+                  {searchLab.trim()
+                    ? "No laboratory records match your search criteria."
+                    : "You haven't uploaded or received any laboratory records yet."}
+                </Text>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="rounded-xl px-4 flex-row items-center gap-1.5"
+                  onPress={() => router.push("/(tabs)/upload-record")}
+                >
+                  <Ionicons name="cloud-upload-outline" size={16} color="white" />
+                  <Button.Label className="text-xs font-semibold">Upload First Record</Button.Label>
+                </Button>
+              </Card>
+            )}
           </View>
         )}
 
         {/* Prescriptions Tab */}
         {activeMainTab === "prescriptions" && (
           <View className="px-5">
-            <Text className="text-foreground text-lg font-semibold mb-1">Prescriptions</Text>
-            <Text className="text-muted text-sm mb-4">You're in your second trimester with 16 weeks to go.</Text>
+            <Text className="text-foreground text-lg font-semibold mb-4">Prescriptions</Text>
 
             <View className="mb-5 flex-row items-center gap-3">
               <View className="flex-1">
@@ -121,12 +255,8 @@ export default function RecordsScreen(): JSX.Element {
                   </SearchField.Group>
                 </SearchField>
               </View>
-              <Pressable className="size-12 bg-default rounded-xl items-center justify-center">
-                <Ionicons name="options-outline" size={20} color="#a1a1aa" />
-              </Pressable>
             </View>
 
-            {/* Prescription sub-tabs */}
             <View className="mb-5">
               <Tabs value={activePrescriptionTab} onValueChange={setActivePrescriptionTab} variant="primary">
                 <Tabs.List className="bg-default p-1 rounded-xl">
@@ -149,30 +279,69 @@ export default function RecordsScreen(): JSX.Element {
               </Tabs>
             </View>
 
-            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
-              <View className="flex-row items-start gap-3 mb-4">
-                <View className="size-10 rounded-full bg-[#6366f1]/15 items-center justify-center mt-0.5">
-                  <Ionicons name="medkit-outline" size={18} color="#6366f1" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-foreground font-semibold text-base">Prenatal Vitamin</Text>
-                  <Text className="text-muted text-sm">Morning · 500 mg</Text>
-                </View>
+            {isLoading && supplements.length === 0 ? (
+              <ActivityIndicator size="small" color="#6366f1" className="py-6" />
+            ) : filteredSupplements.length > 0 ? (
+              <View className="gap-3">
+                {filteredSupplements.map((supp) => (
+                  <Card key={supp.supplement_id} variant="secondary" className="bg-surface border-0 rounded-xl p-4">
+                    <View className="flex-row items-start gap-3 mb-4">
+                      <View className="size-10 rounded-full bg-[#6366f1]/15 items-center justify-center mt-0.5">
+                        <Ionicons name="medkit-outline" size={18} color="#6366f1" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-foreground font-semibold text-base">{supp.supplement_type}</Text>
+                        <Text className="text-muted text-sm">{supp.tablets_given_count} Tablets Prescribed</Text>
+                      </View>
+                    </View>
+                    <View className="gap-2">
+                      <View className="flex-row justify-between">
+                        <Text className="text-muted text-sm">Status</Text>
+                        <Text className={`text-sm font-medium ${supp.is_completed ? "text-[#10b981]" : "text-[#f59e0b]"}`}>
+                          {supp.is_completed ? "Completed" : "In Progress"}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text className="text-muted text-sm">Date Prescribed</Text>
+                        <Text className="text-foreground text-sm font-medium">
+                          {new Date(supp.date_given).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ))}
               </View>
-              <View className="gap-2">
-                <View className="flex-row justify-between">
-                  <Text className="text-muted text-sm">Dosage</Text>
-                  <Text className="text-foreground text-sm font-medium">500 mg</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-muted text-sm">Start Date</Text>
-                  <Text className="text-foreground text-sm font-medium">June 16, 2026 · 8:00 AM</Text>
-                </View>
-              </View>
-            </Card>
+            ) : (
+              <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
+                <Ionicons name="medkit-outline" size={28} color="#71717a" className="mb-2" />
+                <Text className="text-foreground font-semibold text-base mb-1">No Prescriptions</Text>
+                <Text className="text-muted text-sm text-center">
+                  You have no active prescriptions or supplements recorded.
+                </Text>
+              </Card>
+            )}
           </View>
         )}
       </ScrollView>
+
+      {/* Full Preview Image Modal */}
+      <Modal visible={!!selectedImageModal} transparent animationType="fade" onRequestClose={() => setSelectedImageModal(null)}>
+        <View className="flex-1 bg-black/90 justify-center items-center p-4">
+          <Pressable
+            onPress={() => setSelectedImageModal(null)}
+            className="absolute top-12 right-5 z-10 size-10 rounded-full bg-white/20 items-center justify-center"
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </Pressable>
+          {selectedImageModal && (
+            <Image
+              source={{ uri: selectedImageModal }}
+              className="w-full h-4/5 rounded-2xl"
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }

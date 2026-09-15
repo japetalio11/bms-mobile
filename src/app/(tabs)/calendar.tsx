@@ -1,28 +1,96 @@
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useState, useCallback } from "react";
 import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "../../components/Header";
+import { useAuth } from "../../context/UserContext";
+import { useNetwork } from "../../context/NetworkContext";
+import { getAppointmentsByUserApi } from "../../config/api";
+import type { AppointmentRecord } from "../../config/api";
+import { getAppointmentsLocal, saveAppointmentsLocal } from "../../db/repository";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const DATES = [
-  [29, 30, 31, 1, 2, 3, 4],
-  [5, 6, 7, 8, 9, 10, 11],
-  [12, 13, 14, 15, 16, 17, 18],
-  [19, 20, 21, 22, 23, 24, 25],
-  [26, 27, 28, 29, 30, 31, 1],
-];
-const DOT_DATES = [2, 6, 11, 16];
-const TODAY = 16;
-
-const UPCOMING = [
-  { day: "Thu", date: 11, title: "Prenatal Checkup", time: "July 11, 2026 9:00 AM" },
-  { day: "Mon", date: 21, title: "Urinalysis Submission", time: "July 21, 2026 8:00 AM" },
-];
 
 export default function CalendarScreen(): JSX.Element {
-  const [selected, setSelected] = useState(TODAY);
+  const { user, token } = useAuth();
+  const { isOnline } = useNetwork();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadAppointments = useCallback(async () => {
+    if (!user?.user_id) return;
+
+    // 1. Read from local SQLite immediately
+    try {
+      const local = await getAppointmentsLocal(user.user_id);
+      if (local && local.length > 0) {
+        setAppointments(local);
+      }
+    } catch (e) {
+      console.warn("Failed reading local appointments:", e);
+    }
+
+    // 2. Fetch fresh from backend if online
+    if (isOnline && token) {
+      setIsLoading(true);
+      try {
+        const res = await getAppointmentsByUserApi(user.user_id, token);
+        if (Array.isArray(res)) {
+          setAppointments(res);
+          await saveAppointmentsLocal(res, true);
+        }
+      } catch (err) {
+        console.warn("Backend fetch failed, preserving local data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [user?.user_id, token, isOnline]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAppointments();
+    }, [loadAppointments])
+  );
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const parseLocalDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const cleanStr = dateStr.split("T")[0];
+    const parts = cleanStr.split("-");
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    }
+    return new Date(dateStr);
+  };
+
+  const calendarRows: (number | null)[][] = [];
+  let dayCounter = 1;
+  while (dayCounter <= daysInMonth) {
+    const row: (number | null)[] = [];
+    for (let c = 0; c < 7; c++) {
+      if ((calendarRows.length === 0 && c < firstDay) || dayCounter > daysInMonth) {
+        row.push(null);
+      } else {
+        row.push(dayCounter++);
+      }
+    }
+    calendarRows.push(row);
+  }
+
+  const upcomingEvents = appointments.filter((a) => {
+    const d = parseLocalDate(a.appointment_date);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
 
   return (
     <View className="flex-1 bg-background pb-24">
@@ -30,22 +98,25 @@ export default function CalendarScreen(): JSX.Element {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Month Header */}
         <View className="px-5 mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-primary text-lg font-semibold">July 2026</Text>
-            <Ionicons name="chevron-down" size={16} color="#6366f1" />
-          </View>
+          <Text className="text-primary text-lg font-semibold">{monthName}</Text>
           <View className="flex-row gap-2">
-            <Pressable className="size-8 items-center justify-center">
+            <Pressable
+              className="size-8 items-center justify-center"
+              onPress={() => setCurrentDate(new Date(year, month - 1, 1))}
+            >
               <Ionicons name="chevron-back" size={20} color="#a1a1aa" />
             </Pressable>
-            <Pressable className="size-8 items-center justify-center">
+            <Pressable
+              className="size-8 items-center justify-center"
+              onPress={() => setCurrentDate(new Date(year, month + 1, 1))}
+            >
               <Ionicons name="chevron-forward" size={20} color="#a1a1aa" />
             </Pressable>
           </View>
         </View>
 
         {/* Calendar Grid */}
-        <Card variant="secondary" className="mx-5 mb-6 rounded-xl p-5 bg-[#18181b] border-0">
+        <Card variant="secondary" className="mx-5 mb-6 rounded-xl p-5 bg-surface border-0">
           <View className="flex-row justify-between mb-4">
             {DAYS.map((day) => (
               <Text key={day} className="text-muted text-sm flex-1 text-center font-medium">
@@ -53,42 +124,49 @@ export default function CalendarScreen(): JSX.Element {
               </Text>
             ))}
           </View>
-          {DATES.map((row, rowIndex) => (
+          {calendarRows.map((row, rowIndex) => (
             <View key={rowIndex} className="flex-row justify-between mb-3">
-              {row.map((date, colIndex) => {
-                const isPrevMonth = rowIndex === 0 && date > 20;
-                const isNextMonth = rowIndex === 4 && date < 10;
-                const isMuted = isPrevMonth || isNextMonth;
-                const isSelected = !isMuted && date === selected;
-                const hasDot = !isMuted && DOT_DATES.includes(date);
+              {row.map((dateNum, colIndex) => {
+                const isToday =
+                  dateNum !== null &&
+                  dateNum === new Date().getDate() &&
+                  month === new Date().getMonth() &&
+                  year === new Date().getFullYear();
+
+                const hasEvent =
+                  dateNum !== null &&
+                  appointments.some((a) => {
+                    const d = parseLocalDate(a.appointment_date);
+                    return d.getDate() === dateNum && d.getMonth() === month && d.getFullYear() === year;
+                  });
 
                 return (
-                  <Pressable
-                    key={colIndex}
-                    className="flex-1 items-center justify-center"
-                    onPress={() => { if (!isMuted) setSelected(date); }}
-                  >
+                  <View key={colIndex} className="flex-1 items-center justify-center h-10">
                     <View
                       className={`size-8 items-center justify-center rounded-full ${
-                        isSelected ? "bg-primary" : ""
+                        isToday ? "bg-primary" : ""
                       }`}
                     >
                       <Text
                         className={`text-sm ${
-                          isMuted
-                            ? "text-zinc-600"
-                            : isSelected
-                            ? "text-white font-medium"
+                          dateNum === null
+                            ? "opacity-0"
+                            : isToday
+                            ? "text-white font-bold"
                             : "text-foreground font-medium"
                         }`}
                       >
-                        {date}
+                        {dateNum || ""}
                       </Text>
                     </View>
-                    {hasDot && !isSelected && (
-                      <View className="size-1 rounded-full bg-primary mt-1" />
+                    {hasEvent && (
+                      <View
+                        className={`size-1.5 rounded-full ${
+                          isToday ? "bg-white" : "bg-blue-500"
+                        } mt-0.5`}
+                      />
                     )}
-                  </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -97,27 +175,47 @@ export default function CalendarScreen(): JSX.Element {
 
         {/* Upcoming Events */}
         <View className="px-5">
-          <Text className="text-white text-lg font-semibold mb-1">Upcoming</Text>
-          <Text className="text-muted text-sm mb-4">Scheduled appointments this month.</Text>
-          <View className="gap-3">
-            {UPCOMING.map((item, index) => (
-              <Card
-                key={index}
-                variant="secondary"
-                className="bg-[#18181b] border-0 rounded-xl p-4 flex-row items-center"
-              >
-                <View className="items-center justify-center mr-4 w-12">
-                  <Text className="text-red-500 text-sm font-medium">{item.day}</Text>
-                  <Text className="text-white text-lg font-semibold">{item.date}</Text>
-                </View>
-                <View className="w-px h-full bg-[#27272a] mx-2" />
-                <View className="flex-1 ml-2">
-                  <Text className="text-white text-base font-medium mb-1">{item.title}</Text>
-                  <Text className="text-muted text-sm">{item.time}</Text>
-                </View>
-              </Card>
-            ))}
-          </View>
+          <Text className="text-foreground text-lg font-semibold mb-1">Upcoming Events</Text>
+          <Text className="text-muted text-sm mb-4">Scheduled appointments for {monthName}.</Text>
+
+          {isLoading && appointments.length === 0 ? (
+            <ActivityIndicator size="small" color="#6366f1" className="py-6" />
+          ) : upcomingEvents.length > 0 ? (
+            <View className="gap-3">
+              {upcomingEvents.map((item) => {
+                const d = parseLocalDate(item.appointment_date);
+                const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
+                const dateNum = d.getDate();
+                const formattedDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+                return (
+                  <Card
+                    key={item.appointment_id}
+                    variant="secondary"
+                    className="bg-surface border-0 rounded-xl p-4 flex-row items-center"
+                  >
+                    <View className="items-center justify-center mr-4 w-12">
+                      <Text className="text-primary text-sm font-bold">{dayStr}</Text>
+                      <Text className="text-foreground text-lg font-bold">{dateNum}</Text>
+                    </View>
+                    <View className="w-px h-10 bg-separator mx-2" />
+                    <View className="flex-1 ml-2">
+                      <Text className="text-foreground text-base font-semibold mb-1">{item.appointment_type}</Text>
+                      <Text className="text-muted text-sm">{formattedDate} · {item.appointment_time}</Text>
+                    </View>
+                  </Card>
+                );
+              })}
+            </View>
+          ) : (
+            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
+              <Ionicons name="calendar-outline" size={28} color="#71717a" className="mb-2" />
+              <Text className="text-foreground font-semibold text-base mb-1">No Appointments</Text>
+              <Text className="text-muted text-sm text-center">
+                No scheduled appointments for this month.
+              </Text>
+            </Card>
+          )}
         </View>
       </ScrollView>
     </View>

@@ -1,9 +1,13 @@
-import { View, TextInput, Pressable, KeyboardAvoidingView, Platform, FlatList } from "react-native";
-import { Avatar, SearchField, Text } from "heroui-native";
+import { View, TextInput, Pressable, KeyboardAvoidingView, Platform, FlatList, Alert, ActivityIndicator } from "react-native";
+import { Avatar, Text } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Header } from "../../components/Header";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { JSX } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useAuth } from "../../context/UserContext";
+import { useNetwork } from "../../context/NetworkContext";
+import { getMessagesApi, sendMessageApi } from "../../config/api";
+import type { InAppMessage, ChatContact } from "../../config/api";
 
 type Message = {
   id: string;
@@ -12,74 +16,297 @@ type Message = {
   time: string;
 };
 
-const MOCK_MESSAGES: Message[] = [
-  { id: "1", text: "Good morning! Just a reminder for your prenatal checkup on July 11.", mine: false, time: "9:01 AM" },
-  { id: "2", text: "Thank you for the reminder! Will I need to fast before the appointment?", mine: true, time: "9:03 AM" },
-  { id: "3", text: "No fasting needed for this visit. Just bring your health record booklet.", mine: false, time: "9:05 AM" },
-  { id: "4", text: "Got it, thank you!", mine: true, time: "9:06 AM" },
-];
-
 export default function ChatScreen(): JSX.Element {
-  const [search, setSearch] = useState("");
-  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const { user, token } = useAuth();
+  const { isOnline } = useNetwork();
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [contact, setContact] = useState<ChatContact | null>(null);
+  const [hasFacility, setHasFacility] = useState<boolean | null>(user?.facility_id ? true : null);
+  const [inputText, setInputText] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  const flatListRef = useRef<FlatList>(null);
+
+  // Fetch messages from backend database
+  const fetchMessages = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await getMessagesApi(token);
+      if (res.hasFacility !== undefined) {
+        setHasFacility(res.hasFacility);
+      } else if (!user?.facility_id) {
+        setHasFacility(false);
+      } else {
+        setHasFacility(true);
+      }
+
+      if (res.contact) {
+        setContact(res.contact);
+      }
+
+      if (res.data) {
+        const formatted: Message[] = res.data.map((msg) => ({
+          id: msg.message_id,
+          text: msg.message_content,
+          mine: msg.sender_id === user?.user_id,
+          time: new Date(msg.message_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        }));
+        setMessages(formatted);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch messages:", err);
+    }
+  }, [token, user?.user_id, user?.facility_id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMessages();
+      // Poll every 8 seconds for new messages if online
+      const interval = setInterval(() => {
+        fetchMessages();
+      }, 8000);
+      return () => clearInterval(interval);
+    }, [fetchMessages])
+  );
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    const trimmed = inputText.trim();
+    if (!trimmed || !token || isSending) return;
+
+    const tempId = Date.now().toString();
+    const optimisticMessage: Message = {
+      id: tempId,
+      text: trimmed,
+      mine: true,
+      time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setInputText("");
+    setIsSending(true);
+
+    try {
+      await sendMessageApi(
+        {
+          receiver_id: contact?.user_id,
+          message_content: trimmed,
+        },
+        token
+      );
+      await fetchMessages();
+    } catch (err: any) {
+      Alert.alert("Send Failed", err.message || "Could not send message. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleAttachment = () => {
+    Alert.alert("Attach File", "Choose an item to attach to your message:", [
+      { text: "Photo / Image", onPress: () => {} },
+      { text: "Medical Record Booklet", onPress: () => {} },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const contactName = contact
+    ? `Dr. ${contact.first_name} ${contact.last_name}`
+    : user?.facility_name
+    ? `${user.facility_name} Care Team`
+    : "Healthcare Center Care Team";
+  const contactRole = contact?.role
+    ? `${contact.role}`
+    : "Maternal & Child Health Support";
+
+  // Render unaffiliated page if user is not connected to a facility
+  if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
+    return (
+      <View className="flex-1 bg-background">
+        {/* Custom Header */}
+        <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push("/(tabs)/profile");
+              }
+            }}
+            className="size-9 rounded-full bg-default items-center justify-center"
+          >
+            <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+          </Pressable>
+          <Text className="text-foreground font-bold text-lg">Direct Messaging</Text>
+        </View>
+
+        {/* Content Body */}
+        <View className="flex-1 items-center justify-center p-6">
+          <View className="size-20 rounded-full bg-rose-500/10 border border-rose-500/20 items-center justify-center mb-4">
+            <Ionicons name="business-outline" size={36} color="#f43f5e" />
+          </View>
+          <Text className="text-foreground font-bold text-xl mb-2 text-center">
+            Not Affiliated with any Facility
+          </Text>
+          <Text className="text-muted text-sm text-center max-w-sm leading-6 mb-6">
+            You are currently not affiliated with any healthcare facility or health center. Direct messaging is only available once your account is linked to a health center.
+          </Text>
+
+          <Pressable
+            onPress={() => router.push("/(tabs)/profile")}
+            className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2"
+          >
+            <Ionicons name="person-circle-outline" size={20} color="white" />
+            <Text className="text-white font-semibold text-sm">View Profile</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : "padding"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
-      <Header />
+      {/* Custom Chat Header */}
+      <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center justify-between">
+        <View className="flex-row items-center gap-3 flex-1">
+          {/* Back Button */}
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push("/(tabs)/profile");
+              }
+            }}
+            className="size-9 rounded-full bg-default items-center justify-center"
+          >
+            <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+          </Pressable>
 
-      {/* Doctor header */}
-      <View className="items-center px-5 py-4 border-b border-separator">
-        <Avatar size="md" className="mb-2">
-          <Avatar.Fallback delayMs={0}>
-            <View className="w-full h-full bg-blue-300" />
-          </Avatar.Fallback>
-        </Avatar>
-        <Text className="text-foreground font-semibold text-base">Joseph Angelo Q. Petalio</Text>
-        <Text className="text-muted text-sm">OB-GYN · BMS Health Center</Text>
+          {/* Contact Avatar */}
+          <View className="relative">
+            <Avatar size="sm">
+              <Avatar.Fallback delayMs={0}>
+                <View className="w-full h-full bg-primary items-center justify-center">
+                  <Text className="text-white text-xs font-bold">
+                    {contact ? contact.first_name.charAt(0).toUpperCase() : "B"}
+                  </Text>
+                </View>
+              </Avatar.Fallback>
+            </Avatar>
+            <View
+              style={{
+                position: "absolute",
+                bottom: -1,
+                right: -1,
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: isOnline ? "#10b981" : "#f59e0b",
+                borderWidth: 1.5,
+                borderColor: "#18181b",
+              }}
+            />
+          </View>
+
+          {/* Contact Info */}
+          <View className="flex-1">
+            <Text className="text-foreground font-bold text-base" numberOfLines={1}>
+              {contactName}
+            </Text>
+            <Text className="text-muted text-xs" numberOfLines={1}>
+              {contactRole}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      {/* Messages */}
-      <FlatList
-        data={MOCK_MESSAGES}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 20, gap: 12 }}
-        renderItem={({ item }) => (
-          <View className={`flex-row ${item.mine ? "justify-end" : "justify-start"}`}>
-            <View
-              className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${
-                item.mine ? "bg-accent rounded-tr-sm" : "bg-surface rounded-tl-sm"
-              }`}
-            >
-              <Text className={`text-base ${item.mine ? "text-white" : "text-foreground"}`}>{item.text}</Text>
-              <Text className={`text-sm mt-1 ${item.mine ? "text-white/60" : "text-muted"}`}>{item.time}</Text>
+      {/* Messages List */}
+      {messages.length > 0 ? (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 12 }}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <View className={`flex-row ${item.mine ? "justify-end" : "justify-start"}`}>
+              <View
+                className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+                  item.mine
+                    ? "bg-primary rounded-tr-xs"
+                    : "bg-surface border border-default rounded-tl-xs"
+                }`}
+              >
+                <Text className={`text-base leading-5 ${item.mine ? "text-white font-medium" : "text-foreground"}`}>
+                  {item.text}
+                </Text>
+                <Text className={`text-xs mt-1.5 align-self-end ${item.mine ? "text-white/70" : "text-muted"}`}>
+                  {item.time}
+                </Text>
+              </View>
             </View>
+          )}
+        />
+      ) : (
+        <View className="flex-1 items-center justify-center p-6">
+          <View className="size-16 rounded-full bg-surface items-center justify-center mb-3">
+            <Ionicons name="chatbubbles-outline" size={28} color="#f43f5e" />
           </View>
-        )}
-      />
+          <Text className="text-foreground font-bold text-lg mb-1">Direct Health Messaging</Text>
+          <Text className="text-muted text-sm text-center max-w-xs leading-5">
+            Send a direct message to your healthcare facility staff or doctor for guidance and support.
+          </Text>
+        </View>
+      )}
 
-      {/* Input bar */}
-      <View className="px-5 pb-28 pt-3 border-t border-separator">
-        <View className="bg-default rounded-2xl p-3 flex-row items-end gap-2">
-          <Pressable className="size-8 bg-surface-secondary rounded-full items-center justify-center mb-0.5">
-            <Ionicons name="add" size={20} color="#a1a1aa" />
-          </Pressable>
+      {/* Input Bar */}
+      <View className="px-4 py-3 bg-surface border-t border-default flex-row items-center gap-3">
+        <Pressable
+          onPress={handleAttachment}
+          className="size-10 bg-default rounded-full items-center justify-center"
+        >
+          <Ionicons name="add" size={22} color="#a1a1aa" />
+        </Pressable>
 
+        <View className="flex-1 bg-default rounded-2xl px-4 py-2 flex-row items-center min-h-[44px]">
           <TextInput
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Message..."
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Type a message..."
             placeholderTextColor="#71717a"
             multiline
-            className="flex-1 text-foreground text-base max-h-28 min-h-[36px] pt-1"
+            className="flex-1 text-foreground text-base max-h-24 p-0"
           />
-
-          <Pressable className="size-8 bg-accent rounded-full items-center justify-center mb-0.5">
-            <Ionicons name="send" size={14} color="white" style={{ marginLeft: 1 }} />
-          </Pressable>
         </View>
+
+        <Pressable
+          onPress={handleSend}
+          disabled={!inputText.trim() || isSending}
+          className={`size-10 rounded-full items-center justify-center ${
+            inputText.trim() && !isSending ? "bg-primary" : "bg-default opacity-50"
+          }`}
+        >
+          {isSending ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Ionicons name="send" size={16} color={inputText.trim() ? "white" : "#71717a"} style={{ marginLeft: 2 }} />
+          )}
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );

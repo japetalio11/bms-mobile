@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { Text, Avatar, Button, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Header } from "../../components/Header";
 import type { JSX } from "react";
+import { useAuth } from "../../context/UserContext";
+import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
 
 function SettingRow({
   icon,
@@ -34,6 +37,15 @@ function SettingRow({
 
 export default function ProfileScreen(): JSX.Element {
   const router = useRouter();
+  const { user, motherRecord, logout } = useAuth();
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/(auth)/login");
+  };
+
+  const facilityName = user.facility_name || user.facility?.facility_name;
 
   return (
     <View className="flex-1 bg-background">
@@ -43,12 +55,20 @@ export default function ProfileScreen(): JSX.Element {
         {/* Profile Hero */}
         <View className="items-center px-5 pt-2 pb-6">
           <Avatar size="lg" className="mb-4">
-            <Avatar.Fallback delayMs={0}>
-              <View className="w-full h-full bg-orange-300" />
-            </Avatar.Fallback>
+            {(user as any).profile_picture_url || (user as any).avatar_url ? (
+              <Avatar.Image source={{ uri: (user as any).profile_picture_url || (user as any).avatar_url }} />
+            ) : (
+              <Avatar.Fallback delayMs={0}>
+                <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
+                  <Text className="text-white text-xl font-bold">
+                    {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
+                  </Text>
+                </View>
+              </Avatar.Fallback>
+            )}
           </Avatar>
-          <Text className="text-foreground text-lg font-bold">Maria Santos</Text>
-          <Text className="text-muted text-sm mb-5">msantos@gmail.com</Text>
+          <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
+          <Text className="text-muted text-sm mb-4">{user.email || user.phone_number || ""}</Text>
 
           <Button
             variant="secondary"
@@ -59,6 +79,19 @@ export default function ProfileScreen(): JSX.Element {
           </Button>
         </View>
 
+        {/* Facility Connection & Health Card QR */}
+        <View className="px-5 mb-4">
+          <Text className="text-muted text-sm font-medium mb-1 ml-1">Facility Connection</Text>
+          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
+            <SettingRow
+              icon="qr-code-outline"
+              title="Mother Health Card & QR"
+              subtitle="Scan or share code to connect facility"
+              onPress={() => setQrModalOpen(true)}
+            />
+          </Card>
+        </View>
+
         {/* Preferences */}
         <View className="px-5 mb-4">
           <Text className="text-muted text-sm font-medium mb-1 ml-1">Preferences</Text>
@@ -67,6 +100,7 @@ export default function ProfileScreen(): JSX.Element {
               icon="notifications-outline"
               title="Notification Preferences"
               subtitle="Reminders for supplements, appointments"
+              onPress={() => router.push("/(tabs)/notifications")}
             />
             <View className="h-px bg-separator mx-1" />
             <SettingRow
@@ -106,12 +140,20 @@ export default function ProfileScreen(): JSX.Element {
               icon="log-out-outline"
               title="Sign Out"
               showChevron={false}
-              onPress={() => router.replace("/(auth)/login")}
+              onPress={handleLogout}
             />
           </Card>
         </View>
 
       </ScrollView>
+
+      {/* Mother QR Modal */}
+      <MotherQRCodeModal
+        visible={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        user={user}
+        motherRecord={motherRecord}
+      />
     </View>
   );
 }

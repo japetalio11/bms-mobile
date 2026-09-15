@@ -12,9 +12,13 @@ import {
 } from "@expo-google-fonts/inter";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import "../global.css";
 import { UserProvider } from "../context/UserContext";
+import { NetworkProvider } from "../context/NetworkContext";
+import { SettingsProvider } from "../context/settingsContext";
+import { OfflineBanner } from "../components/OfflineBanner";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -39,13 +43,20 @@ export default function RootLayout(): JSX.Element | null {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <HeroUINativeProvider>
-        <UserProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-          <StatusBar style="auto" />
-        </UserProvider>
+        <SettingsProvider>
+          <NetworkProvider>
+            <UserProvider>
+              <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+                <OfflineBanner />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="(tabs)" />
+                </Stack>
+                <StatusBar style="auto" />
+              </SafeAreaView>
+            </UserProvider>
+          </NetworkProvider>
+        </SettingsProvider>
       </HeroUINativeProvider>
     </GestureHandlerRootView>
   );
