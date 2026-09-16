@@ -11,6 +11,7 @@ import { makeRedirectUri } from "expo-auth-session";
 import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
 import { usePhoneAuth } from "../../hooks/usePhoneAuth";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,6 +37,7 @@ function decodeJwtPayload(token: string): any {
 export default function LoginScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Phone Auth Hook for Setup Password OTP
   const phoneAuth = usePhoneAuth({
@@ -314,7 +316,7 @@ export default function LoginScreen(): JSX.Element {
   return (
     <ScrollView 
       className="flex-1 bg-background"
-      contentContainerClassName="p-6 pt-10 pb-8"
+      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 40, paddingBottom: Math.max(insets.bottom + 48, 64) }}
       keyboardShouldPersistTaps="handled"
     >
       {/* Logo & Header */}

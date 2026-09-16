@@ -22,7 +22,7 @@ export default function AppAppearanceScreen() {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header showBackButton title="App Appearance" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         
         {/* Theme Visual Mockup Header */}
         <View className="px-5 mb-8 pt-2">

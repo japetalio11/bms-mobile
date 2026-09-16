@@ -8,12 +8,14 @@ import { withUniwind } from "uniwind";
 import { sendOtpApi, resetPasswordApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
 import { usePhoneAuth } from "../../hooks/usePhoneAuth";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const StyledIonicons = withUniwind(Ionicons);
 
 export default function ForgotPasswordScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Phone Auth Hook
   const phoneAuth = usePhoneAuth({
@@ -176,7 +178,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="bg-background px-6 pt-6 pb-6">
+    <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 48, 64) }} className="bg-background">
       {/* Header with Back Button */}
       <View className="flex-row items-center mb-4">
         <Pressable 
