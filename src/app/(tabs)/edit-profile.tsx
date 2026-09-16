@@ -1,24 +1,45 @@
-import { View, ScrollView, ActivityIndicator } from "react-native";
+import {
+  View,
+  ScrollView,
+  ActivityIndicator,
+  Pressable,
+  Modal,
+  TouchableWithoutFeedback,
+} from "react-native";
 import { Text, Avatar, Button, TextField, Label, Input } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "../../components/Header";
 import type { JSX } from "react";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/UserContext";
-import { updateMotherProfileApi } from "../../config/api";
+import { useNetwork } from "../../context/NetworkContext";
+import { useConfirm } from "../../context/ConfirmationContext";
+import {
+  updateMotherProfileApi,
+  uploadMessageFileApi,
+  formatFormDataFile,
+} from "../../config/api";
 
 export default function EditProfileScreen(): JSX.Element {
   const router = useRouter();
   const { user, token, refreshProfile } = useAuth();
+  const { isOnline } = useNetwork();
+  const { confirm } = useConfirm();
 
   const [firstName, setFirstName] = useState(user.first_name || "");
   const [lastName, setLastName] = useState(user.last_name || "");
   const [phone, setPhone] = useState(user.phone_number || "");
   const [email, setEmail] = useState(user.email || "");
   const [address, setAddress] = useState(user.address || "");
+  const [avatarUri, setAvatarUri] = useState<string | null>(
+    (user as any).profile_picture_url || (user as any).profile_url || (user as any).avatar_url || null
+  );
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -30,8 +51,51 @@ export default function EditProfileScreen(): JSX.Element {
       if (user.phone_number) setPhone(user.phone_number);
       if (user.email) setEmail(user.email);
       if (user.address) setAddress(user.address);
+      const photo = (user as any).profile_picture_url || (user as any).profile_url || (user as any).avatar_url;
+      if (photo) setAvatarUri(photo);
     }
   }, [user]);
+
+  const handlePickImage = async (useCamera = false) => {
+    setIsPhotoPickerOpen(false);
+    try {
+      let result;
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          confirm({
+            title: "Camera Permission Required",
+            message: "Camera access is needed to capture a profile photo.",
+            confirmText: "OK",
+            cancelText: "",
+            variant: "warning",
+            icon: "camera-outline",
+          });
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [1, 1],
+        });
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [1, 1],
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setAvatarUri(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      console.warn("Error picking profile image:", err);
+      setError("Could not select photo. Please try again.");
+    }
+  };
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -44,6 +108,34 @@ export default function EditProfileScreen(): JSX.Element {
     setSuccess(false);
 
     try {
+      let uploadedProfileUrl: string | undefined = undefined;
+
+      // If a new local image was selected (file:// or content://)
+      if (avatarUri && (avatarUri.startsWith("file://") || avatarUri.startsWith("content://"))) {
+        if (isOnline && token) {
+          try {
+            setIsUploadingPhoto(true);
+            const fileName = `profile_${user.user_id}_${Date.now()}.jpg`;
+            const filePayload = formatFormDataFile(avatarUri, fileName, "image/jpeg");
+            const formData = new FormData();
+            formData.append("file", filePayload as any);
+
+            const uploadRes = await uploadMessageFileApi(formData, token);
+            uploadedProfileUrl = uploadRes.fileUrl;
+          } catch (uploadErr: any) {
+            console.warn("Supabase photo upload warning, preserving local URI:", uploadErr);
+            uploadedProfileUrl = avatarUri;
+          } finally {
+            setIsUploadingPhoto(false);
+          }
+        } else {
+          // Preserve local image URI for offline visibility
+          uploadedProfileUrl = avatarUri;
+        }
+      } else if (avatarUri) {
+        uploadedProfileUrl = avatarUri;
+      }
+
       await updateMotherProfileApi(
         {
           first_name: firstName.trim(),
@@ -51,6 +143,7 @@ export default function EditProfileScreen(): JSX.Element {
           phone_number: phone.trim(),
           email: email.trim(),
           address: address.trim(),
+          ...(uploadedProfileUrl ? { profile_url: uploadedProfileUrl } : {}),
         },
         token || ""
       );
@@ -64,6 +157,7 @@ export default function EditProfileScreen(): JSX.Element {
       setError(err.message || "Failed to update profile. Please try again.");
     } finally {
       setIsLoading(false);
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -74,20 +168,29 @@ export default function EditProfileScreen(): JSX.Element {
 
         {/* Avatar section */}
         <View className="px-5 items-center pt-2 mb-6">
-          <View className="relative mb-4">
+          <Pressable onPress={() => setIsPhotoPickerOpen(true)} className="relative mb-4 active:opacity-80">
             <Avatar size="lg" className="h-24 w-24">
-              <Avatar.Fallback delayMs={0}>
-                <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                  <Text className="text-white text-2xl font-bold">
-                    {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
-                  </Text>
-                </View>
-              </Avatar.Fallback>
+              {avatarUri ? (
+                <Avatar.Image source={{ uri: avatarUri }} />
+              ) : (
+                <Avatar.Fallback delayMs={0}>
+                  <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
+                    <Text className="text-white text-2xl font-bold">
+                      {firstName ? firstName.charAt(0).toUpperCase() : "M"}
+                    </Text>
+                  </View>
+                </Avatar.Fallback>
+              )}
             </Avatar>
             <View className="absolute bottom-0 right-0 size-8 bg-primary rounded-full items-center justify-center border-2 border-background">
-              <Ionicons name="camera-outline" size={14} color="white" />
+              {isUploadingPhoto ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Ionicons name="camera-outline" size={14} color="white" />
+              )}
             </View>
-          </View>
+          </Pressable>
+
           <Text className="text-foreground text-lg font-bold mb-0.5">{user.name || "Mother Profile"}</Text>
           <Text className="text-muted text-sm">{user.email || user.phone_number || ""}</Text>
         </View>
@@ -176,6 +279,44 @@ export default function EditProfileScreen(): JSX.Element {
           </Button>
         </View>
       </ScrollView>
+
+      {/* Photo Picker Sheet Modal */}
+      <Modal visible={isPhotoPickerOpen} transparent animationType="fade" onRequestClose={() => setIsPhotoPickerOpen(false)}>
+        <TouchableWithoutFeedback onPress={() => setIsPhotoPickerOpen(false)}>
+          <View className="flex-1 bg-black/70 justify-end p-5">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View className="bg-[#1c1c24] border border-white/10 rounded-3xl p-4 gap-2">
+                <Text className="text-white text-base font-bold text-center py-2 border-b border-white/10 mb-1">
+                  Change Profile Photo
+                </Text>
+
+                <Pressable
+                  onPress={() => handlePickImage(true)}
+                  className="flex-row items-center gap-3 p-3.5 rounded-2xl bg-[#252530] active:bg-[#30303d]"
+                >
+                  <Ionicons name="camera-outline" size={20} color="#38bdf8" />
+                  <Text className="text-white text-sm font-semibold">Take Photo</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => handlePickImage(false)}
+                  className="flex-row items-center gap-3 p-3.5 rounded-2xl bg-[#252530] active:bg-[#30303d]"
+                >
+                  <Ionicons name="images-outline" size={20} color="#10b981" />
+                  <Text className="text-white text-sm font-semibold">Choose from Library</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setIsPhotoPickerOpen(false)}
+                  className="p-3.5 rounded-2xl bg-white/5 items-center justify-center mt-1"
+                >
+                  <Text className="text-zinc-400 text-sm font-medium">Cancel</Text>
+                </Pressable>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
