@@ -493,6 +493,11 @@ export function getFullFileUrl(url?: string | null, localUri?: string | null): s
   if (localUri) return localUri;
   if (!url) return null;
 
+  // Preserve inline data and blob URLs
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+
   let normalizedUrl = url;
   if (normalizedUrl.includes("localhost:") || normalizedUrl.includes("127.0.0.1:")) {
     normalizedUrl = normalizedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1):\d+/, API_BASE_URL);

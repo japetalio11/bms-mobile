@@ -895,7 +895,9 @@ export default function ChatScreen(): JSX.Element {
                           }`}
                           numberOfLines={1}
                         >
-                          {item.text.split("/").pop()?.split("?")[0] || "Document Attachment"}
+                          {item.text.startsWith("data:")
+                            ? "Document Attachment"
+                            : item.text.split("/").pop()?.split("?")[0] || "Document Attachment"}
                         </Text>
                         <Text
                           className={`text-[11px] mt-0.5 ${
