@@ -2,7 +2,7 @@
   "name": "bms-mobile",
   "version": "1.0.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -23,6 +23,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-firebase/app": "^26.4.0",
     "@react-native-firebase/auth": "^26.4.0",
+    "@react-native-firebase/messaging": "^26.4.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "expo": "~57.0.15",
     "expo-auth-session": "~57.0.11",

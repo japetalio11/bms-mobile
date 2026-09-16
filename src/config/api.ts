@@ -651,3 +651,24 @@ export async function sendMessageApi(
 
   return data.data || data;
 }
+
+export async function updatePushTokenApi(
+  token: string,
+  fcmToken: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/push-token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ fcmToken }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Failed to register push token with backend (HTTP ${response.status})`);
+  }
+
+  return data;
+}
