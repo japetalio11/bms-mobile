@@ -1,4 +1,4 @@
-import { View, ScrollView, Image, ActivityIndicator, Pressable } from "react-native";
+import { View, ScrollView, Image, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Card, Text, Checkbox } from "heroui-native";
@@ -23,11 +23,12 @@ import {
 
 export default function DashboardScreen(): JSX.Element {
   const router = useRouter();
-  const { user, token, motherRecord, activePregnancy } = useAuth();
+  const { user, token, motherRecord, activePregnancy, refreshProfile } = useAuth();
   const { isOnline } = useNetwork();
 
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Calculate Gestational Age based on LMP Date
   const calculateGestationalWeeks = (): {
@@ -121,6 +122,12 @@ export default function DashboardScreen(): JSX.Element {
     }
   }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
 
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([loadData(), refreshProfile()]);
+    setIsRefreshing(false);
+  };
+
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -150,7 +157,13 @@ export default function DashboardScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background">
       <Header title={`Good day${user.first_name ? `, ${user.first_name}` : ""} 👋`} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 140 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+        }
+      >
         <View className="px-5 pt-3">
           {/* Week Card */}
           <Card className="mb-6 p-4 bg-surface gap-3 rounded-3xl border-0">

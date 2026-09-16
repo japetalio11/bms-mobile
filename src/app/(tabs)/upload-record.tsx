@@ -3,14 +3,14 @@ import type { JSX } from "react";
 import { Text, Button } from "heroui-native";
 import { Header } from "../../components/Header";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
-import { useRouter } from "expo-router";
+import { useState, useCallback } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
-import { createLabScreeningApi, uploadLabFileApi } from "../../config/api";
+import { createLabScreeningApi, uploadLabFileApi, formatFormDataFile } from "../../config/api";
 import { createLabScreeningLocal, saveLabScreeningsLocal } from "../../db/repository";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -42,6 +42,16 @@ export default function UploadRecordScreen(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setSelectedFile(null);
+      setError(null);
+      setSuccess(false);
+      setIsLoading(false);
+      setRecordType("Urinalysis");
+    }, [])
+  );
 
   const handlePickDocument = async () => {
     setError(null);
@@ -131,16 +141,13 @@ export default function UploadRecordScreen(): JSX.Element {
       if (isOnline && token) {
         try {
           let serverFileUrl = undefined;
-          if (selectedFile) {
+          if (selectedFile && selectedFile.uri) {
+            const filePayload = formatFormDataFile(selectedFile.uri, selectedFile.name, selectedFile.mimeType);
             const formData = new FormData();
-            formData.append("file", {
-              uri: selectedFile.uri,
-              name: selectedFile.name,
-              type: selectedFile.mimeType || "image/jpeg",
-            } as any);
+            formData.append("file", filePayload as any);
 
             const uploadRes = await uploadLabFileApi(formData, token);
-            serverFileUrl = uploadRes.fileUrl;
+            serverFileUrl = uploadRes.file_url || uploadRes.fileUrl;
           }
 
           const res = await createLabScreeningApi(
@@ -181,8 +188,14 @@ export default function UploadRecordScreen(): JSX.Element {
 
       setSuccess(true);
       setTimeout(() => {
-        router.back();
-      }, 1200);
+        setSelectedFile(null);
+        setSuccess(false);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/(tabs)/records");
+        }
+      }, 1000);
     } catch (err: any) {
       setError(err.message || "Failed to submit lab record");
     } finally {

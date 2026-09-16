@@ -12,14 +12,17 @@ import {
   ScrollView,
   RefreshControl,
   Linking,
+  Keyboard,
 } from "react-native";
 import { Avatar, Text } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { JSX } from "react";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useNavigation } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import {
@@ -28,12 +31,15 @@ import {
   getFacilityStaffApi,
   uploadMessageFileApi,
   markMessagesAsReadApi,
+  formatFormDataFile,
+  getFullFileUrl,
 } from "../../config/api";
 import type { InAppMessage, ChatContact } from "../../config/api";
 import {
   getMessagesLocal,
   saveMessagesLocal,
   saveOutgoingMessageLocal,
+  deleteLocalMessage,
   getChatContactsLocal,
   saveChatContactsLocal,
 } from "../../db/repository";
@@ -45,10 +51,12 @@ type MessageBubble = {
   time: string;
   type: string; // 'text' | 'image' | 'file'
   dateRaw: string;
+  status?: "sending" | "sent" | "failed" | "queued";
 };
 
 export default function ChatScreen(): JSX.Element {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
   const { isOnline } = useNetwork();
 
@@ -66,25 +74,61 @@ export default function ChatScreen(): JSX.Element {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [sendingMessageIds, setSendingMessageIds] = useState<Set<string>>(new Set());
+
+  // Attachment Modal States
+  const [isAttachmentSheetVisible, setIsAttachmentSheetVisible] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    uri: string;
+    name: string;
+    type: string;
+    sizeFormatted: string;
+    detectedType: "image" | "file";
+  } | null>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const flatListRef = useRef<FlatList>(null);
+
+  const isInitialHydrationDone = useRef(false);
 
   // Fetch all messages and staff directory for affiliated facility
   const fetchAllData = useCallback(async () => {
     if (!token && !user?.user_id) return;
     try {
-      // 1. Immediately hydrate from local SQLite database
-      if (user?.user_id) {
+      // 1. Initial hydration or Offline: read from local SQLite
+      if (user?.user_id && (!isInitialHydrationDone.current || !isOnline)) {
         const [localMsgs, localStaff] = await Promise.all([
           getMessagesLocal(user.user_id),
           getChatContactsLocal(user.facility_id || undefined),
         ]);
         if (localMsgs.length > 0) {
-          setAllMessages(localMsgs);
+          setAllMessages((prev) => {
+            if (prev.length === 0) return localMsgs;
+            const map = new Map<string, InAppMessage>();
+            localMsgs.forEach((m) => map.set(m.message_id, m));
+            prev.forEach((m) => map.set(m.message_id, m));
+            return Array.from(map.values());
+          });
         }
         if (localStaff.length > 0) {
           setStaffList(localStaff);
         }
+        isInitialHydrationDone.current = true;
       }
 
       // If offline, don't attempt network calls
@@ -114,16 +158,57 @@ export default function ChatScreen(): JSX.Element {
       const remoteMessages = messagesRes.data || [];
       const remoteStaff = staffRes || [];
 
-      setAllMessages(remoteMessages);
-      setStaffList(remoteStaff);
+      // Merge remote messages with in-flight local messages & recently sent state to prevent race-condition drops
+      setAllMessages((prev) => {
+        const map = new Map<string, InAppMessage>();
 
-      // 2. Persist fresh network data to SQLite database
+        // 1. Add all remote messages
+        remoteMessages.forEach((m) => map.set(m.message_id, m));
+
+        // 2. Preserve local/in-flight messages from state that aren't in remoteMessages yet
+        prev.forEach((m) => {
+          if (map.has(m.message_id)) return;
+
+          // Check if remote already contains a matching message (by sender, receiver, content, timestamp)
+          const matchingRemote = remoteMessages.find(
+            (rm) =>
+              rm.sender_id === m.sender_id &&
+              rm.receiver_id === m.receiver_id &&
+              rm.message_content === m.message_content &&
+              Math.abs(new Date(rm.message_date).getTime() - new Date(m.message_date).getTime()) < 120000
+          );
+
+          if (!matchingRemote) {
+            // Keep message if it's a local draft or sent recently (< 3 min)
+            const isLocal = m.message_id.startsWith("local_");
+            const isRecent = Math.abs(Date.now() - new Date(m.message_date).getTime()) < 180000;
+            if (isLocal || (isRecent && m.sender_id === user?.user_id)) {
+              map.set(m.message_id, m);
+            }
+          } else {
+            if (m.message_id.startsWith("local_")) {
+              deleteLocalMessage(m.message_id).catch(() => {});
+            }
+          }
+        });
+
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(a.message_date).getTime() - new Date(b.message_date).getTime()
+        );
+      });
+
+      if (remoteStaff.length > 0) {
+        setStaffList(remoteStaff);
+      }
+
+      // Persist fresh network data to SQLite database
       if (remoteMessages.length > 0) {
         await saveMessagesLocal(remoteMessages);
       }
       if (remoteStaff.length > 0) {
         await saveChatContactsLocal(remoteStaff);
       }
+      isInitialHydrationDone.current = true;
     } catch (err) {
       console.warn("Failed to fetch chat data:", err);
     }
@@ -238,36 +323,56 @@ export default function ChatScreen(): JSX.Element {
     });
   }, [staffWithMeta, searchQuery, roleFilter]);
 
-  // Messages for the currently selected 1-to-1 chat
+  // Messages for the currently selected 1-to-1 chat with robust deduplication
   const currentChatMessages = useMemo<MessageBubble[]>(() => {
     if (!selectedStaff) return [];
 
-    return allMessages
-      .filter(
-        (m) =>
-          (m.sender_id === selectedStaff.user_id && m.receiver_id === user?.user_id) ||
-          (m.sender_id === user?.user_id && m.receiver_id === selectedStaff.user_id)
-      )
-      .map((msg) => {
-        const isImg =
-          msg.message_type === "image" ||
-          msg.message_content.startsWith("data:image/") ||
-          /\.(jpg|jpeg|png|webp|gif)$/i.test(msg.message_content);
-        const isDoc =
-          msg.message_type === "file" ||
-          msg.message_content.startsWith("data:application/") ||
-          /\.(pdf|docx?|xlsx?|txt|csv|zip)$/i.test(msg.message_content);
+    const thread = allMessages.filter(
+      (m) =>
+        (m.sender_id === selectedStaff.user_id && m.receiver_id === user?.user_id) ||
+        (m.sender_id === user?.user_id && m.receiver_id === selectedStaff.user_id)
+    );
 
-        return {
-          id: msg.message_id,
-          text: msg.message_content,
-          mine: msg.sender_id === user?.user_id,
-          time: new Date(msg.message_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-          type: isImg ? "image" : isDoc ? "file" : "text",
-          dateRaw: msg.message_date,
-        };
-      });
-  }, [allMessages, selectedStaff, user?.user_id]);
+    // Deduplicate by message_id
+    const seenIds = new Set<string>();
+    const uniqueMessages: InAppMessage[] = [];
+
+    // Sort chronologically
+    const sortedThread = [...thread].sort(
+      (a, b) => new Date(a.message_date).getTime() - new Date(b.message_date).getTime()
+    );
+
+    for (const msg of sortedThread) {
+      if (seenIds.has(msg.message_id)) continue;
+      seenIds.add(msg.message_id);
+      uniqueMessages.push(msg);
+    }
+
+    return uniqueMessages.map((msg) => {
+      const isImg =
+        msg.message_type === "image" ||
+        msg.message_content.startsWith("data:image/") ||
+        /\.(jpg|jpeg|png|webp|gif)$/i.test(msg.message_content);
+      const isDoc =
+        msg.message_type === "file" ||
+        msg.message_content.startsWith("data:application/") ||
+        /\.(pdf|docx?|xlsx?|txt|csv|zip)$/i.test(msg.message_content);
+
+      return {
+        id: msg.message_id,
+        text: msg.message_content,
+        mine: msg.sender_id === user?.user_id,
+        time: new Date(msg.message_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        type: isImg ? "image" : isDoc ? "file" : "text",
+        dateRaw: msg.message_date,
+        status: sendingMessageIds.has(msg.message_id)
+          ? "sending"
+          : msg.message_id.startsWith("local_")
+          ? "queued"
+          : "sent",
+      };
+    });
+  }, [allMessages, selectedStaff, user?.user_id, sendingMessageIds]);
 
   useEffect(() => {
     if (currentChatMessages.length > 0) {
@@ -277,7 +382,7 @@ export default function ChatScreen(): JSX.Element {
     }
   }, [currentChatMessages]);
 
-  // Send Text Message
+  // Send Text Message with immediate optimistic bubble + loading indicator
   const handleSendText = async () => {
     const trimmed = inputText.trim();
     if (!trimmed || !selectedStaff || isSending || !user?.user_id) return;
@@ -293,12 +398,16 @@ export default function ChatScreen(): JSX.Element {
       is_read: false,
     };
 
+    // 1. Immediately clear input so the user can continue typing
     setInputText("");
+    // 2. Optimistically append message to conversation view right away
+    setAllMessages((prev) => [...prev, localMessage]);
+    setSendingMessageIds((prev) => new Set(prev).add(localId));
     setIsSending(true);
 
     try {
       if (isOnline && token) {
-        await sendMessageApi(
+        const sentMsg = await sendMessageApi(
           {
             receiver_id: selectedStaff.user_id,
             message_content: trimmed,
@@ -306,27 +415,38 @@ export default function ChatScreen(): JSX.Element {
           },
           token
         );
-        await saveOutgoingMessageLocal(localMessage, true);
-        await fetchAllData();
+        // Replace local placeholder with true server message
+        if (sentMsg?.message_id) {
+          setAllMessages((prev) =>
+            prev.map((m) => (m.message_id === localId ? { ...sentMsg, is_read: false } : m))
+          );
+          await deleteLocalMessage(localId);
+          await saveMessagesLocal([sentMsg]);
+        } else {
+          await saveOutgoingMessageLocal(localMessage, true);
+        }
       } else {
         await saveOutgoingMessageLocal(localMessage, false);
-        setAllMessages((prev) => [...prev, localMessage]);
       }
     } catch (err: any) {
       console.warn("Online send failed, saving to offline outbox:", err);
       await saveOutgoingMessageLocal(localMessage, false);
-      setAllMessages((prev) => [...prev, localMessage]);
     } finally {
       setIsSending(false);
+      setSendingMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(localId);
+        return next;
+      });
     }
   };
 
-  // Upload and send attachment (Image or File)
+  // Upload and send attachment (Image or File) with immediate optimistic preview + inline loading
   const uploadAndSendAttachment = async (
     fileInfo: { uri: string; name: string; type: string },
     detectedType: "image" | "file"
   ) => {
-    if (!token || !selectedStaff || isSending) return;
+    if (!token || !selectedStaff || isSending || !user?.user_id) return;
     if (!isOnline) {
       Alert.alert(
         "Offline Mode",
@@ -334,20 +454,33 @@ export default function ChatScreen(): JSX.Element {
       );
       return;
     }
+
+    const localId = `local_attach_${Date.now()}`;
+    const localMessage: InAppMessage = {
+      message_id: localId,
+      sender_id: user.user_id,
+      receiver_id: selectedStaff.user_id,
+      message_content: fileInfo.uri, // Show local image preview or local path immediately
+      message_type: detectedType,
+      message_date: new Date().toISOString(),
+      is_read: false,
+    };
+
+    // Optimistically render the image or file bubble right away
+    setAllMessages((prev) => [...prev, localMessage]);
+    setSendingMessageIds((prev) => new Set(prev).add(localId));
     setIsSending(true);
 
     try {
+      const filePayload = formatFormDataFile(fileInfo.uri, fileInfo.name, fileInfo.type);
+
       const formData = new FormData();
-      formData.append("file", {
-        uri: fileInfo.uri,
-        name: fileInfo.name,
-        type: fileInfo.type,
-      } as any);
+      formData.append("file", filePayload as any);
 
       const uploadRes = await uploadMessageFileApi(formData, token);
       const serverUrl = uploadRes.fileUrl;
 
-      await sendMessageApi(
+      const sentMsg = await sendMessageApi(
         {
           receiver_id: selectedStaff.user_id,
           message_content: serverUrl,
@@ -356,17 +489,36 @@ export default function ChatScreen(): JSX.Element {
         token
       );
 
-      await fetchAllData();
+      if (sentMsg?.message_id) {
+        setAllMessages((prev) =>
+          prev.map((m) => (m.message_id === localId ? { ...sentMsg, is_read: false } : m))
+        );
+        await deleteLocalMessage(localId);
+        await saveMessagesLocal([sentMsg]);
+      } else {
+        await saveOutgoingMessageLocal(
+          { ...localMessage, message_content: serverUrl },
+          true
+        );
+      }
     } catch (err: any) {
       console.error("Attachment upload error:", err);
       Alert.alert("Upload Failed", err.message || "Could not send attachment. Please check your internet connection.");
+      // Remove failed local item
+      setAllMessages((prev) => prev.filter((m) => m.message_id !== localId));
     } finally {
       setIsSending(false);
+      setSendingMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(localId);
+        return next;
+      });
     }
   };
 
   // Handle Photo selection (Camera or Gallery)
   const handlePickImage = async (useCamera = false) => {
+    setIsAttachmentSheetVisible(false);
     try {
       let result;
       if (useCamera) {
@@ -388,14 +540,19 @@ export default function ChatScreen(): JSX.Element {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        await uploadAndSendAttachment(
-          {
-            uri: asset.uri,
-            name: asset.fileName || `photo_${Date.now()}.jpg`,
-            type: asset.mimeType || "image/jpeg",
-          },
-          "image"
-        );
+        const sizeFormatted = asset.fileSize
+          ? asset.fileSize < 1024 * 1024
+            ? `${(asset.fileSize / 1024).toFixed(1)} KB`
+            : `${(asset.fileSize / (1024 * 1024)).toFixed(1)} MB`
+          : "Photo";
+
+        setPendingAttachment({
+          uri: asset.uri,
+          name: asset.fileName || `photo_${Date.now()}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+          sizeFormatted,
+          detectedType: "image",
+        });
       }
     } catch (err: any) {
       console.warn("Image picker error:", err);
@@ -405,6 +562,7 @@ export default function ChatScreen(): JSX.Element {
 
   // Handle Document Selection (PDF / Records)
   const handlePickDocument = async () => {
+    setIsAttachmentSheetVisible(false);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ["*/*"],
@@ -414,14 +572,19 @@ export default function ChatScreen(): JSX.Element {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         const isImg = asset.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif)$/i.test(asset.name);
-        await uploadAndSendAttachment(
-          {
-            uri: asset.uri,
-            name: asset.name || "document.pdf",
-            type: asset.mimeType || "application/pdf",
-          },
-          isImg ? "image" : "file"
-        );
+        const sizeFormatted = asset.size
+          ? asset.size < 1024 * 1024
+            ? `${(asset.size / 1024).toFixed(1)} KB`
+            : `${(asset.size / (1024 * 1024)).toFixed(1)} MB`
+          : "Document";
+
+        setPendingAttachment({
+          uri: asset.uri,
+          name: asset.name || "document.pdf",
+          type: asset.mimeType || "application/pdf",
+          sizeFormatted,
+          detectedType: isImg ? "image" : "file",
+        });
       }
     } catch (err: any) {
       console.warn("Document picker error:", err);
@@ -429,14 +592,25 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Attachment Options Action Sheet
-  const handleAttachmentMenu = () => {
-    Alert.alert("Attach File or Photo", "Select an option to share with your healthcare provider:", [
-      { text: "📷 Take Photo", onPress: () => handlePickImage(true) },
-      { text: "🖼️ Photo Library", onPress: () => handlePickImage(false) },
-      { text: "📄 Document / Record", onPress: () => handlePickDocument() },
-      { text: "Cancel", style: "cancel" },
-    ]);
+  // Open Document Attachment using WebBrowser / Linking safely
+  const handleOpenDocument = async (fileUrlOrUri: string) => {
+    if (!fileUrlOrUri) return;
+    const targetUrl = getFullFileUrl(fileUrlOrUri) || fileUrlOrUri;
+    try {
+      if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+        await WebBrowser.openBrowserAsync(targetUrl);
+      } else {
+        const canOpen = await Linking.canOpenURL(targetUrl);
+        if (canOpen) {
+          await Linking.openURL(targetUrl);
+        } else {
+          Alert.alert("Document File", `File path: ${targetUrl}`);
+        }
+      }
+    } catch (err: any) {
+      console.warn("Error opening document:", err);
+      Alert.alert("Document Attachment", "Unable to open document viewer.");
+    }
   };
 
   // Format timestamp for directory
@@ -525,13 +699,21 @@ export default function ChatScreen(): JSX.Element {
       : `${selectedStaff.first_name} ${selectedStaff.last_name}`;
 
     return (
-      <KeyboardAvoidingView
-        className="flex-1 bg-background"
-        behavior={Platform.OS === "ios" ? "padding" : "padding"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      <Modal
+        visible={!!selectedStaff}
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setSelectedStaff(null)}
       >
+        <KeyboardAvoidingView
+          className="flex-1 bg-background"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
         {/* Chat Header */}
-        <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center justify-between">
+        <View
+          style={{ paddingTop: Math.max(insets.top, 16) }}
+          className="px-4 pb-3 bg-surface border-b border-default flex-row items-center justify-between"
+        >
           <View className="flex-row items-center gap-3 flex-1">
             {/* Back Button -> Returns to Messenger Staff Directory */}
             <Pressable
@@ -583,7 +765,7 @@ export default function ChatScreen(): JSX.Element {
                   </Text>
                 </View>
                 {selectedStaff.facility?.facility_name && (
-                  <Text className="text-muted text-xs truncate" numberOfLines={1}>
+                  <Text className="text-muted text-[11px] truncate flex-1" numberOfLines={1}>
                     • {selectedStaff.facility.facility_name}
                   </Text>
                 )}
@@ -592,48 +774,98 @@ export default function ChatScreen(): JSX.Element {
           </View>
         </View>
 
-        {/* Message History */}
+        {/* Chat Messages */}
         {currentChatMessages.length > 0 ? (
           <FlatList
             ref={flatListRef}
             data={currentChatMessages}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 12 }}
+            refreshControl={
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+            }
+            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14 }}
             showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             renderItem={({ item }) => (
-              <View className={`flex-row ${item.mine ? "justify-end" : "justify-start"}`}>
+              <View
+                className={`mb-3 max-w-[82%] ${
+                  item.mine ? "self-end items-end" : "self-start items-start"
+                }`}
+              >
                 <View
-                  className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl ${
+                  className={`p-3.5 rounded-2xl ${
                     item.mine
-                      ? "bg-primary rounded-tr-xs"
-                      : "bg-surface border border-default rounded-tl-xs shadow-xs"
+                      ? "bg-primary rounded-br-xs shadow-sm shadow-primary/30"
+                      : "bg-surface border border-default rounded-bl-xs"
                   }`}
                 >
-                  {/* Image Attachment Rendering */}
+                  {/* Image Attachment */}
                   {item.type === "image" ? (
-                    <Pressable onPress={() => setPreviewImage(item.text)} className="overflow-hidden rounded-xl">
+                    <Pressable onPress={() => setPreviewImage(item.text)} className="active:opacity-90 relative">
                       <Image
-                        source={{ uri: item.text }}
-                        style={{ width: 220, height: 180, borderRadius: 12 }}
+                        source={{ uri: getFullFileUrl(item.text) || item.text }}
+                        className="w-56 h-48 rounded-xl bg-default/40 mb-1"
                         resizeMode="cover"
                       />
+                      {item.status === "sending" && (
+                        <View className="absolute inset-0 bg-black/40 rounded-xl items-center justify-center">
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        </View>
+                      )}
                     </Pressable>
                   ) : item.type === "file" ? (
-                    /* Document Attachment Rendering */
+                    /* PDF or generic document attachment */
                     <Pressable
-                      onPress={() => Linking.openURL(item.text).catch(() => Alert.alert("Error", "Could not open file"))}
-                      className="flex-row items-center gap-3 p-2 bg-black/20 rounded-xl"
+                      onPress={() => handleOpenDocument(item.text)}
+                      className={`flex-row items-center gap-3 p-3 rounded-xl border ${
+                        item.mine
+                          ? "bg-white/10 border-white/20 active:bg-white/20"
+                          : "bg-surface border-default active:bg-default/50"
+                      }`}
                     >
-                      <View className="size-10 rounded-lg bg-primary/20 items-center justify-center">
-                        <Ionicons name="document-text" size={22} color="white" />
+                      <View
+                        className={`size-11 rounded-lg items-center justify-center ${
+                          item.mine ? "bg-white/20" : "bg-primary/10 border border-primary/20"
+                        }`}
+                      >
+                        {item.status === "sending" ? (
+                          <ActivityIndicator size="small" color={item.mine ? "white" : "#f43f5e"} />
+                        ) : (
+                          <Ionicons
+                            name={
+                              item.text.toLowerCase().includes(".pdf")
+                                ? "document-text"
+                                : item.text.toLowerCase().match(/\.(docx?|doc)$/)
+                                ? "document-attach"
+                                : "document"
+                            }
+                            size={22}
+                            color={item.mine ? "white" : "#f43f5e"}
+                          />
+                        )}
                       </View>
                       <View className="flex-1 min-w-0">
-                        <Text className="text-white text-xs font-semibold" numberOfLines={1}>
-                          {item.text.split("/").pop() || "Document Attachment"}
+                        <Text
+                          className={`text-sm font-semibold truncate ${
+                            item.mine ? "text-white" : "text-foreground"
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {item.text.split("/").pop()?.split("?")[0] || "Document Attachment"}
                         </Text>
-                        <Text className="text-white/70 text-[10px]">Tap to open / download</Text>
+                        <Text
+                          className={`text-[11px] mt-0.5 ${
+                            item.mine ? "text-white/70" : "text-muted"
+                          }`}
+                        >
+                          {item.status === "sending" ? "Uploading & sending..." : "Tap to open / download"}
+                        </Text>
                       </View>
-                      <Ionicons name="download-outline" size={18} color="white" />
+                      {item.status === "sending" ? (
+                        <ActivityIndicator size="small" color={item.mine ? "white" : "#f43f5e"} />
+                      ) : (
+                        <Ionicons name="open-outline" size={18} color={item.mine ? "white" : "#a1a1aa"} />
+                      )}
                     </Pressable>
                   ) : (
                     /* Regular Text Message */
@@ -642,13 +874,15 @@ export default function ChatScreen(): JSX.Element {
                     </Text>
                   )}
 
-                  <View className="flex-row items-center gap-1 justify-end mt-1.5">
+                  <View className="flex-row items-center gap-1.5 justify-end mt-1.5">
                     <Text className={`text-[10px] ${item.mine ? "text-white/70" : "text-muted"}`}>
                       {item.time}
                     </Text>
-                    {item.mine && item.id.startsWith("local_") && (
-                      <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.7)" />
-                    )}
+                    {item.mine && item.status === "sending" ? (
+                      <ActivityIndicator size={10} color={item.mine ? "rgba(255,255,255,0.85)" : "#f43f5e"} />
+                    ) : item.mine && item.id.startsWith("local_") ? (
+                      <Ionicons name="checkmark-outline" size={12} color="rgba(255,255,255,0.7)" />
+                    ) : null}
                   </View>
                 </View>
               </View>
@@ -667,9 +901,14 @@ export default function ChatScreen(): JSX.Element {
         )}
 
         {/* Input Bar */}
-        <View className="px-4 py-3 bg-surface border-t border-default flex-row items-center gap-3">
+        <View
+          style={{
+            paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom + 16, 32),
+          }}
+          className="px-4 pt-3 bg-surface border-t border-default flex-row items-center gap-3"
+        >
           <Pressable
-            onPress={handleAttachmentMenu}
+            onPress={() => setIsAttachmentSheetVisible(true)}
             disabled={isSending}
             className="size-10 bg-default rounded-full items-center justify-center active:scale-95"
           >
@@ -690,16 +929,12 @@ export default function ChatScreen(): JSX.Element {
 
           <Pressable
             onPress={handleSendText}
-            disabled={!inputText.trim() || isSending}
+            disabled={!inputText.trim()}
             className={`size-10 rounded-full items-center justify-center ${
-              inputText.trim() && !isSending ? "bg-primary" : "bg-default opacity-50"
+              inputText.trim() ? "bg-primary active:scale-95" : "bg-default opacity-50"
             }`}
           >
-            {isSending ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="send" size={16} color={inputText.trim() ? "white" : "#71717a"} style={{ marginLeft: 2 }} />
-            )}
+            <Ionicons name="send" size={16} color={inputText.trim() ? "white" : "#71717a"} style={{ marginLeft: 2 }} />
           </Pressable>
         </View>
 
@@ -719,14 +954,201 @@ export default function ChatScreen(): JSX.Element {
             </Pressable>
             {previewImage && (
               <Image
-                source={{ uri: previewImage }}
+                source={{ uri: getFullFileUrl(previewImage) || previewImage }}
                 className="w-full h-4/5 rounded-xl"
                 resizeMode="contain"
               />
             )}
           </View>
         </Modal>
-      </KeyboardAvoidingView>
+
+        {/* Custom Styled Attachment Action Sheet Modal */}
+        <Modal
+          visible={isAttachmentSheetVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsAttachmentSheetVisible(false)}
+        >
+          <Pressable
+            onPress={() => setIsAttachmentSheetVisible(false)}
+            className="flex-1 bg-black/60 justify-end"
+          >
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              style={{
+                paddingBottom: Math.max(insets.bottom + 20, 32),
+              }}
+              className="bg-surface rounded-t-3xl border-t border-default p-6"
+            >
+              <View className="w-12 h-1 bg-default/80 rounded-full self-center mb-4" />
+
+              <Text className="text-foreground font-bold text-lg mb-1">Add Attachment</Text>
+              <Text className="text-muted text-xs mb-5">
+                Share photos or medical documents directly with your healthcare provider.
+              </Text>
+
+              <View className="gap-3 mb-4">
+                {/* Take Photo */}
+                <Pressable
+                  onPress={() => handlePickImage(true)}
+                  className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
+                >
+                  <View className="size-11 rounded-xl bg-rose-500/10 border border-rose-500/20 items-center justify-center">
+                    <Ionicons name="camera-outline" size={22} color="#f43f5e" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-foreground font-semibold text-base">Take Photo</Text>
+                    <Text className="text-muted text-xs">Use camera to capture a new photo</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#71717a" />
+                </Pressable>
+
+                {/* Photo Library */}
+                <Pressable
+                  onPress={() => handlePickImage(false)}
+                  className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
+                >
+                  <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
+                    <Ionicons name="images-outline" size={22} color="#3b82f6" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-foreground font-semibold text-base">Photo Library</Text>
+                    <Text className="text-muted text-xs">Select photos from your device gallery</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#71717a" />
+                </Pressable>
+
+                {/* Document / Health Record */}
+                <Pressable
+                  onPress={() => handlePickDocument()}
+                  className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
+                >
+                  <View className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
+                    <Ionicons name="document-text-outline" size={22} color="#10b981" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-foreground font-semibold text-base">Document / Health Record</Text>
+                    <Text className="text-muted text-xs">Upload PDF, Word files, or lab reports</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#71717a" />
+                </Pressable>
+              </View>
+
+              <Pressable
+                onPress={() => setIsAttachmentSheetVisible(false)}
+                className="bg-default py-3.5 rounded-2xl items-center active:opacity-90 mt-1"
+              >
+                <Text className="text-foreground font-semibold text-sm">Cancel</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Attachment Preview Modal before sending */}
+        <Modal
+          visible={!!pendingAttachment}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setPendingAttachment(null)}
+        >
+          <View
+            style={{
+              paddingBottom: Math.max(insets.bottom + 24, 40),
+            }}
+            className="flex-1 bg-black/80 justify-end sm:justify-center p-4"
+          >
+            {pendingAttachment && (
+              <View className="bg-surface rounded-3xl p-5 border border-default shadow-2xl">
+                <View className="flex-row items-center justify-between mb-4">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons
+                      name={pendingAttachment.detectedType === "image" ? "image-outline" : "document-text-outline"}
+                      size={20}
+                      color="#f43f5e"
+                    />
+                    <Text className="text-foreground font-bold text-lg">Confirm Attachment</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => setPendingAttachment(null)}
+                    className="size-8 rounded-full bg-default items-center justify-center"
+                  >
+                    <Ionicons name="close" size={18} color="#a1a1aa" />
+                  </Pressable>
+                </View>
+
+                {/* Content preview */}
+                {pendingAttachment.detectedType === "image" ? (
+                  <Image
+                    source={{ uri: pendingAttachment.uri }}
+                    className="w-full h-48 rounded-2xl bg-default/40 mb-4"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="bg-default/40 rounded-2xl p-4 flex-row items-center gap-3.5 mb-4 border border-default">
+                    <View className="size-12 rounded-xl bg-primary/10 border border-primary/20 items-center justify-center">
+                      <Ionicons
+                        name={
+                          pendingAttachment.name.toLowerCase().endsWith(".pdf")
+                            ? "document-text"
+                            : "document-attach"
+                        }
+                        size={26}
+                        color="#f43f5e"
+                      />
+                    </View>
+                    <View className="flex-1 min-w-0">
+                      <Text className="text-foreground font-bold text-sm" numberOfLines={1}>
+                        {pendingAttachment.name}
+                      </Text>
+                      <Text className="text-muted text-xs mt-0.5">
+                        {pendingAttachment.sizeFormatted} • {pendingAttachment.name.split(".").pop()?.toUpperCase() || "FILE"}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Confirm Action Buttons */}
+                <View className="flex-row items-center gap-3 mt-1">
+                  <Pressable
+                    onPress={() => setPendingAttachment(null)}
+                    disabled={isSending}
+                    className="bg-default px-5 py-3.5 rounded-xl active:scale-95 items-center"
+                  >
+                    <Text className="text-foreground font-semibold text-sm">Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={async () => {
+                      if (!pendingAttachment) return;
+                      const fileToUpload = { ...pendingAttachment };
+                      setPendingAttachment(null);
+                      await uploadAndSendAttachment(
+                        {
+                          uri: fileToUpload.uri,
+                          name: fileToUpload.name,
+                          type: fileToUpload.type,
+                        },
+                        fileToUpload.detectedType
+                      );
+                    }}
+                    disabled={isSending}
+                    className="flex-1 bg-primary py-3.5 rounded-xl flex-row items-center justify-center gap-2 active:scale-95 shadow-sm shadow-primary/30"
+                  >
+                    {isSending ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <>
+                        <Ionicons name="send" size={16} color="white" />
+                        <Text className="text-white font-semibold text-sm">Send Attachment</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        </Modal>
+        </KeyboardAvoidingView>
+      </Modal>
     );
   }
 
@@ -736,7 +1158,10 @@ export default function ChatScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background">
       {/* Top Header */}
-      <View className="px-5 pt-12 pb-3 bg-surface border-b border-default">
+      <View
+        style={{ paddingTop: Math.max(insets.top, 16) }}
+        className="px-5 pb-3 bg-surface border-b border-default"
+      >
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-3">
             <Pressable
@@ -820,7 +1245,7 @@ export default function ChatScreen(): JSX.Element {
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
         }
-        contentContainerStyle={{ paddingVertical: 8 }}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 90 }}
         ListEmptyComponent={
           <View className="items-center justify-center p-10">
             <View className="size-14 rounded-full bg-surface items-center justify-center mb-3">

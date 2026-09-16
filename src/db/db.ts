@@ -3,17 +3,41 @@ import * as SQLite from "expo-sqlite";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let dbInstance: any = null;
+let dbInitPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbInstance) {
-    if (Platform.OS === "web") {
-      dbInstance = createWebFallbackDatabase() as any;
-    } else {
-      dbInstance = await SQLite.openDatabaseAsync("bms.db");
-      await initTables(dbInstance);
-    }
+  if (dbInstance) {
+    return dbInstance;
   }
-  return dbInstance as SQLite.SQLiteDatabase;
+
+  if (dbInitPromise) {
+    return dbInitPromise;
+  }
+
+  dbInitPromise = (async () => {
+    try {
+      if (Platform.OS === "web") {
+        dbInstance = createWebFallbackDatabase() as any;
+      } else {
+        const db = await SQLite.openDatabaseAsync("bms.db");
+        await initTables(db);
+        dbInstance = db;
+      }
+      return dbInstance as SQLite.SQLiteDatabase;
+    } catch (err) {
+      dbInstance = null;
+      throw err;
+    } finally {
+      dbInitPromise = null;
+    }
+  })();
+
+  return dbInitPromise;
+}
+
+export function resetDatabaseInstance() {
+  dbInstance = null;
+  dbInitPromise = null;
 }
 
 async function initTables(db: SQLite.SQLiteDatabase) {
@@ -430,31 +454,45 @@ function createWebFallbackDatabase() {
 }
 
 export async function clearAllTablesLocal(userId?: string): Promise<void> {
-  const db = await getDatabase();
-  const tables = [
-    "users",
-    "mother_records",
-    "pregnancies",
-    "prenatal_visits",
-    "appointments",
-    "supplements",
-    "lab_screenings",
-    "record_history",
-    "messages",
-    "chat_contacts",
-    "delivery_outcomes",
-    "newborn_records",
-    "sync_queue",
-  ];
-  for (const table of tables) {
-    try {
-      await db.runAsync(`DELETE FROM ${table}`);
-      if (typeof window !== "undefined" && window.localStorage) {
-        window.localStorage.removeItem(`@sqlite_web_${table}`);
+  try {
+    const db = await getDatabase();
+    const tables = [
+      "users",
+      "mother_records",
+      "pregnancies",
+      "prenatal_visits",
+      "appointments",
+      "supplements",
+      "lab_screenings",
+      "record_history",
+      "messages",
+      "chat_contacts",
+      "delivery_outcomes",
+      "newborn_records",
+      "sync_queue",
+    ];
+
+    if (Platform.OS !== "web") {
+      const deleteSql = tables.map((t) => `DELETE FROM ${t};`).join("\n");
+      await db.execAsync(deleteSql);
+    } else {
+      for (const table of tables) {
+        try {
+          await db.runAsync(`DELETE FROM ${table}`);
+        } catch {}
       }
-      await AsyncStorage.removeItem(`@sqlite_web_${table}`);
-    } catch (e) {
-      console.warn(`Failed clearing table ${table}:`, e);
     }
+
+    for (const table of tables) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem(`@sqlite_web_${table}`);
+        }
+        await AsyncStorage.removeItem(`@sqlite_web_${table}`);
+      } catch {}
+    }
+  } catch (e) {
+    console.warn("Failed clearing local tables:", e);
+    resetDatabaseInstance();
   }
 }

@@ -455,21 +455,85 @@ export async function getLabScreeningsByMotherApi(motherId: string, token: strin
   return Array.isArray(list) ? list : [];
 }
 
-export async function uploadLabFileApi(formData: FormData, token: string): Promise<{ fileUrl: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/upload`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to upload file");
+export function formatFormDataFile(uri?: string | null, name?: string | null, type?: string | null) {
+  if (!uri || typeof uri !== "string" || !uri.trim()) {
+    throw new Error("Invalid file URI. Unable to attach file.");
   }
 
-  return data;
+  const cleanUri = uri.trim();
+  let cleanName = (name && typeof name === "string" && name.trim()) ? name.trim() : "";
+  if (!cleanName) {
+    const uriPath = cleanUri.split("/").pop()?.split("?")[0];
+    cleanName = uriPath || `file_${Date.now()}`;
+  }
+
+  let cleanType = (type && typeof type === "string" && type.trim()) ? type.trim() : "";
+  if (!cleanType || cleanType === "*/*") {
+    const ext = cleanName.split(".").pop()?.toLowerCase();
+    if (ext === "jpg" || ext === "jpeg") cleanType = "image/jpeg";
+    else if (ext === "png") cleanType = "image/png";
+    else if (ext === "gif") cleanType = "image/gif";
+    else if (ext === "webp") cleanType = "image/webp";
+    else if (ext === "pdf") cleanType = "application/pdf";
+    else if (ext === "doc" || ext === "docx") cleanType = "application/msword";
+    else if (ext === "xls" || ext === "xlsx") cleanType = "application/vnd.ms-excel";
+    else if (ext === "txt") cleanType = "text/plain";
+    else cleanType = "application/octet-stream";
+  }
+
+  return {
+    uri: cleanUri,
+    name: cleanName,
+    type: cleanType,
+  };
+}
+
+export function getFullFileUrl(url?: string | null, localUri?: string | null): string | null {
+  if (localUri) return localUri;
+  if (!url) return null;
+
+  let normalizedUrl = url;
+  if (normalizedUrl.includes("localhost:") || normalizedUrl.includes("127.0.0.1:")) {
+    normalizedUrl = normalizedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1):\d+/, API_BASE_URL);
+  }
+
+  if (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://") || normalizedUrl.startsWith("file://")) {
+    return normalizedUrl;
+  }
+
+  return `${API_BASE_URL}${normalizedUrl.startsWith("/") ? "" : "/"}${normalizedUrl}`;
+}
+
+export async function uploadLabFileApi(formData: FormData, token: string): Promise<{ fileUrl: string; file_url: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/v1/lab-screening/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const file_url = data.file_url || data.fileUrl || "";
+          resolve({
+            fileUrl: file_url,
+            file_url: file_url,
+            ...data,
+          });
+        } else {
+          reject(new Error(data.error || data.message || `Upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network upload request failed."));
+    };
+
+    xhr.send(formData);
+  });
 }
 
 export async function createLabScreeningApi(payload: any, token: string): Promise<LabScreeningRecord> {
@@ -487,7 +551,7 @@ export async function createLabScreeningApi(payload: any, token: string): Promis
     throw new Error(data.error || "Failed to register lab record");
   }
 
-  return data.result || data;
+  return data.data || data.result || data;
 }
 
 export async function changePasswordApi(payload: { currentPassword: string; newPassword: string }, token: string): Promise<{ message: string }> {
@@ -584,20 +648,30 @@ export async function uploadMessageFileApi(
   formData: FormData,
   token: string
 ): Promise<{ fileUrl: string; fileName: string; fileType: string; fileSize?: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/message/upload`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/v1/message/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data.error || data.message || `Upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network upload request failed."));
+    };
+
+    xhr.send(formData);
   });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to upload file");
-  }
-
-  return data;
 }
 
 export async function markMessagesAsReadApi(senderId: string, token: string): Promise<void> {

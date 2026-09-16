@@ -1,4 +1,4 @@
-import { View, ScrollView } from "react-native";
+import { View, ScrollView, RefreshControl } from "react-native";
 import { Text, Card, Tabs } from "heroui-native";
 import { Header } from "../../components/Header";
 import { useState, useEffect } from "react";
@@ -19,8 +19,9 @@ const DataRow = ({ label, value }: { label: string; value: string }) => (
 export default function VitalsScreen(): JSX.Element {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("maternal");
-  const { activePregnancy, motherRecord, user } = useAuth();
+  const { activePregnancy, motherRecord, user, refreshProfile } = useAuth();
   const [localDelivery, setLocalDelivery] = useState<DeliveryOutcomeRecord | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     async function loadFallbackLocal() {
@@ -38,6 +39,12 @@ export default function VitalsScreen(): JSX.Element {
     }
     loadFallbackLocal();
   }, [motherRecord?.mother_id, user?.user_id]);
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshProfile();
+    setIsRefreshing(false);
+  };
 
   let latestVisit = activePregnancy?.prenatalVisits?.[0] || null;
   let latestDelivery = activePregnancy?.deliveryOutcomes?.[0] || localDelivery || null;
@@ -67,7 +74,13 @@ export default function VitalsScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background">
       <Header showBackButton title="Vitals & Analytics" onBack={() => router.back()} rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+        }
+      >
 
         {/* Tabs */}
         <View className="px-5 mb-5 pt-2">

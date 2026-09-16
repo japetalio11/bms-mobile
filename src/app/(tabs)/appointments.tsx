@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, SearchField } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -49,6 +49,7 @@ export default function AppointmentsScreen(): JSX.Element {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateNum, setSelectedDateNum] = useState<number | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Modal & Interactive DatePicker State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,6 +90,12 @@ export default function AppointmentsScreen(): JSX.Element {
       }
     }
   }, [user?.user_id, token, isOnline]);
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await loadAppointments();
+    setIsRefreshing(false);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -225,8 +232,11 @@ export default function AppointmentsScreen(): JSX.Element {
             await saveAppointmentsLocal([res], true);
           }
         } catch (apiErr: any) {
-          console.warn("API appointment creation failed, falling back to local SQLite outbox:", apiErr);
+          console.warn("API appointment creation failed, falling back to local SQLite outbox:", apiErr?.message || apiErr);
           await createAppointmentLocal(payload, false);
+          if (apiErr?.message && !apiErr.message.includes("Network")) {
+            setBookingError(`Note: Saved offline locally. Server responded: ${apiErr.message}`);
+          }
         }
       } else {
         await createAppointmentLocal(payload, false);
@@ -290,6 +300,9 @@ export default function AppointmentsScreen(): JSX.Element {
       <ScrollView
         contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+        }
       >
         {/* Top Header Row — Above the entire calendar component */}
         <View className="px-5 mb-4 mt-3 flex-row items-center justify-between">
@@ -573,7 +586,10 @@ export default function AppointmentsScreen(): JSX.Element {
       {/* ── 5. Fully Interactive Schedule Visit Modal ── */}
       <Modal visible={isModalOpen} transparent animationType="slide" onRequestClose={() => setIsModalOpen(false)}>
         <View className="flex-1 bg-black/85 justify-end sm:justify-center items-center">
-          <View className="w-full max-w-lg bg-[#16161C] border-t sm:border border-white/[0.12] rounded-t-3xl sm:rounded-3xl p-5 max-h-[88%] flex-col">
+          <View 
+            style={{ paddingBottom: Math.max(insets.bottom, 20) }}
+            className="w-full max-w-lg bg-[#16161C] border-t sm:border border-white/[0.12] rounded-t-3xl sm:rounded-3xl p-5 max-h-[90%] flex-col"
+          >
             {/* Modal Header */}
             <View className="flex-row justify-between items-center pb-3 border-b border-white/[0.08] mb-3">
               <View className="flex-row items-center gap-2.5">
@@ -787,14 +803,14 @@ export default function AppointmentsScreen(): JSX.Element {
               </View>
             </ScrollView>
 
-            {/* Fixed / Sticky Modal Action Footer (Below ScrollView at very bottom of modal) */}
-            <View className="flex-row gap-3 pt-3 border-t border-white/[0.08] bg-[#16161C]">
+            {/* Fixed / Sticky Modal Action Footer */}
+            <View className="flex-row gap-3 pt-3.5 border-t border-white/[0.08] bg-[#16161C]">
               <Pressable
                 onPress={() => {
                   setIsModalOpen(false);
                   setBookingError(null);
                 }}
-                className="flex-1 py-3 rounded-2xl bg-[#25242A] items-center active:bg-[#2e2d36]"
+                className="flex-1 py-3.5 rounded-2xl bg-[#25242A] items-center active:bg-[#2e2d36]"
               >
                 <Text className="text-zinc-300 font-semibold text-xs">Cancel</Text>
               </Pressable>
@@ -802,7 +818,7 @@ export default function AppointmentsScreen(): JSX.Element {
               <Pressable
                 onPress={handleBookAppointment}
                 disabled={isSubmitting}
-                className="flex-1 py-3 rounded-2xl bg-[#f43f5e] flex-row items-center justify-center gap-2 active:bg-[#e11d48] shadow-md"
+                className="flex-1 py-3.5 rounded-2xl bg-[#f43f5e] flex-row items-center justify-center gap-2 active:bg-[#e11d48] shadow-md"
               >
                 {isSubmitting ? (
                   <ActivityIndicator color="white" size="small" />

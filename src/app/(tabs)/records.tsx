@@ -1,13 +1,14 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal, RefreshControl, Linking } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
-import { getLabScreeningsByMotherApi, getSupplementsByMotherApi, API_BASE_URL } from "../../config/api";
+import { getLabScreeningsByMotherApi, getSupplementsByMotherApi, getFullFileUrl, API_BASE_URL } from "../../config/api";
 import type { LabScreeningRecord, SupplementRecord } from "../../config/api";
 import {
   getLabScreeningsLocal,
@@ -18,18 +19,32 @@ import {
 
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
-  const { token, motherRecord } = useAuth();
+  const { token, motherRecord, refreshProfile } = useAuth();
   const { isOnline } = useNetwork();
 
   const [activeMainTab, setActiveMainTab] = useState("lab");
-  const [activePrescriptionTab, setActivePrescriptionTab] = useState("medicine");
   const [searchLab, setSearchLab] = useState("");
   const [searchPrescription, setSearchPrescription] = useState("");
 
   const [labScreenings, setLabScreenings] = useState<LabScreeningRecord[]>([]);
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
+
+  const handleOpenAttachment = async (url: string) => {
+    if (!url) return;
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes(".pdf") || lowerUrl.includes("/pdf") || lowerUrl.endsWith(".doc") || lowerUrl.endsWith(".docx")) {
+      try {
+        await WebBrowser.openBrowserAsync(url);
+      } catch {
+        Linking.openURL(url).catch(() => {});
+      }
+    } else {
+      setSelectedImageModal(url);
+    }
+  };
 
   const loadData = useCallback(async () => {
     if (!motherRecord?.mother_id) {
@@ -62,8 +77,10 @@ export default function RecordsScreen(): JSX.Element {
           if (Array.isArray(labs)) {
             // Keep local pending items that haven't synced to server yet
             const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
-            const pendingLabs = currentLocal.filter((l: any) => l.sync_status === "pending");
-            const serverIds = new Set(labs.map((l) => l.screening_id));
+            const pendingLabs = currentLocal.filter(
+              (l: any) => l.sync_status === "pending" && l.screening_id && l.screening_id !== "null" && l.screening_id !== "undefined"
+            );
+            const serverIds = new Set(labs.map((l) => l.screening_id).filter(Boolean));
             const merged = [...labs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
 
             setLabScreenings(merged);
@@ -82,6 +99,12 @@ export default function RecordsScreen(): JSX.Element {
         });
     }
   }, [motherRecord?.mother_id, token, isOnline]);
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([loadData(), refreshProfile()]);
+    setIsRefreshing(false);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -104,32 +127,32 @@ export default function RecordsScreen(): JSX.Element {
     return supp.supplement_type.toLowerCase().includes(searchPrescription.toLowerCase());
   });
 
-  const getFullFileUrl = (url?: string, localUri?: string) => {
-    if (localUri) return localUri;
-    if (!url) return null;
-    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) return url;
-    return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-  };
 
   return (
     <View className="flex-1 bg-background">
       <Header />
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+        }
+      >
         {/* Main Tabs */}
-        <View className="px-5 mb-5">
+        <View className="px-5 mb-4">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
-            <Tabs.List className="bg-default p-1 rounded-xl">
-              <Tabs.Indicator className="bg-surface-secondary rounded-xl" />
-              <Tabs.Trigger value="lab">
+            <Tabs.List className="bg-default p-1 rounded-xl flex-row w-full h-10 items-center">
+              <Tabs.Indicator className="bg-surface-secondary rounded-lg" />
+              <Tabs.Trigger value="lab" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground" : "text-muted"}`}>
-                    Laboratory Records
+                  <Tabs.Label className={`font-semibold text-xs text-center ${isSelected ? "text-foreground font-bold" : "text-muted"}`}>
+                    Lab Records
                   </Tabs.Label>
                 )}
               </Tabs.Trigger>
-              <Tabs.Trigger value="prescriptions">
+              <Tabs.Trigger value="prescriptions" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground" : "text-muted"}`}>
+                  <Tabs.Label className={`font-semibold text-xs text-center ${isSelected ? "text-foreground font-bold" : "text-muted"}`}>
                     Prescriptions
                   </Tabs.Label>
                 )}
@@ -166,7 +189,8 @@ export default function RecordsScreen(): JSX.Element {
               <ActivityIndicator size="small" color="#6366f1" className="py-8" />
             ) : filteredLabs.length > 0 ? (
               <View className="gap-3.5">
-                {filteredLabs.map((lab) => {
+                {filteredLabs.map((lab, index) => {
+                  const labKey = lab.screening_id || (lab as any).id || (lab as any).temp_id || `lab_${index}`;
                   const fileUrl = getFullFileUrl(lab.file_url, (lab as any).local_file_uri);
                   const dateStr = lab.date_of_screening
                     ? new Date(lab.date_of_screening).toLocaleDateString("en-US", {
@@ -178,7 +202,7 @@ export default function RecordsScreen(): JSX.Element {
                   const isPendingSync = (lab as any).sync_status === "pending";
 
                   return (
-                    <Card key={lab.screening_id} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                    <Card key={labKey} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
                       <View className="flex-row items-start justify-between mb-2">
                         <View className="flex-row items-center gap-3 flex-1 pr-2">
                           <View className="size-10 rounded-xl bg-primary/15 items-center justify-center">
@@ -207,17 +231,36 @@ export default function RecordsScreen(): JSX.Element {
                       </View>
 
                       {fileUrl ? (
-                        <Pressable onPress={() => setSelectedImageModal(fileUrl)} className="mt-2.5 mb-2">
-                          <Image
-                            source={{ uri: fileUrl }}
-                            className="w-full h-44 rounded-xl bg-default/40"
-                            resizeMode="cover"
-                          />
-                          <View className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded-md flex-row items-center gap-1">
-                            <Ionicons name="eye-outline" size={12} color="white" />
-                            <Text className="text-white text-[11px] font-medium">View Full Image</Text>
-                          </View>
-                        </Pressable>
+                        fileUrl.toLowerCase().includes(".pdf") || fileUrl.toLowerCase().includes("/pdf") ? (
+                          <Pressable
+                            onPress={() => handleOpenAttachment(fileUrl)}
+                            className="mt-2.5 mb-2 p-3 bg-default/40 border border-default rounded-xl flex-row items-center gap-3 active:bg-default/70"
+                          >
+                            <View className="size-10 rounded-lg bg-red-500/20 items-center justify-center">
+                              <Ionicons name="document-text" size={22} color="#f43f5e" />
+                            </View>
+                            <View className="flex-1 min-w-0">
+                              <Text className="text-foreground text-xs font-semibold" numberOfLines={1}>
+                                {fileUrl.split("/").pop()?.split("?")[0] || "PDF Document"}
+                              </Text>
+                              <Text className="text-muted text-[11px] mt-0.5">PDF Document Attachment • Tap to view</Text>
+                            </View>
+                            <Ionicons name="open-outline" size={16} color="#a1a1aa" />
+                          </Pressable>
+                        ) : (
+                          <Pressable onPress={() => handleOpenAttachment(fileUrl)} className="mt-2.5 mb-2 relative rounded-xl overflow-hidden">
+                            <Image
+                              source={{ uri: fileUrl }}
+                              style={{ width: "100%", height: 180 }}
+                              className="w-full h-44 rounded-xl bg-default/40"
+                              resizeMode="cover"
+                            />
+                            <View className="absolute bottom-2 right-2 bg-black/70 px-2.5 py-1 rounded-lg flex-row items-center gap-1.5 z-10">
+                              <Ionicons name="eye-outline" size={12} color="white" />
+                              <Text className="text-white text-[11px] font-medium">View Full Image</Text>
+                            </View>
+                          </Pressable>
+                        )
                       ) : null}
 
                       {lab.remarks ? (
@@ -262,41 +305,21 @@ export default function RecordsScreen(): JSX.Element {
                 <SearchField value={searchPrescription} onChange={setSearchPrescription}>
                   <SearchField.Group className="bg-default border-0 rounded-xl h-12">
                     <SearchField.SearchIcon />
-                    <SearchField.Input placeholder="Search for medicine..." className="text-sm" />
+                    <SearchField.Input placeholder="Search for prescriptions..." className="text-sm" />
                     <SearchField.ClearButton />
                   </SearchField.Group>
                 </SearchField>
               </View>
             </View>
 
-            <View className="mb-5">
-              <Tabs value={activePrescriptionTab} onValueChange={setActivePrescriptionTab} variant="primary">
-                <Tabs.List className="bg-default p-1 rounded-xl">
-                  <Tabs.Indicator className="bg-surface-secondary rounded-xl" />
-                  <Tabs.Trigger value="medicine">
-                    {({ isSelected }) => (
-                      <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground" : "text-muted"}`}>
-                        Medicine
-                      </Tabs.Label>
-                    )}
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="supplement">
-                    {({ isSelected }) => (
-                      <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground" : "text-muted"}`}>
-                        Supplement
-                      </Tabs.Label>
-                    )}
-                  </Tabs.Trigger>
-                </Tabs.List>
-              </Tabs>
-            </View>
-
             {isLoading && supplements.length === 0 ? (
               <ActivityIndicator size="small" color="#6366f1" className="py-6" />
             ) : filteredSupplements.length > 0 ? (
               <View className="gap-3">
-                {filteredSupplements.map((supp) => (
-                  <Card key={supp.supplement_id} variant="secondary" className="bg-surface border-0 rounded-xl p-4">
+                {filteredSupplements.map((supp, index) => {
+                  const suppKey = supp.supplement_id || (supp as any).id || `supp_${index}`;
+                  return (
+                    <Card key={suppKey} variant="secondary" className="bg-surface border-0 rounded-xl p-4">
                     <View className="flex-row items-start gap-3 mb-4">
                       <View className="size-10 rounded-full bg-[#6366f1]/15 items-center justify-center mt-0.5">
                         <Ionicons name="medkit-outline" size={18} color="#6366f1" />
@@ -321,7 +344,8 @@ export default function RecordsScreen(): JSX.Element {
                       </View>
                     </View>
                   </Card>
-                ))}
+                );
+              })}
               </View>
             ) : (
               <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
@@ -348,6 +372,7 @@ export default function RecordsScreen(): JSX.Element {
           {selectedImageModal && (
             <Image
               source={{ uri: selectedImageModal }}
+              style={{ width: "100%", height: "80%" }}
               className="w-full h-4/5 rounded-2xl"
               resizeMode="contain"
             />

@@ -408,7 +408,7 @@ export async function createAppointmentLocal(payload: any, isOnline: boolean): P
       record.appointment_date,
       record.appointment_time,
       record.appointment_type,
-      record.reason || "",
+      record.reason || null,
       record.status,
       isOnline ? "synced" : "pending",
       now,
@@ -552,6 +552,8 @@ export async function updateSupplementStatusLocal(
 export async function getLabScreeningsLocal(motherId: string): Promise<LabScreeningRecord[]> {
   if (!motherId) return [];
   const db = await getDatabase();
+  await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`).catch(() => {});
+
   const rows = await db.getAllAsync<LabScreeningRecord>(
     `SELECT ls.* FROM lab_screenings ls
      LEFT JOIN pregnancies p ON ls.pregnancy_id = p.pregnancy_id
@@ -564,7 +566,7 @@ export async function getLabScreeningsLocal(motherId: string): Promise<LabScreen
     r.result = await decryptSensitiveText(r.result);
     r.remarks = await decryptSensitiveText(r.remarks);
   }
-  return rows;
+  return rows.filter((r) => Boolean(r.screening_id && r.screening_id !== "null" && r.screening_id !== "undefined"));
 }
 
 export async function saveLabScreeningsLocal(
@@ -575,8 +577,10 @@ export async function saveLabScreeningsLocal(
   const db = await getDatabase();
   const now = new Date().toISOString();
 
+  await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`).catch(() => {});
+
   if (isFromBackend && motherId) {
-    const validIds = new Set(screenings.map((s) => s.screening_id));
+    const validIds = new Set(screenings.map((s) => s.screening_id || (s as any).data?.screening_id).filter((id): id is string => Boolean(id && id !== "null" && id !== "undefined")));
     const currentRecords = await getLabScreeningsLocal(motherId);
 
     for (const item of currentRecords) {
@@ -586,7 +590,11 @@ export async function saveLabScreeningsLocal(
     }
   }
 
-  for (const ls of screenings) {
+  for (const rawLs of screenings) {
+    const ls: any = (rawLs as any).data || rawLs;
+    const sId = ls.screening_id;
+    if (!sId || sId === "null" || sId === "undefined") continue;
+
     const encResult = await encryptSensitiveText(ls.result || "");
     const encRemarks = await encryptSensitiveText(ls.remarks || "");
 
@@ -594,19 +602,19 @@ export async function saveLabScreeningsLocal(
       `INSERT OR REPLACE INTO lab_screenings (screening_id, mother_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        ls.screening_id,
-        motherId || (ls as any).mother_id || null,
+        sId,
+        motherId || ls.mother_id || null,
         ls.pregnancy_id,
         ls.visit_id,
         ls.screening_type,
         encResult,
         ls.file_url || null,
-        (ls as any).local_file_uri || null,
-        (ls as any).file_size_bytes || null,
-        (ls as any).upload_status || (isFromBackend ? "synced" : "pending"),
+        ls.local_file_uri || null,
+        ls.file_size_bytes || null,
+        ls.upload_status || (isFromBackend ? "synced" : "pending"),
         ls.date_of_screening,
         encRemarks,
-        (ls as any).version || 1,
+        ls.version || 1,
         isFromBackend ? "synced" : "pending",
         now,
       ]
@@ -736,7 +744,24 @@ export async function saveMessagesLocal(messages: InAppMessage[]) {
         now,
       ]
     );
+
+    // If this is a confirmed server message (not starting with local_), clean up any old local_ messages that had matching metadata
+    if (!m.message_id.startsWith("local_")) {
+      await db.runAsync(
+        `DELETE FROM messages 
+         WHERE message_id LIKE 'local_%' 
+           AND sender_id = ? 
+           AND receiver_id = ? 
+           AND sync_status = 'synced'`,
+        [m.sender_id, m.receiver_id]
+      ).catch(() => {});
+    }
   }
+}
+
+export async function deleteLocalMessage(messageId: string) {
+  const db = await getDatabase();
+  await db.runAsync(`DELETE FROM messages WHERE message_id = ?`, [messageId]);
 }
 
 export async function saveOutgoingMessageLocal(
