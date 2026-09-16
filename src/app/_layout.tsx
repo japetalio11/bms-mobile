@@ -42,7 +42,7 @@ export default function RootLayout(): JSX.Element | null {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <HeroUINativeProvider>
+      <HeroUINativeProvider config={{ devInfo: { stylingPrinciples: false } }}>
         <SettingsProvider>
           <NetworkProvider>
             <UserProvider>

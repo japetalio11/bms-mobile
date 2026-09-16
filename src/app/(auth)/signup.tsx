@@ -7,6 +7,7 @@ import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { makeRedirectUri } from "expo-auth-session";
 import { sendOtpApi, registerApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
@@ -49,8 +50,7 @@ export default function SignupScreen(): JSX.Element {
   // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    redirectUri: makeRedirectUri({ scheme: "bmsmobile" }),
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   // Step state: 1 = Form, 2 = OTP Verification
@@ -78,22 +78,78 @@ export default function SignupScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  const handleGoogleBackendRegister = async (idToken?: string, accessToken?: string) => {
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      try {
+        GoogleSignin.configure({
+          webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+        });
+      } catch (e) {
+        console.warn("GoogleSignin configure warning:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const responseAny = googleResponse as any;
+      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
+      const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleGoogleBackendRegister(idToken, accessToken);
+    } else if (googleResponse?.type === "error") {
+      const errRes = googleResponse as any;
+      setError(errRes.error?.message || "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleResponse]);
+
+  const handleGooglePress = async () => {
+    if (Platform.OS === "web") {
+      promptGoogleAsync();
+      return;
+    }
     setGoogleLoading(true);
     setError(null);
     try {
-      let googleEmail: string | undefined = undefined;
-      let googleFirstName: string | undefined = undefined;
-      let googleLastName: string | undefined = undefined;
-      let profileUrl: string | undefined = undefined;
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken || (response as any).idToken;
+      const user = response.data?.user || (response as any).user;
 
       if (idToken) {
+        await handleGoogleBackendRegister(idToken, undefined, user);
+      } else {
+        setError("Failed to obtain Google authentication token.");
+        setGoogleLoading(false);
+      }
+    } catch (err: any) {
+      if (err.code === "CANCELED" || err.code === "12501" || err.code === "SIGN_IN_CANCELLED" || err.code === "ASYNC_OP_IN_PROGRESS") {
+        setGoogleLoading(false);
+        return;
+      }
+      console.error("Google Sign-In Error:", err);
+      setError(err.message || "Google Sign-In failed. Please try again.");
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleBackendRegister = async (idToken?: string, accessToken?: string, nativeUser?: any) => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      let googleEmail: string | undefined = nativeUser?.email;
+      let googleFirstName: string | undefined = nativeUser?.givenName || nativeUser?.name;
+      let googleLastName: string | undefined = nativeUser?.familyName;
+      let profileUrl: string | undefined = nativeUser?.photo;
+
+      if (idToken && (!googleEmail || !googleFirstName)) {
         const decoded = decodeJwtPayload(idToken);
         if (decoded) {
-          googleEmail = decoded.email;
-          googleFirstName = decoded.given_name || decoded.name;
-          googleLastName = decoded.family_name;
-          profileUrl = decoded.picture;
+          googleEmail = googleEmail || decoded.email;
+          googleFirstName = googleFirstName || decoded.given_name || decoded.name;
+          googleLastName = googleLastName || decoded.family_name;
+          profileUrl = profileUrl || decoded.picture;
         }
       }
 
@@ -132,17 +188,6 @@ export default function SignupScreen(): JSX.Element {
       setGoogleLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const responseAny = googleResponse as any;
-      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
-      const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      handleGoogleBackendRegister(idToken, accessToken);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleResponse]);
 
   // Timer countdown hook
   useEffect(() => {
@@ -395,7 +440,7 @@ export default function SignupScreen(): JSX.Element {
           {/* Google Sign Up Button (Top) */}
           <Button 
             variant="secondary" 
-            onPress={() => promptGoogleAsync()} 
+            onPress={handleGooglePress} 
             className="mb-5 bg-surface border border-border"
             isDisabled={googleLoading || otpLoading}
           >

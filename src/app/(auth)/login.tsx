@@ -7,6 +7,7 @@ import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { makeRedirectUri } from "expo-auth-session";
 import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
@@ -48,8 +49,7 @@ export default function LoginScreen(): JSX.Element {
   // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    redirectUri: makeRedirectUri({ scheme: "bmsmobile" }),
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   // Mode: "login" -> "setup_otp" -> "setup_password"
@@ -76,30 +76,75 @@ export default function LoginScreen(): JSX.Element {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (Platform.OS !== "web") {
+      try {
+        GoogleSignin.configure({
+          webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+        });
+      } catch (e) {
+        console.warn("GoogleSignin configure warning:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (googleResponse?.type === "success") {
       const responseAny = googleResponse as any;
       const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
       const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
       handleGoogleBackendLogin(idToken, accessToken);
+    } else if (googleResponse?.type === "error") {
+      const errRes = googleResponse as any;
+      setError(errRes.error?.message || "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console.");
     }
   }, [googleResponse]);
 
-  const handleGoogleBackendLogin = async (idToken?: string, accessToken?: string) => {
+  const handleGooglePress = async () => {
+    if (Platform.OS === "web") {
+      promptGoogleAsync();
+      return;
+    }
     setGoogleLoading(true);
     setError(null);
     try {
-      let email: string | undefined = undefined;
-      let firstName: string | undefined = undefined;
-      let lastName: string | undefined = undefined;
-      let profileUrl: string | undefined = undefined;
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken || (response as any).idToken;
+      const user = response.data?.user || (response as any).user;
 
       if (idToken) {
+        await handleGoogleBackendLogin(idToken, undefined, user);
+      } else {
+        setError("Failed to obtain Google authentication token.");
+        setGoogleLoading(false);
+      }
+    } catch (err: any) {
+      if (err.code === "CANCELED" || err.code === "12501" || err.code === "SIGN_IN_CANCELLED" || err.code === "ASYNC_OP_IN_PROGRESS") {
+        setGoogleLoading(false);
+        return;
+      }
+      console.error("Google Sign-In Error:", err);
+      setError(err.message || "Google Sign-In failed. Please try again.");
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleBackendLogin = async (idToken?: string, accessToken?: string, nativeUser?: any) => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      let email: string | undefined = nativeUser?.email;
+      let firstName: string | undefined = nativeUser?.givenName || nativeUser?.name;
+      let lastName: string | undefined = nativeUser?.familyName;
+      let profileUrl: string | undefined = nativeUser?.photo;
+
+      if (idToken && (!email || !firstName)) {
         const decoded = decodeJwtPayload(idToken);
         if (decoded) {
-          email = decoded.email;
-          firstName = decoded.given_name || decoded.name;
-          lastName = decoded.family_name;
-          profileUrl = decoded.picture;
+          email = email || decoded.email;
+          firstName = firstName || decoded.given_name || decoded.name;
+          lastName = lastName || decoded.family_name;
+          profileUrl = profileUrl || decoded.picture;
         }
       }
 
@@ -428,8 +473,8 @@ export default function LoginScreen(): JSX.Element {
           </View>
 
           <Pressable
-            onPress={() => promptGoogleAsync()}
-            disabled={!googleRequest || googleLoading || isLoading}
+            onPress={handleGooglePress}
+            disabled={googleLoading || isLoading}
             className="flex-row items-center justify-center gap-3 bg-card border border-border rounded-xl h-13 px-4 mb-8 shadow-sm active:opacity-80"
           >
             {googleLoading ? (
