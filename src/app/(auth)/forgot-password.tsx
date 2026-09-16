@@ -176,9 +176,9 @@ export default function ForgotPasswordScreen(): JSX.Element {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="bg-background px-6 pt-12 pb-8">
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="bg-background px-6 pt-6 pb-6">
       {/* Header with Back Button */}
-      <View className="flex-row items-center mb-8">
+      <View className="flex-row items-center mb-4">
         <Pressable 
           onPress={() => {
             if (mode === "verify_otp") setMode("enter_identifier");
@@ -198,10 +198,10 @@ export default function ForgotPasswordScreen(): JSX.Element {
       </View>
 
       <View className="flex-1 justify-between">
-        <View className="gap-6">
+        <View className="gap-4">
           {/* Main Illustration/Icon Hero Header */}
-          <View className="items-center my-4">
-            <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-4">
+          <View className="items-center my-2">
+            <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-3">
               <StyledIonicons 
                 name={
                   mode === "enter_identifier" ? "lock-open-outline" :

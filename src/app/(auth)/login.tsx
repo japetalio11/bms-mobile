@@ -314,15 +314,12 @@ export default function LoginScreen(): JSX.Element {
   return (
     <ScrollView 
       className="flex-1 bg-background"
-      contentContainerClassName="p-6 pt-24 pb-12"
+      contentContainerClassName="p-6 pt-10 pb-8"
       keyboardShouldPersistTaps="handled"
     >
       {/* Logo & Header */}
-      <View className="items-center mb-8">
-        <View className="flex-row items-center justify-center gap-3 mb-4">
-          <View className="bg-primary h-14 w-14 rounded-2xl items-center justify-center">
-            <StyledIonicons name="body" size={32} color="white" />
-          </View>
+      <View className="items-center mb-6">
+        <View className="flex-row items-center justify-center mb-2">
           <Text className="text-primary font-bold text-4xl tracking-tight">bms</Text>
         </View>
         <Text className="text-foreground font-medium text-center">
