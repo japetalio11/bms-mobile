@@ -5,20 +5,23 @@ import {
   Pressable,
   Modal,
   TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { Text, Avatar, Button, TextField, Label, Input } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "../../components/Header";
 import type { JSX } from "react";
-import { useState, useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { useConfirm } from "../../context/ConfirmationContext";
 import {
   updateMotherProfileApi,
-  uploadMessageFileApi,
+  uploadAvatarApi,
   formatFormDataFile,
 } from "../../config/api";
 
@@ -34,7 +37,7 @@ export default function EditProfileScreen(): JSX.Element {
   const [email, setEmail] = useState(user.email || "");
   const [address, setAddress] = useState(user.address || "");
   const [avatarUri, setAvatarUri] = useState<string | null>(
-    (user as any).profile_picture_url || (user as any).profile_url || (user as any).avatar_url || null
+    user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url || null
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +45,21 @@ export default function EditProfileScreen(): JSX.Element {
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Clear alerts/messages whenever the screen gains or loses focus
+  useFocusEffect(
+    useCallback(() => {
+      setSuccess(false);
+      setError(null);
+      setIsLoading(false);
+      setIsUploadingPhoto(false);
+
+      return () => {
+        setSuccess(false);
+        setError(null);
+      };
+    }, [])
+  );
 
   // Keep form fields synced if user context updates asynchronously
   useEffect(() => {
@@ -51,7 +69,7 @@ export default function EditProfileScreen(): JSX.Element {
       if (user.phone_number) setPhone(user.phone_number);
       if (user.email) setEmail(user.email);
       if (user.address) setAddress(user.address);
-      const photo = (user as any).profile_picture_url || (user as any).profile_url || (user as any).avatar_url;
+      const photo = user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url;
       if (photo) setAvatarUri(photo);
     }
   }, [user]);
@@ -120,7 +138,7 @@ export default function EditProfileScreen(): JSX.Element {
             const formData = new FormData();
             formData.append("file", filePayload as any);
 
-            const uploadRes = await uploadMessageFileApi(formData, token);
+            const uploadRes = await uploadAvatarApi(formData, token);
             uploadedProfileUrl = uploadRes.fileUrl;
           } catch (uploadErr: any) {
             console.warn("Supabase photo upload warning, preserving local URI:", uploadErr);
@@ -151,7 +169,12 @@ export default function EditProfileScreen(): JSX.Element {
       await refreshProfile();
       setSuccess(true);
       setTimeout(() => {
-        router.push("/(tabs)/profile");
+        setSuccess(false);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/(tabs)/profile");
+        }
       }, 1200);
     } catch (err: any) {
       setError(err.message || "Failed to update profile. Please try again.");
@@ -162,9 +185,19 @@ export default function EditProfileScreen(): JSX.Element {
   };
 
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
       <Header showBackButton title="Edit Profile" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 180 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
 
         {/* Avatar section */}
         <View className="px-5 items-center pt-2 mb-6">
@@ -279,6 +312,7 @@ export default function EditProfileScreen(): JSX.Element {
           </Button>
         </View>
       </ScrollView>
+      </TouchableWithoutFeedback>
 
       {/* Photo Picker Sheet Modal */}
       <Modal visible={isPhotoPickerOpen} transparent animationType="fade" onRequestClose={() => setIsPhotoPickerOpen(false)}>
@@ -317,6 +351,6 @@ export default function EditProfileScreen(): JSX.Element {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

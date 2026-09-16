@@ -55,8 +55,8 @@ export default function ProfileScreen(): JSX.Element {
         {/* Profile Hero */}
         <View className="items-center px-5 pt-2 pb-6">
           <Avatar size="lg" className="mb-4">
-            {(user as any).profile_picture_url || (user as any).avatar_url ? (
-              <Avatar.Image source={{ uri: (user as any).profile_picture_url || (user as any).avatar_url }} />
+            {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
+              <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
             ) : (
               <Avatar.Fallback delayMs={0}>
                 <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">

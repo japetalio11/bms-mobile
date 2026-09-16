@@ -72,6 +72,7 @@ export type AuthUser = {
   email?: string;
   phone_number?: string;
   address?: string;
+  profile_url?: string;
   facility_id?: string | null;
   facility_name?: string;
   facility?: {
@@ -668,6 +669,36 @@ export async function uploadMessageFileApi(
 
     xhr.onerror = () => {
       reject(new Error("Network upload request failed."));
+    };
+
+    xhr.send(formData);
+  });
+}
+
+export async function uploadAvatarApi(
+  formData: FormData,
+  token: string
+): Promise<{ fileUrl: string; fileName: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/v1/mother/avatar/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data.error || data.message || `Avatar upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`Avatar upload failed (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network avatar upload request failed."));
     };
 
     xhr.send(formData);

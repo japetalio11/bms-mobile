@@ -56,6 +56,7 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       address TEXT,
       facility_id TEXT,
       facility_name TEXT,
+      profile_url TEXT,
       updated_at TEXT
     );
 
@@ -228,6 +229,10 @@ async function initTables(db: SQLite.SQLiteDatabase) {
   `);
 
   try {
+    await db.execAsync("ALTER TABLE users ADD COLUMN profile_url TEXT;");
+  } catch {}
+
+  try {
     await db.execAsync("ALTER TABLE lab_screenings ADD COLUMN mother_id TEXT;");
   } catch {}
 
@@ -379,7 +384,8 @@ function createWebFallbackDatabase() {
           item.address = params[7];
           item.facility_id = params[8];
           item.facility_name = params[9];
-          item.updated_at = params[10];
+          item.profile_url = params[10];
+          item.updated_at = params[11];
         } else if (table === "mother_records") {
           item.mother_id = params[0];
           item.user_id = params[1];

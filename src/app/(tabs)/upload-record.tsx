@@ -23,11 +23,12 @@ type SelectedFile = {
 };
 
 const RECORD_TYPES = [
+  { id: "General Document", label: "General Document", icon: "document-text-outline" },
   { id: "Urinalysis", label: "Urinalysis", icon: "flask-outline" },
   { id: "Blood Typing", label: "Blood Typing", icon: "water-outline" },
   { id: "Hepatitis B Screening", label: "Hepatitis B Screening", icon: "shield-checkmark-outline" },
   { id: "Complete Blood Count", label: "Complete Blood Count (CBC)", icon: "stats-chart-outline" },
-  { id: "Other", label: "Other Document", icon: "document-text-outline" },
+  { id: "Other", label: "Other Document", icon: "folder-open-outline" },
 ];
 
 export default function UploadRecordScreen(): JSX.Element {
@@ -35,7 +36,7 @@ export default function UploadRecordScreen(): JSX.Element {
   const { token, activePregnancy, motherRecord, user } = useAuth();
   const { isOnline } = useNetwork();
 
-  const [recordType, setRecordType] = useState<string>("Urinalysis");
+  const [recordType, setRecordType] = useState<string>("General Document");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
 
@@ -49,7 +50,7 @@ export default function UploadRecordScreen(): JSX.Element {
       setError(null);
       setSuccess(false);
       setIsLoading(false);
-      setRecordType("Urinalysis");
+      setRecordType("General Document");
     }, [])
   );
 
