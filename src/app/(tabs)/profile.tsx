@@ -7,6 +7,7 @@ import { Header } from "../../components/Header";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
 import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
+import { MotherShareJourneyModal } from "../../components/MotherShareJourneyModal";
 
 function SettingRow({
   icon,
@@ -39,6 +40,7 @@ export default function ProfileScreen(): JSX.Element {
   const router = useRouter();
   const { user, motherRecord, logout } = useAuth();
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [shareJourneyModalOpen, setShareJourneyModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -79,14 +81,21 @@ export default function ProfileScreen(): JSX.Element {
           </Button>
         </View>
 
-        {/* Facility Connection & Health Card QR */}
+        {/* Medical Sharing & Facility Connection */}
         <View className="px-5 mb-4">
-          <Text className="text-muted text-sm font-medium mb-1 ml-1">Facility Connection</Text>
+          <Text className="text-muted text-sm font-medium mb-1 ml-1">Clinical Sharing & Facility</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
             <SettingRow
+              icon="share-social-outline"
+              title="Share Pregnancy Journey & Vitals"
+              subtitle="Generate QR code & 6-digit PIN for doctor web view"
+              onPress={() => setShareJourneyModalOpen(true)}
+            />
+            <View className="h-px bg-separator mx-1" />
+            <SettingRow
               icon="qr-code-outline"
-              title="Mother Health Card & QR"
-              subtitle="Scan or share code to connect facility"
+              title="Mother Health Card & Facility QR"
+              subtitle="Scan code to connect to your health facility"
               onPress={() => setQrModalOpen(true)}
             />
           </Card>
@@ -151,6 +160,14 @@ export default function ProfileScreen(): JSX.Element {
       <MotherQRCodeModal
         visible={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
+        user={user}
+        motherRecord={motherRecord}
+      />
+
+      {/* Mother Share Journey Modal */}
+      <MotherShareJourneyModal
+        visible={shareJourneyModalOpen}
+        onClose={() => setShareJourneyModalOpen(false)}
         user={user}
         motherRecord={motherRecord}
       />

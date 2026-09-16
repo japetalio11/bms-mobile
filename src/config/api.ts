@@ -850,3 +850,63 @@ export async function updateNotificationReadApi(notificationId: string, isRead: 
     throw new Error(data.error || data.message || "Failed to update notification");
   }
 }
+
+// --- Mother Pregnancy Journey QR & PIN Sharing APIs ---
+
+export type MotherShareTokenResponse = {
+  share_id: string;
+  share_token: string;
+  pin_code: string;
+  web_url: string;
+  short_url?: string;
+  is_active: boolean;
+  created_at: string;
+  expires_at?: string | null;
+  access_count?: number;
+};
+
+export async function getMotherShareTokenApi(
+  token: string,
+  motherId?: string
+): Promise<MotherShareTokenResponse> {
+  const url = motherId
+    ? `${API_BASE_URL}/api/v1/mother/share-token?mother_id=${encodeURIComponent(motherId)}`
+    : `${API_BASE_URL}/api/v1/mother/share-token`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to retrieve share token");
+  }
+
+  return data.data;
+}
+
+export async function regenerateMotherShareTokenApi(
+  token: string,
+  motherId?: string
+): Promise<MotherShareTokenResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mother/share-token/regenerate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(motherId ? { mother_id: motherId } : {}),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to regenerate share PIN");
+  }
+
+  return data.data;
+}
+
