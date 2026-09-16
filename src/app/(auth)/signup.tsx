@@ -56,7 +56,6 @@ export default function SignupScreen(): JSX.Element {
 
   // Form Fields
   const [firstName, setFirstName] = useState("");
-  const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -333,7 +332,6 @@ export default function SignupScreen(): JSX.Element {
 
       const data = await registerApi({
         first_name: firstName.trim(),
-        middle_name: middleName.trim() || undefined,
         last_name: lastName.trim(),
         role: "Mother", // Mobile self-registration role for mothers
         phone_number: phone.trim(),
@@ -392,37 +390,23 @@ export default function SignupScreen(): JSX.Element {
         /* STEP 1: Registration Form */
         <>
           <View className="gap-5 mb-6">
-            {/* First & Last Name */}
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <TextField isRequired>
-                  <Label>First Name</Label>
-                  <Input 
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    placeholder="Jane"
-                  />
-                </TextField>
-              </View>
-              <View className="flex-1">
-                <TextField isRequired>
-                  <Label>Last Name</Label>
-                  <Input 
-                    value={lastName}
-                    onChangeText={setLastName}
-                    placeholder="Doe"
-                  />
-                </TextField>
-              </View>
-            </View>
-
-            {/* Middle Name (Optional) */}
-            <TextField>
-              <Label>Middle Name (Optional)</Label>
+            {/* First Name */}
+            <TextField isRequired>
+              <Label>First Name</Label>
               <Input 
-                value={middleName}
-                onChangeText={setMiddleName}
-                placeholder="Santos"
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Jane"
+              />
+            </TextField>
+
+            {/* Last Name */}
+            <TextField isRequired>
+              <Label>Last Name</Label>
+              <Input 
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Doe"
               />
             </TextField>
 
