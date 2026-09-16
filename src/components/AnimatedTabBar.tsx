@@ -19,7 +19,6 @@ const HIDDEN_ROUTES = [
   'edit-profile',
   'app-appearance',
   'notifications',
-  'chat',
   'vitals',
   'search',
   'history',

@@ -52,6 +52,13 @@ export default function TabsLayout(): JSX.Element {
         }}
       />
       <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ color }) => <TabIcon name="chatbubble-ellipses-outline" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
@@ -67,7 +74,6 @@ export default function TabsLayout(): JSX.Element {
       <Tabs.Screen name="privacy" options={{ href: null }} />
       <Tabs.Screen name="upload-record" options={{ href: null }} />
       <Tabs.Screen name="vitals" options={{ href: null }} />
-      <Tabs.Screen name="chat" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
       <Tabs.Screen name="appointment-detail" options={{ href: null }} />
       <Tabs.Screen name="urinalysis" options={{ href: null }} />
