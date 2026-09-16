@@ -14,13 +14,55 @@ import {
 } from "../lib/phoneAuthUtils";
 import { sendOtpApi } from "../config/api";
 
-let nativeAuth: any = null;
-if (Platform.OS !== "web") {
+function getNativePhoneAuthHandler() {
+  if (Platform.OS === "web") return null;
   try {
-    nativeAuth = require("@react-native-firebase/auth").default;
-  } catch (err) {
-    console.warn("[Native Firebase Auth Module Notice]:", err);
+    try {
+      require("@react-native-firebase/app");
+    } catch (e) {}
+
+    const firebaseAuthMod = require("@react-native-firebase/auth");
+    
+    // Method 1: Traditional auth() function (e.g. auth().signInWithPhoneNumber)
+    let authObj: any = null;
+    if (typeof firebaseAuthMod === "function") {
+      try { authObj = firebaseAuthMod(); } catch (e) {}
+    } else if (typeof firebaseAuthMod?.default === "function") {
+      try { authObj = firebaseAuthMod.default(); } catch (e) {}
+    }
+
+    if (authObj && typeof authObj.signInWithPhoneNumber === "function") {
+      console.log("✅ [Native Firebase Auth] Using auth().signInWithPhoneNumber instance");
+      return (phone: string) => authObj.signInWithPhoneNumber(phone);
+    }
+
+    // Method 2: Modular getAuth() (e.g. getAuth().signInWithPhoneNumber)
+    if (typeof firebaseAuthMod?.getAuth === "function") {
+      try {
+        const authInst = firebaseAuthMod.getAuth();
+        if (authInst && typeof authInst.signInWithPhoneNumber === "function") {
+          console.log("✅ [Native Firebase Auth] Using getAuth().signInWithPhoneNumber instance");
+          return (phone: string) => authInst.signInWithPhoneNumber(phone);
+        }
+      } catch (e) {}
+    }
+
+    // Method 3: Direct modular function signInWithPhoneNumber(auth, phone) or signInWithPhoneNumber(phone)
+    if (typeof firebaseAuthMod?.signInWithPhoneNumber === "function") {
+      console.log("✅ [Native Firebase Auth] Using modular signInWithPhoneNumber function");
+      return (phone: string) => {
+        if (typeof firebaseAuthMod.getAuth === "function") {
+          try {
+            return firebaseAuthMod.signInWithPhoneNumber(firebaseAuthMod.getAuth(), phone);
+          } catch (e) {}
+        }
+        return firebaseAuthMod.signInWithPhoneNumber(phone);
+      };
+    }
+  } catch (err: any) {
+    console.error("❌ [Native Phone Auth Load Error]:", err);
   }
+  return null;
 }
 
 export interface UsePhoneAuthOptions {
@@ -337,36 +379,53 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
         console.log("Target Phone (E.164):", formatted);
         console.log("Platform:", Platform.OS);
 
-        let nativeFirebase = nativeAuth;
-        if (!nativeFirebase) {
+        const nativePhoneAuthFn = getNativePhoneAuthHandler();
+
+        if (nativePhoneAuthFn) {
           try {
-            nativeFirebase = require("@react-native-firebase/auth").default;
-          } catch (loadErr) {
-            console.error("[Native Firebase Auth Load Error]:", loadErr);
+            console.log("⏳ Invoking native Firebase signInWithPhoneNumber(formatted)...");
+            const confirmation = await nativePhoneAuthFn(formatted);
+            confirmationResultRef.current = confirmation;
+            console.log("🎉 [Native Phone Auth] SMS successfully dispatched by Firebase! Verification ID:", confirmation?.verificationId);
+            console.groupEnd();
+
+            setActiveMethod("firebase");
+            setIsOtpSent(true);
+            setStatusType("success");
+            setStatusMessage(`📲 SMS OTP sent via Firebase to ${formatted}! Please check your phone.`);
+            setCooldown(cooldownDuration);
+            return true;
+          } catch (firebaseErr: any) {
+            console.groupEnd();
+            console.error("❌ [Native Firebase Auth Error]:", firebaseErr);
+            setStatusType("error");
+            const humanMsg = getFirebaseErrorMessage(firebaseErr?.code || firebaseErr?.message || "");
+            setStatusMessage(humanMsg);
+            return false;
           }
+        } else {
+          console.groupEnd();
+          console.warn("⚠️ Native Firebase Auth function handler could not be initialized. Falling back to Backend SMS OTP API...");
         }
 
-        if (!nativeFirebase) {
-          throw new Error("Native Firebase Auth module is not available. Please rebuild the app with npx expo run:android.");
-        }
+        // Fallback to Backend SMS OTP API
+        console.log(`[Backend SMS Fallback] Sending OTP via backend to ${formatted}...`);
+        await sendOtpApi({
+          identifier: formatted,
+          type: "sms",
+          purpose,
+          provider: "sms",
+        });
 
-        console.log("⏳ Invoking native Firebase signInWithPhoneNumber(formatted)...");
-        const confirmation = await nativeFirebase().signInWithPhoneNumber(formatted);
-        confirmationResultRef.current = confirmation;
-        console.log("🎉 [Native Phone Auth] SMS successfully dispatched by Firebase! Verification ID:", confirmation.verificationId);
-        console.groupEnd();
-
-        setActiveMethod("firebase");
+        setActiveMethod("backend");
         setIsOtpSent(true);
         setStatusType("success");
-        setStatusMessage(`📲 SMS OTP sent via Firebase to ${formatted}! Please check your phone.`);
+        setStatusMessage(`📲 SMS OTP sent to ${formatted}! Please check your messages.`);
         setCooldown(cooldownDuration);
         return true;
       } catch (nativeErr: any) {
-        console.group("❌ [Firebase Native Phone Auth Error]");
-        console.error("Native Phone Auth Error Code:", nativeErr?.code);
-        console.error("Native Phone Auth Error Message:", nativeErr?.message);
-        console.error("Full Native Error:", nativeErr);
+        console.group("❌ [Phone Auth Error]");
+        console.error("Phone Auth Error Message:", nativeErr?.message);
         console.groupEnd();
 
         setStatusType("error");

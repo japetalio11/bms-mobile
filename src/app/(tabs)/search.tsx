@@ -69,11 +69,10 @@ export default function SearchScreen(): JSX.Element {
           <SearchField 
             value={search} 
             onChange={setSearch}
-            onSubmitEditing={() => handleSearch(search)}
           >
             <SearchField.Group className="bg-[#18181b] border-0 rounded-xl h-12">
               <SearchField.SearchIcon />
-              <SearchField.Input placeholder="Search anything..." className="text-sm" returnKeyType="search" />
+              <SearchField.Input placeholder="Search anything..." className="text-sm" returnKeyType="search" onSubmitEditing={() => handleSearch(search)} />
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>

@@ -506,12 +506,9 @@ export default function SignupScreen(): JSX.Element {
               </View>
             </TextField>
 
-            {/* Visible reCAPTCHA 'I am not a robot' Checkbox Container - Bottom placement, only for SMS OTP */}
-            {!email.trim() && (
-              <View 
-                className="my-2 w-full items-center justify-center overflow-visible"
-                style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
-              >
+            {/* Visible reCAPTCHA 'I am not a robot' Checkbox Container - Web only */}
+            {Platform.OS === "web" && !email.trim() && (
+              <View className="my-2 w-full items-center justify-center overflow-visible">
                 <View 
                   id="recaptcha-container"
                   nativeID="recaptcha-container"

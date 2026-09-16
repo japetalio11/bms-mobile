@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -455,22 +455,21 @@ export default function LoginScreen(): JSX.Element {
       ) : mode === "setup_otp" ? (
         /* MODE 2: STEP 1 - OTP VERIFICATION FOR PASSWORD SETUP */
         <>
-          {/* Visible reCAPTCHA Container for Web */}
-          <View 
-            className="my-2 w-full items-center justify-center overflow-visible"
-            style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
-          >
-            <View 
-              id="recaptcha-container-login"
-              nativeID="recaptcha-container-login"
-              style={{
-                minHeight: 78,
-                minWidth: 304,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            />
-          </View>
+          {/* Visible reCAPTCHA Container for Web only */}
+          {Platform.OS === "web" && (
+            <View className="my-2 w-full items-center justify-center overflow-visible">
+              <View 
+                id="recaptcha-container-login"
+                nativeID="recaptcha-container-login"
+                style={{
+                  minHeight: 78,
+                  minWidth: 304,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              />
+            </View>
+          )}
 
           <View className="gap-6 mb-8">
             <Text className="text-foreground text-base">

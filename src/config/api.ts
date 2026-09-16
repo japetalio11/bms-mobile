@@ -7,14 +7,14 @@ const getApiBaseUrl = (): string => {
 
   if (!url) {
     const hostUri = Constants.expoConfig?.hostUri;
-    if (hostUri) {
+    if (hostUri && !hostUri.includes("localhost") && !hostUri.includes("127.0.0.1")) {
       const ip = hostUri.split(":")[0];
       return `http://${ip}:6700`;
     }
-    url = "http://localhost:6700";
+    return "https://bms-backend-g4gi.onrender.com";
   }
 
-  // Inside Android emulator, map localhost to 10.0.2.2 so it routes to the PC
+  // Inside Android emulator, map localhost to 10.0.2.2 if localhost is used
   if (Platform.OS === "android" && url.includes("localhost")) {
     return url.replace("localhost", "10.0.2.2");
   }

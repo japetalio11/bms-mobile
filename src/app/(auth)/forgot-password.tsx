@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -272,22 +272,21 @@ export default function ForgotPasswordScreen(): JSX.Element {
                 </View>
               </TextField>
 
-              {/* Visible reCAPTCHA Container */}
-              <View 
-                className="my-1 w-full items-center justify-center overflow-visible"
-                style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
-              >
-                <View 
-                  id="recaptcha-container-forgot"
-                  nativeID="recaptcha-container-forgot"
-                  style={{
-                    minHeight: 78,
-                    minWidth: 304,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                />
-              </View>
+              {/* Visible reCAPTCHA Container - Web only */}
+              {Platform.OS === "web" && (
+                <View className="my-1 w-full items-center justify-center overflow-visible">
+                  <View 
+                    id="recaptcha-container-forgot"
+                    nativeID="recaptcha-container-forgot"
+                    style={{
+                      minHeight: 78,
+                      minWidth: 304,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  />
+                </View>
+              )}
             </>
           )}
 
