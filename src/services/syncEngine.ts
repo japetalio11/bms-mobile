@@ -8,22 +8,34 @@ import {
 
 let isSyncing = false;
 
-export async function triggerOutboxSync(authToken: string | null): Promise<void> {
+export async function triggerOutboxSync(
+  authToken: string | null,
+  currentUserId?: string
+): Promise<void> {
   if (isSyncing || !authToken) return;
 
   try {
     isSyncing = true;
-    const pendingItems = await getPendingSyncItems();
+    const pendingItems = await getPendingSyncItems(currentUserId);
     if (pendingItems.length === 0) {
       isSyncing = false;
       return;
     }
 
-    console.log(`[SyncEngine] Starting outbox sync for ${pendingItems.length} pending items...`);
+    console.log(
+      `[SyncEngine] Starting user-isolated outbox sync for ${pendingItems.length} pending items (User: ${currentUserId || "all"})...`
+    );
+
+    const db = await getDatabase();
 
     for (const item of pendingItems) {
       try {
-        const payload = JSON.parse(item.payload);
+        let payload: any = {};
+        try {
+          payload = typeof item.payload === "string" ? JSON.parse(item.payload) : item.payload;
+        } catch {
+          payload = item.payload;
+        }
 
         // Handle offline image/file upload first if creating lab screening
         if (item.action_type === "CREATE_LAB_SCREENING" && payload.localFileUri && !payload.file_url) {
@@ -36,6 +48,8 @@ export async function triggerOutboxSync(authToken: string | null): Promise<void>
         const cleanPayload = { ...payload };
         delete cleanPayload.localFileUri;
         delete cleanPayload.fileSizeBytes;
+        const tempId = cleanPayload.temp_id;
+        delete cleanPayload.temp_id;
 
         const response = await fetch(`${API_BASE_URL}${item.endpoint}`, {
           method: item.method,
@@ -49,7 +63,7 @@ export async function triggerOutboxSync(authToken: string | null): Promise<void>
         if (response.ok) {
           const resData = await response.json();
           await markSyncItemSuccess(item.id);
-          await updateLocalRecordSynced(item.action_type, payload, resData);
+          await updateLocalRecordSynced(db, item.action_type, payload, resData, tempId);
           console.log(`[SyncEngine] Successfully synced item ${item.id} (${item.action_type})`);
         } else {
           const errText = await response.text();
@@ -94,12 +108,17 @@ async function uploadLocalFile(localFileUri: string, token: string): Promise<str
   return data.fileUrl || data.url || data.file_url;
 }
 
-async function updateLocalRecordSynced(actionType: string, payload: any, responseData: any) {
-  const db = await getDatabase();
+async function updateLocalRecordSynced(
+  db: any,
+  actionType: string,
+  payload: any,
+  responseData: any,
+  tempId?: string
+) {
   const now = new Date().toISOString();
 
   if (actionType === "CREATE_APPOINTMENT") {
-    const serverApptId = responseData?.appointment_id || responseData?.result?.appointment_id;
+    const serverApptId = responseData?.appointment_id || responseData?.result?.appointment_id || responseData?.data?.appointment_id;
     if (serverApptId && payload.appointment_id) {
       await db.runAsync(
         `UPDATE appointments SET appointment_id = ?, sync_status = 'synced', updated_at = ? WHERE appointment_id = ?`,
@@ -117,7 +136,7 @@ async function updateLocalRecordSynced(actionType: string, payload: any, respons
       [now, payload.supplement_id]
     );
   } else if (actionType === "CREATE_LAB_SCREENING") {
-    const serverScreeningId = responseData?.screening_id || responseData?.result?.screening_id;
+    const serverScreeningId = responseData?.screening_id || responseData?.result?.screening_id || responseData?.data?.screening_id;
     await db.runAsync(
       `UPDATE lab_screenings SET screening_id = ?, file_url = ?, upload_status = 'synced', sync_status = 'synced', updated_at = ? WHERE screening_id = ?`,
       [
@@ -127,5 +146,15 @@ async function updateLocalRecordSynced(actionType: string, payload: any, respons
         payload.screening_id,
       ]
     );
+  } else if (actionType === "CREATE_MESSAGE") {
+    const serverMsg = responseData?.data || responseData;
+    const serverId = serverMsg?.message_id;
+    const lookupId = tempId || payload.temp_id || payload.message_id;
+    if (serverId && lookupId) {
+      await db.runAsync(
+        `UPDATE messages SET message_id = ?, sync_status = 'synced', updated_at = ? WHERE message_id = ?`,
+        [serverId, now, lookupId]
+      );
+    }
   }
 }

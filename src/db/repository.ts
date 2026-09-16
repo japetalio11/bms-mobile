@@ -7,16 +7,27 @@ import type {
   AppointmentRecord,
   SupplementRecord,
   LabScreeningRecord,
+  DeliveryOutcomeRecord,
+  NewbornRecord,
+  InAppMessage,
+  ChatContact,
 } from "../config/api";
+import {
+  encryptSensitiveText,
+  decryptSensitiveText,
+  encryptObject,
+  decryptObject,
+} from "../lib/crypto";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
 
 export type SyncQueueItem = {
   id: string;
+  user_id?: string;
   action_type: string;
   endpoint: string;
   method: string;
-  payload: string; // JSON string
+  payload: string; // Decrypted or JSON string
   created_at: string;
   retry_count: number;
   status: "pending" | "failed" | "completed";
@@ -31,39 +42,60 @@ export async function saveRecordHistory(
   snapshot: any
 ) {
   const db = await getDatabase();
+  const encryptedSnapshot = await encryptObject(snapshot);
   await db.runAsync(
     `INSERT INTO record_history (entity_type, entity_id, version, snapshot_json, created_at)
      VALUES (?, ?, ?, ?, ?)`,
-    [entityType, entityId, version, JSON.stringify(snapshot), new Date().toISOString()]
+    [entityType, entityId, version, encryptedSnapshot, new Date().toISOString()]
   );
 }
 
-// --- Sync Queue Operations ---
+// --- Sync Queue Operations (Strictly Isolated by user_id) ---
 export async function enqueueSyncAction(
   actionType: string,
   endpoint: string,
   method: string,
-  payload: any
+  payload: any,
+  userId?: string
 ): Promise<string> {
   const db = await getDatabase();
   const queueId = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date().toISOString();
+  const targetUserId = userId || payload.user_id || payload.userId || "";
+
+  // Encrypt payload at rest for offline privacy
+  const encryptedPayload = await encryptObject(payload);
 
   await db.runAsync(
-    `INSERT INTO sync_queue (id, action_type, endpoint, method, payload, created_at, retry_count, status)
-     VALUES (?, ?, ?, ?, ?, ?, 0, 'pending')`,
-    [queueId, actionType, endpoint, method, JSON.stringify(payload), now]
+    `INSERT INTO sync_queue (id, user_id, action_type, endpoint, method, payload, created_at, retry_count, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending')`,
+    [queueId, targetUserId, actionType, endpoint, method, encryptedPayload, now]
   );
 
   return queueId;
 }
 
-export async function getPendingSyncItems(): Promise<SyncQueueItem[]> {
+export async function getPendingSyncItems(userId?: string): Promise<SyncQueueItem[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<SyncQueueItem>(
-    `SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY created_at ASC`
-  );
-  return rows;
+  const rows = userId
+    ? await db.getAllAsync<SyncQueueItem>(
+        `SELECT * FROM sync_queue WHERE status = 'pending' AND (user_id = ? OR user_id IS NULL OR user_id = '') ORDER BY created_at ASC`,
+        [userId]
+      )
+    : await db.getAllAsync<SyncQueueItem>(
+        `SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY created_at ASC`
+      );
+
+  // Decrypt payloads before passing to the sync engine
+  const decryptedItems: SyncQueueItem[] = [];
+  for (const row of rows) {
+    const rawPayload = await decryptSensitiveText(row.payload);
+    decryptedItems.push({
+      ...row,
+      payload: rawPayload,
+    });
+  }
+  return decryptedItems;
 }
 
 export async function markSyncItemSuccess(id: string) {
@@ -137,7 +169,7 @@ export async function saveMotherProfileLocal(data: {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           preg.pregnancy_id,
-          preg.mother_id,
+          preg.mother_id || data.mother_id || "",
           preg.date_of_registration || "",
           preg.lmp_date || "",
           preg.gravida || 0,
@@ -147,8 +179,12 @@ export async function saveMotherProfileLocal(data: {
         ]
       );
 
+      // Save prenatal visits with encrypted clinical notes
       if (preg.prenatalVisits && preg.prenatalVisits.length > 0) {
         for (const visit of preg.prenatalVisits) {
+          const encComplaint = await encryptSensitiveText(visit.chief_complaint || "");
+          const encRisk = await encryptSensitiveText(visit.risk_level_assessed || "");
+
           await db.runAsync(
             `INSERT OR REPLACE INTO prenatal_visits (visit_id, pregnancy_id, visit_date, trimester, visit_number, age_of_gestation_weeks, weight_kg, temperature_celsius, pulse_rate_bpm, bp_diastolic, bp_systolic, fundic_height_cm, fetal_heart_tone_bpm, chief_complaint, risk_level_assessed, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -166,15 +202,86 @@ export async function saveMotherProfileLocal(data: {
               visit.bp_systolic || 0,
               Number(visit.fundic_height_cm) || 0,
               visit.fetal_heart_tone_bpm || 0,
-              visit.chief_complaint || "",
-              visit.risk_level_assessed || "",
+              encComplaint,
+              encRisk,
               now,
             ]
           );
         }
       }
+
+      // Save delivery outcomes and newborn records if present
+      if (preg.deliveryOutcomes && preg.deliveryOutcomes.length > 0) {
+        await saveDeliveryOutcomesLocal(preg.pregnancy_id, data.mother_id || "", preg.deliveryOutcomes);
+      }
     }
   }
+}
+
+export async function saveDeliveryOutcomesLocal(
+  pregnancyId: string,
+  motherId: string,
+  outcomes: DeliveryOutcomeRecord[]
+) {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+
+  for (const outcome of outcomes) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO delivery_outcomes (delivery_id, pregnancy_id, mother_id, delivery_date, place_of_delivery, mode_of_delivery, duration_of_labor_hours, blood_loss_ml, delivery_complications, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        outcome.delivery_id,
+        pregnancyId,
+        motherId,
+        outcome.delivery_date || "",
+        outcome.place_of_delivery || "",
+        outcome.mode_of_delivery || "",
+        Number(outcome.duration_of_labor_hours) || 0,
+        Number(outcome.blood_loss_ml) || 0,
+        outcome.delivery_complications || "",
+        now,
+      ]
+    );
+
+    if (outcome.newbornRecords && outcome.newbornRecords.length > 0) {
+      for (const nb of outcome.newbornRecords) {
+        await db.runAsync(
+          `INSERT OR REPLACE INTO newborn_records (newborn_id, delivery_id, sex, birth_weight_kg, status_at_birth, apgar_score, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            nb.newborn_id,
+            outcome.delivery_id,
+            nb.sex || "",
+            Number(nb.birth_weight_kg) || 0,
+            nb.status_at_birth || "",
+            Number(nb.apgar_score) || 0,
+            nb.created_at || now,
+            now,
+          ]
+        );
+      }
+    }
+  }
+}
+
+export async function getDeliveryOutcomesLocal(motherId: string): Promise<DeliveryOutcomeRecord[]> {
+  const db = await getDatabase();
+  const outcomes = await db.getAllAsync<DeliveryOutcomeRecord>(
+    `SELECT d.* FROM delivery_outcomes d
+     JOIN pregnancies p ON d.pregnancy_id = p.pregnancy_id
+     WHERE p.mother_id = ? OR d.mother_id = ? ORDER BY d.delivery_date DESC`,
+    [motherId, motherId]
+  );
+
+  for (const outcome of outcomes) {
+    const newborns = await db.getAllAsync<NewbornRecord>(
+      `SELECT * FROM newborn_records WHERE delivery_id = ?`,
+      [outcome.delivery_id]
+    );
+    outcome.newbornRecords = newborns;
+  }
+  return outcomes;
 }
 
 export async function getMotherProfileLocal(userId: string): Promise<{
@@ -202,7 +309,17 @@ export async function getMotherProfileLocal(userId: string): Promise<{
         `SELECT * FROM prenatal_visits WHERE pregnancy_id = ? ORDER BY visit_number ASC`,
         [p.pregnancy_id]
       );
+
+      // Decrypt clinical notes
+      for (const v of visits) {
+        v.chief_complaint = await decryptSensitiveText(v.chief_complaint);
+        v.risk_level_assessed = await decryptSensitiveText(v.risk_level_assessed);
+      }
       p.prenatalVisits = visits;
+
+      // Attach delivery outcomes
+      const deliveries = await getDeliveryOutcomesLocal(mRecord.mother_id);
+      p.deliveryOutcomes = deliveries.filter((d) => d.pregnancy_id === p.pregnancy_id);
     }
     pregnancies = pregs;
   }
@@ -226,6 +343,15 @@ export async function getAppointmentsLocal(userId: string): Promise<AppointmentR
     [userId]
   );
   return rows;
+}
+
+export async function getAppointmentByIdLocal(appointmentId: string): Promise<AppointmentRecord | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<AppointmentRecord>(
+    `SELECT * FROM appointments WHERE appointment_id = ?`,
+    [appointmentId]
+  );
+  return row || null;
 }
 
 export async function saveAppointmentsLocal(
@@ -269,7 +395,7 @@ export async function createAppointmentLocal(payload: any, isOnline: boolean): P
     appointment_time: payload.appointment_time,
     appointment_type: payload.appointment_type,
     reason: payload.reason,
-    status: payload.status || "Pending",
+    status: payload.status || "scheduled",
   };
 
   await db.runAsync(
@@ -290,7 +416,13 @@ export async function createAppointmentLocal(payload: any, isOnline: boolean): P
   );
 
   if (!isOnline) {
-    await enqueueSyncAction("CREATE_APPOINTMENT", "/api/v1/appointment/register", "POST", payload);
+    await enqueueSyncAction(
+      "CREATE_APPOINTMENT",
+      "/api/v1/appointment/register",
+      "POST",
+      payload,
+      payload.user_id
+    );
   }
 
   return record;
@@ -298,7 +430,8 @@ export async function createAppointmentLocal(payload: any, isOnline: boolean): P
 
 export async function cancelAppointmentLocal(
   appointmentId: string,
-  isOnline: boolean
+  isOnline: boolean,
+  userId?: string
 ): Promise<void> {
   const db = await getDatabase();
   const existing = await db.getFirstAsync<AppointmentRecord>(
@@ -307,7 +440,6 @@ export async function cancelAppointmentLocal(
   );
 
   if (existing) {
-    // MVCC Snapshot before mutation
     await saveRecordHistory(
       "appointment",
       appointmentId,
@@ -328,7 +460,8 @@ export async function cancelAppointmentLocal(
         "CANCEL_APPOINTMENT",
         `/api/v1/appointment/cancel/${appointmentId}`,
         "PUT",
-        { appointmentId, version: nextVersion }
+        { appointmentId, version: nextVersion },
+        userId || existing.user_id
       );
     }
   }
@@ -337,7 +470,6 @@ export async function cancelAppointmentLocal(
 // --- Supplements Operations ---
 export async function getSupplementsLocal(motherId: string): Promise<SupplementRecord[]> {
   const db = await getDatabase();
-  // Join through pregnancies
   const rows = await db.getAllAsync<SupplementRecord>(
     `SELECT s.* FROM supplements s
      JOIN pregnancies p ON s.pregnancy_id = p.pregnancy_id
@@ -380,7 +512,8 @@ export async function saveSupplementsLocal(
 export async function updateSupplementStatusLocal(
   supplementId: string,
   isCompleted: boolean,
-  isOnline: boolean
+  isOnline: boolean,
+  userId?: string
 ): Promise<void> {
   const db = await getDatabase();
   const existing = await db.getFirstAsync<SupplementRecord>(
@@ -389,7 +522,6 @@ export async function updateSupplementStatusLocal(
   );
 
   if (existing) {
-    // MVCC Snapshot before mutation
     await saveRecordHistory("supplement", supplementId, (existing as any).version || 1, existing);
 
     const nextVersion = ((existing as any).version || 1) + 1;
@@ -401,11 +533,17 @@ export async function updateSupplementStatusLocal(
     );
 
     if (!isOnline) {
-      await enqueueSyncAction("UPDATE_SUPPLEMENT", "/api/v1/supplement/update", "PUT", {
-        supplement_id: supplementId,
-        is_completed: isCompleted,
-        version: nextVersion,
-      });
+      await enqueueSyncAction(
+        "UPDATE_SUPPLEMENT",
+        "/api/v1/supplement/update",
+        "PUT",
+        {
+          supplement_id: supplementId,
+          is_completed: isCompleted,
+          version: nextVersion,
+        },
+        userId
+      );
     }
   }
 }
@@ -419,8 +557,13 @@ export async function getLabScreeningsLocal(motherId: string): Promise<LabScreen
      LEFT JOIN pregnancies p ON ls.pregnancy_id = p.pregnancy_id
      WHERE ls.mother_id = ? OR p.mother_id = ?
      ORDER BY ls.date_of_screening DESC`,
-    [motherId]
+    [motherId, motherId]
   );
+
+  for (const r of rows) {
+    r.result = await decryptSensitiveText(r.result);
+    r.remarks = await decryptSensitiveText(r.remarks);
+  }
   return rows;
 }
 
@@ -432,23 +575,21 @@ export async function saveLabScreeningsLocal(
   const db = await getDatabase();
   const now = new Date().toISOString();
 
-  // If reconciling with the server, prune stale 'synced' records for this mother so ghost records do not persist
   if (isFromBackend && motherId) {
     const validIds = new Set(screenings.map((s) => s.screening_id));
     const currentRecords = await getLabScreeningsLocal(motherId);
 
     for (const item of currentRecords) {
-      // Only prune records that were marked as synced (preserve pending local uploads)
       if ((item as any).sync_status === "synced" && !validIds.has(item.screening_id)) {
-        await db.runAsync(
-          `DELETE FROM lab_screenings WHERE screening_id = ?`,
-          [item.screening_id]
-        );
+        await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id = ?`, [item.screening_id]);
       }
     }
   }
 
   for (const ls of screenings) {
+    const encResult = await encryptSensitiveText(ls.result || "");
+    const encRemarks = await encryptSensitiveText(ls.remarks || "");
+
     await db.runAsync(
       `INSERT OR REPLACE INTO lab_screenings (screening_id, mother_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -458,13 +599,13 @@ export async function saveLabScreeningsLocal(
         ls.pregnancy_id,
         ls.visit_id,
         ls.screening_type,
-        ls.result,
+        encResult,
         ls.file_url || null,
         (ls as any).local_file_uri || null,
         (ls as any).file_size_bytes || null,
         (ls as any).upload_status || (isFromBackend ? "synced" : "pending"),
         ls.date_of_screening,
-        ls.remarks || "",
+        encRemarks,
         (ls as any).version || 1,
         isFromBackend ? "synced" : "pending",
         now,
@@ -501,6 +642,9 @@ export async function createLabScreeningLocal(
     remarks: payload.remarks,
   };
 
+  const encResult = await encryptSensitiveText(record.result || "");
+  const encRemarks = await encryptSensitiveText(record.remarks || "");
+
   await db.runAsync(
     `INSERT INTO lab_screenings (screening_id, mother_id, pregnancy_id, visit_id, screening_type, result, file_url, local_file_uri, file_size_bytes, upload_status, date_of_screening, remarks, version, sync_status, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
@@ -510,27 +654,176 @@ export async function createLabScreeningLocal(
       record.pregnancy_id,
       record.visit_id,
       record.screening_type,
-      record.result,
+      encResult,
       record.file_url || null,
       localFileUri || null,
       fileSizeBytes || null,
       localFileUri && !payload.file_url ? "pending" : "synced",
       record.date_of_screening,
-      record.remarks || "",
+      encRemarks,
       isOnline ? "synced" : "pending",
       now,
     ]
   );
 
   if (!isOnline) {
-    await enqueueSyncAction("CREATE_LAB_SCREENING", "/api/v1/lab-screening/register", "POST", {
-      ...payload,
-      mother_id: motherId || payload.mother_id,
-      screening_id: screeningId,
-      localFileUri,
-      fileSizeBytes,
-    });
+    await enqueueSyncAction(
+      "CREATE_LAB_SCREENING",
+      "/api/v1/lab-screening/register",
+      "POST",
+      {
+        ...payload,
+        mother_id: motherId || payload.mother_id,
+        screening_id: screeningId,
+        localFileUri,
+        fileSizeBytes,
+      },
+      payload.user_id || motherId
+    );
   }
 
   return record;
+}
+
+// --- Messages & Chat Operations (Encrypted & Isolated) ---
+export async function getMessagesLocal(userId: string, contactId?: string): Promise<InAppMessage[]> {
+  const db = await getDatabase();
+  let query = `SELECT * FROM messages WHERE (sender_id = ? OR receiver_id = ?)`;
+  const params: any[] = [userId, userId];
+
+  if (contactId) {
+    query += ` AND (sender_id = ? OR receiver_id = ?)`;
+    params.push(contactId, contactId);
+  }
+  query += ` ORDER BY message_date ASC`;
+
+  const rows = await db.getAllAsync<any>(query, params);
+  const result: InAppMessage[] = [];
+
+  for (const r of rows) {
+    const plainContent = await decryptSensitiveText(r.message_content);
+    result.push({
+      message_id: r.message_id,
+      sender_id: r.sender_id,
+      receiver_id: r.receiver_id,
+      message_type: r.message_type || "text",
+      message_content: plainContent,
+      message_date: r.message_date,
+      is_read: Boolean(r.is_read),
+    });
+  }
+  return result;
+}
+
+export async function saveMessagesLocal(messages: InAppMessage[]) {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+
+  for (const m of messages) {
+    const encContent = await encryptSensitiveText(m.message_content || "");
+    await db.runAsync(
+      `INSERT OR REPLACE INTO messages (message_id, sender_id, receiver_id, message_type, message_content, message_date, is_read, sync_status, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        m.message_id,
+        m.sender_id,
+        m.receiver_id,
+        m.message_type || "text",
+        encContent,
+        m.message_date,
+        m.is_read ? 1 : 0,
+        (m as any).sync_status || "synced",
+        now,
+      ]
+    );
+  }
+}
+
+export async function saveOutgoingMessageLocal(
+  message: InAppMessage,
+  isOnline: boolean
+): Promise<InAppMessage> {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  const encContent = await encryptSensitiveText(message.message_content);
+
+  await db.runAsync(
+    `INSERT OR REPLACE INTO messages (message_id, sender_id, receiver_id, message_type, message_content, message_date, is_read, sync_status, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      message.message_id,
+      message.sender_id,
+      message.receiver_id,
+      message.message_type || "text",
+      encContent,
+      message.message_date,
+      0,
+      isOnline ? "synced" : "pending",
+      now,
+    ]
+  );
+
+  if (!isOnline) {
+    await enqueueSyncAction(
+      "CREATE_MESSAGE",
+      "/api/v1/message/create",
+      "POST",
+      {
+        temp_id: message.message_id,
+        receiver_id: message.receiver_id,
+        message_content: message.message_content,
+        message_type: message.message_type,
+        message_date: message.message_date,
+      },
+      message.sender_id
+    );
+  }
+
+  return message;
+}
+
+// --- Chat Contacts Operations ---
+export async function getChatContactsLocal(facilityId?: string): Promise<ChatContact[]> {
+  const db = await getDatabase();
+  let query = `SELECT * FROM chat_contacts`;
+  const params: any[] = [];
+
+  if (facilityId) {
+    query += ` WHERE facility_id = ?`;
+    params.push(facilityId);
+  }
+  query += ` ORDER BY first_name ASC`;
+
+  const rows = await db.getAllAsync<any>(query, params);
+  return rows.map((r) => ({
+    user_id: r.user_id,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    role: r.role,
+    facility_id: r.facility_id,
+    profile_url: r.profile_url,
+    facility: r.facility_name ? { facility_id: r.facility_id, facility_name: r.facility_name } : undefined,
+  }));
+}
+
+export async function saveChatContactsLocal(contacts: ChatContact[]) {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+
+  for (const c of contacts) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO chat_contacts (user_id, first_name, last_name, role, facility_id, facility_name, profile_url, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        c.user_id,
+        c.first_name || "",
+        c.last_name || "",
+        c.role || "Staff",
+        c.facility_id || c.facility?.facility_id || null,
+        c.facility?.facility_name || null,
+        c.profile_url || null,
+        now,
+      ]
+    );
+  }
 }

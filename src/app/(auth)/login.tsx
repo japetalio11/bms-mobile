@@ -7,7 +7,7 @@ import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { getNativeGoogleSignin } from "../../lib/googleAuthUtils";
 import { makeRedirectUri } from "expo-auth-session";
 import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
@@ -77,12 +77,15 @@ export default function LoginScreen(): JSX.Element {
 
   useEffect(() => {
     if (Platform.OS !== "web") {
-      try {
-        GoogleSignin.configure({
-          webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-        });
-      } catch (e) {
-        console.warn("GoogleSignin configure warning:", e);
+      const nativeGoogleSignin = getNativeGoogleSignin();
+      if (nativeGoogleSignin) {
+        try {
+          nativeGoogleSignin.configure({
+            webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+          });
+        } catch (e) {
+          console.warn("GoogleSignin configure warning:", e);
+        }
       }
     }
   }, []);
@@ -106,9 +109,17 @@ export default function LoginScreen(): JSX.Element {
     }
     setGoogleLoading(true);
     setError(null);
+
+    const nativeGoogleSignin = getNativeGoogleSignin();
+    if (!nativeGoogleSignin) {
+      // Fallback to Expo Auth Session for Expo Go & web
+      promptGoogleAsync();
+      return;
+    }
+
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const response = await GoogleSignin.signIn();
+      await nativeGoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await nativeGoogleSignin.signIn();
       const idToken = response.data?.idToken || (response as any).idToken;
       const user = response.data?.user || (response as any).user;
 
@@ -124,8 +135,8 @@ export default function LoginScreen(): JSX.Element {
         return;
       }
       console.error("Google Sign-In Error:", err);
-      setError(err.message || "Google Sign-In failed. Please try again.");
-      setGoogleLoading(false);
+      // Fall back to promptGoogleAsync if native Google Sign-In fails
+      promptGoogleAsync();
     }
   };
 

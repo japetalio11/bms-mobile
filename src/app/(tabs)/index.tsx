@@ -48,6 +48,15 @@ export default function DashboardScreen(): JSX.Element {
     }
 
     const lmp = new Date(activePregnancy.lmp_date);
+    if (isNaN(lmp.getTime())) {
+      return {
+        weeks: 0,
+        progress: 0,
+        remainingWeeks: 0,
+        trimesterText: "LMP date pending",
+        hasPregnancy: true,
+      };
+    }
     const now = new Date();
     const diffTime = Math.max(0, now.getTime() - lmp.getTime());
     const weeks = Math.min(42, Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7))));

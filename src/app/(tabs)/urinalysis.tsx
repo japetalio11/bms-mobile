@@ -5,8 +5,10 @@ import { Header } from "../../components/Header";
 import type { JSX } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/UserContext";
+import { useNetwork } from "../../context/NetworkContext";
 import { getLabScreeningsByMotherApi } from "../../config/api";
 import type { LabScreeningRecord } from "../../config/api";
+import { getLabScreeningsLocal, saveLabScreeningsLocal } from "../../db/repository";
 
 const Result = ({
   label,
@@ -42,26 +44,57 @@ const Result = ({
 };
 
 export default function UrinalysisScreen(): JSX.Element {
-  const { token, motherRecord } = useAuth();
+  const { token, motherRecord, user } = useAuth();
+  const { isOnline } = useNetwork();
   const [record, setRecord] = useState<LabScreeningRecord | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    if (motherRecord?.mother_id && token) {
-      getLabScreeningsByMotherApi(motherRecord.mother_id, token)
-        .then((records) => {
-          if (isMounted) {
-            const u = records.find((r) => r.screening_type.toLowerCase().includes("urinalysis"));
+    const targetMotherId = motherRecord?.mother_id || user?.user_id;
+
+    async function loadScreenings() {
+      // 1. Load from local SQLite first
+      if (targetMotherId) {
+        try {
+          const localRecords = await getLabScreeningsLocal(targetMotherId);
+          if (isMounted && localRecords.length > 0) {
+            const u = localRecords.find((r) =>
+              r.screening_type.toLowerCase().includes("urinalysis")
+            );
             if (u) setRecord(u);
           }
-        })
-        .catch(() => {});
+        } catch (e) {
+          console.warn("Failed to load local urinalysis record:", e);
+        }
+      }
+
+      // 2. If online and token available, fetch fresh from backend
+      if (targetMotherId && token && isOnline) {
+        setIsLoading(true);
+        try {
+          const fresh = await getLabScreeningsByMotherApi(targetMotherId, token);
+          if (isMounted && Array.isArray(fresh)) {
+            const u = fresh.find((r) =>
+              r.screening_type.toLowerCase().includes("urinalysis")
+            );
+            if (u) setRecord(u);
+            await saveLabScreeningsLocal(fresh, true, targetMotherId);
+          }
+        } catch (err) {
+          console.warn("Failed to fetch lab screenings:", err);
+        } finally {
+          if (isMounted) setIsLoading(false);
+        }
+      }
     }
+
+    loadScreenings();
+
     return () => {
       isMounted = false;
     };
-  }, [motherRecord?.mother_id, token]);
+  }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
 
   const dateStr = record?.date_of_screening
     ? new Date(record.date_of_screening).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })

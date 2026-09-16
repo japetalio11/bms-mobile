@@ -1,11 +1,13 @@
 import { View, ScrollView } from "react-native";
 import { Text, Card, Tabs } from "heroui-native";
 import { Header } from "../../components/Header";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { getDeliveryOutcomesLocal } from "../../db/repository";
+import type { DeliveryOutcomeRecord } from "../../config/api";
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row justify-between py-3.5 border-b border-separator last:border-0">
@@ -17,10 +19,28 @@ const DataRow = ({ label, value }: { label: string; value: string }) => (
 export default function VitalsScreen(): JSX.Element {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("maternal");
-  const { activePregnancy, motherRecord } = useAuth();
+  const { activePregnancy, motherRecord, user } = useAuth();
+  const [localDelivery, setLocalDelivery] = useState<DeliveryOutcomeRecord | null>(null);
+
+  useEffect(() => {
+    async function loadFallbackLocal() {
+      const mid = motherRecord?.mother_id || user?.user_id;
+      if (mid) {
+        try {
+          const outcomes = await getDeliveryOutcomesLocal(mid);
+          if (outcomes.length > 0) {
+            setLocalDelivery(outcomes[0]);
+          }
+        } catch (e) {
+          console.warn("Failed to load local delivery outcomes:", e);
+        }
+      }
+    }
+    loadFallbackLocal();
+  }, [motherRecord?.mother_id, user?.user_id]);
 
   let latestVisit = activePregnancy?.prenatalVisits?.[0] || null;
-  let latestDelivery = activePregnancy?.deliveryOutcomes?.[0] || null;
+  let latestDelivery = activePregnancy?.deliveryOutcomes?.[0] || localDelivery || null;
   let latestNewborn = latestDelivery?.newbornRecords?.[0] || null;
 
   if (!latestVisit && motherRecord?.pregnancies) {

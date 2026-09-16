@@ -10,6 +10,7 @@ import {
 } from "../db/repository";
 import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
+import { getSecureToken, setSecureToken, deleteSecureToken } from "../lib/secureStorage";
 
 const STORAGE_KEYS = {
   TOKEN: "@bms_auth_token",
@@ -83,19 +84,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const unsubscribe = NetInfo.addEventListener((state) => {
       const online = Boolean(state.isConnected);
       setIsOnline(online);
-      if (online && token) {
-        triggerOutboxSync(token);
+      if (online && token && user.user_id) {
+        triggerOutboxSync(token, user.user_id);
       }
     });
 
     return () => unsubscribe();
-  }, [token]);
+  }, [token, user.user_id]);
 
   // Load stored state on initial mount
   useEffect(() => {
     const loadStoredAuth = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+        let storedToken = await getSecureToken();
+        if (!storedToken) {
+          storedToken = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+          if (storedToken) {
+            await setSecureToken(storedToken);
+            await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
+          }
+        }
+
         const storedUserJson = await AsyncStorage.getItem(STORAGE_KEYS.USER);
         const storedMotherJson = await AsyncStorage.getItem(STORAGE_KEYS.MOTHER_RECORD);
         const storedPregnancyJson = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_PREGNANCY);
@@ -130,7 +139,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           }
 
           // Trigger outbox sync & refresh profile if connected
-          triggerOutboxSync(storedToken);
+          if (currentUserId) {
+            triggerOutboxSync(storedToken, currentUserId);
+          }
           fetchProfile(storedToken, currentUserId);
         }
       } catch (err) {
@@ -205,7 +216,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setToken(authToken);
 
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
+      await setSecureToken(authToken);
+      await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN); // Ensure plaintext token is deleted
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     } catch (err) {
       console.error("Failed to persist login session:", err);
@@ -215,19 +227,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    const currentUserId = user.user_id;
     setUser(formatUser(emptyUserData));
     setToken(null);
     setMotherRecord(null);
     setActivePregnancy(null);
 
     try {
+      await deleteSecureToken();
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.TOKEN,
         STORAGE_KEYS.USER,
         STORAGE_KEYS.MOTHER_RECORD,
         STORAGE_KEYS.ACTIVE_PREGNANCY,
       ]);
-      await clearAllTablesLocal();
+      await clearAllTablesLocal(currentUserId);
     } catch (err) {
       console.error("Failed to clear auth storage:", err);
     }

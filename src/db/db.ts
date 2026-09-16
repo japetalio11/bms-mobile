@@ -130,8 +130,56 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS messages (
+      message_id TEXT PRIMARY KEY,
+      sender_id TEXT NOT NULL,
+      receiver_id TEXT NOT NULL,
+      message_type TEXT DEFAULT 'text',
+      message_content TEXT NOT NULL,
+      message_date TEXT NOT NULL,
+      is_read INTEGER DEFAULT 0,
+      sync_status TEXT DEFAULT 'synced',
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_contacts (
+      user_id TEXT PRIMARY KEY,
+      first_name TEXT,
+      last_name TEXT,
+      role TEXT,
+      facility_id TEXT,
+      facility_name TEXT,
+      profile_url TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS delivery_outcomes (
+      delivery_id TEXT PRIMARY KEY,
+      pregnancy_id TEXT,
+      mother_id TEXT,
+      delivery_date TEXT,
+      place_of_delivery TEXT,
+      mode_of_delivery TEXT,
+      duration_of_labor_hours REAL,
+      blood_loss_ml REAL,
+      delivery_complications TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS newborn_records (
+      newborn_id TEXT PRIMARY KEY,
+      delivery_id TEXT,
+      sex TEXT,
+      birth_weight_kg REAL,
+      status_at_birth TEXT,
+      apgar_score INTEGER,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       action_type TEXT NOT NULL,
       endpoint TEXT NOT NULL,
       method TEXT NOT NULL,
@@ -145,9 +193,11 @@ async function initTables(db: SQLite.SQLiteDatabase) {
 
   try {
     await db.execAsync("ALTER TABLE lab_screenings ADD COLUMN mother_id TEXT;");
-  } catch {
-    // Column already exists or table newly created
-  }
+  } catch {}
+
+  try {
+    await db.execAsync("ALTER TABLE sync_queue ADD COLUMN user_id TEXT;");
+  } catch {}
 }
 
 function createWebFallbackDatabase() {
@@ -186,6 +236,10 @@ function createWebFallbackDatabase() {
       "supplements",
       "lab_screenings",
       "record_history",
+      "messages",
+      "chat_contacts",
+      "delivery_outcomes",
+      "newborn_records",
       "sync_queue",
     ]) {
       if (s.includes(`from ${table}`) || s.includes(`into ${table}`) || s.includes(`update ${table}`)) {
@@ -375,7 +429,7 @@ function createWebFallbackDatabase() {
   };
 }
 
-export async function clearAllTablesLocal(): Promise<void> {
+export async function clearAllTablesLocal(userId?: string): Promise<void> {
   const db = await getDatabase();
   const tables = [
     "users",
@@ -386,6 +440,11 @@ export async function clearAllTablesLocal(): Promise<void> {
     "supplements",
     "lab_screenings",
     "record_history",
+    "messages",
+    "chat_contacts",
+    "delivery_outcomes",
+    "newborn_records",
+    "sync_queue",
   ];
   for (const table of tables) {
     try {

@@ -207,6 +207,7 @@ export default function AppointmentsScreen(): JSX.Element {
 
     const payload = {
       user_id: user.user_id,
+      facility_id: user.facility_id || undefined,
       appointment_date: formattedDate,
       appointment_time: bookingTime,
       appointment_type: bookingType,
@@ -497,7 +498,12 @@ export default function AppointmentsScreen(): JSX.Element {
               return (
                 <Pressable
                   key={item.appointment_id}
-                  onPress={() => router.push("/(tabs)/appointment-detail")}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/appointment-detail",
+                      params: { id: item.appointment_id },
+                    })
+                  }
                 >
                   <View className="bg-[#18171C] border border-white/[0.08] rounded-2xl flex-row items-center overflow-hidden h-[84px]">
                     <View style={{ width: 4, height: "100%", backgroundColor: accentColor }} />

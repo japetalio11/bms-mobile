@@ -30,6 +30,13 @@ import {
   markMessagesAsReadApi,
 } from "../../config/api";
 import type { InAppMessage, ChatContact } from "../../config/api";
+import {
+  getMessagesLocal,
+  saveMessagesLocal,
+  saveOutgoingMessageLocal,
+  getChatContactsLocal,
+  saveChatContactsLocal,
+} from "../../db/repository";
 
 type MessageBubble = {
   id: string;
@@ -64,8 +71,27 @@ export default function ChatScreen(): JSX.Element {
 
   // Fetch all messages and staff directory for affiliated facility
   const fetchAllData = useCallback(async () => {
-    if (!token) return;
+    if (!token && !user?.user_id) return;
     try {
+      // 1. Immediately hydrate from local SQLite database
+      if (user?.user_id) {
+        const [localMsgs, localStaff] = await Promise.all([
+          getMessagesLocal(user.user_id),
+          getChatContactsLocal(user.facility_id || undefined),
+        ]);
+        if (localMsgs.length > 0) {
+          setAllMessages(localMsgs);
+        }
+        if (localStaff.length > 0) {
+          setStaffList(localStaff);
+        }
+      }
+
+      // If offline, don't attempt network calls
+      if (!isOnline || !token) {
+        return;
+      }
+
       const [messagesRes, staffRes] = await Promise.all([
         getMessagesApi(token).catch((e) => {
           console.warn("Error fetching messages:", e);
@@ -85,21 +111,35 @@ export default function ChatScreen(): JSX.Element {
         setHasFacility(true);
       }
 
-      setAllMessages(messagesRes.data || []);
-      setStaffList(staffRes || []);
+      const remoteMessages = messagesRes.data || [];
+      const remoteStaff = staffRes || [];
+
+      setAllMessages(remoteMessages);
+      setStaffList(remoteStaff);
+
+      // 2. Persist fresh network data to SQLite database
+      if (remoteMessages.length > 0) {
+        await saveMessagesLocal(remoteMessages);
+      }
+      if (remoteStaff.length > 0) {
+        await saveChatContactsLocal(remoteStaff);
+      }
     } catch (err) {
       console.warn("Failed to fetch chat data:", err);
     }
-  }, [token, user?.facility_id]);
+  }, [token, user?.user_id, user?.facility_id, isOnline]);
 
   useFocusEffect(
     useCallback(() => {
       fetchAllData();
+      if (!isOnline) return;
       const interval = setInterval(() => {
-        fetchAllData();
+        if (isOnline) {
+          fetchAllData();
+        }
       }, 7000);
       return () => clearInterval(interval);
-    }, [fetchAllData])
+    }, [fetchAllData, isOnline])
   );
 
   const onRefresh = async () => {
@@ -110,10 +150,10 @@ export default function ChatScreen(): JSX.Element {
 
   // Mark messages as read when opening a conversation with a staff member
   useEffect(() => {
-    if (selectedStaff && token) {
-      markMessagesAsReadApi(selectedStaff.user_id, token);
+    if (selectedStaff && token && isOnline) {
+      markMessagesAsReadApi(selectedStaff.user_id, token).catch(() => {});
     }
-  }, [selectedStaff, token]);
+  }, [selectedStaff, token, isOnline]);
 
   // Compute per-staff metadata (last message, unread count, timestamp)
   const staffWithMeta = useMemo(() => {
@@ -240,33 +280,42 @@ export default function ChatScreen(): JSX.Element {
   // Send Text Message
   const handleSendText = async () => {
     const trimmed = inputText.trim();
-    if (!trimmed || !token || !selectedStaff || isSending) return;
+    if (!trimmed || !selectedStaff || isSending || !user?.user_id) return;
 
-    const tempId = `temp_${Date.now()}`;
-    const optimistic: MessageBubble = {
-      id: tempId,
-      text: trimmed,
-      mine: true,
-      time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-      type: "text",
-      dateRaw: new Date().toISOString(),
+    const localId = `local_${Date.now()}`;
+    const localMessage: InAppMessage = {
+      message_id: localId,
+      sender_id: user.user_id,
+      receiver_id: selectedStaff.user_id,
+      message_content: trimmed,
+      message_type: "text",
+      message_date: new Date().toISOString(),
+      is_read: false,
     };
 
     setInputText("");
     setIsSending(true);
 
     try {
-      await sendMessageApi(
-        {
-          receiver_id: selectedStaff.user_id,
-          message_content: trimmed,
-          message_type: "text",
-        },
-        token
-      );
-      await fetchAllData();
+      if (isOnline && token) {
+        await sendMessageApi(
+          {
+            receiver_id: selectedStaff.user_id,
+            message_content: trimmed,
+            message_type: "text",
+          },
+          token
+        );
+        await saveOutgoingMessageLocal(localMessage, true);
+        await fetchAllData();
+      } else {
+        await saveOutgoingMessageLocal(localMessage, false);
+        setAllMessages((prev) => [...prev, localMessage]);
+      }
     } catch (err: any) {
-      Alert.alert("Send Failed", err.message || "Could not send message. Please try again.");
+      console.warn("Online send failed, saving to offline outbox:", err);
+      await saveOutgoingMessageLocal(localMessage, false);
+      setAllMessages((prev) => [...prev, localMessage]);
     } finally {
       setIsSending(false);
     }
@@ -278,6 +327,13 @@ export default function ChatScreen(): JSX.Element {
     detectedType: "image" | "file"
   ) => {
     if (!token || !selectedStaff || isSending) return;
+    if (!isOnline) {
+      Alert.alert(
+        "Offline Mode",
+        "Attachment uploads require an active internet connection. Please reconnect to send photos or files."
+      );
+      return;
+    }
     setIsSending(true);
 
     try {
@@ -586,9 +642,14 @@ export default function ChatScreen(): JSX.Element {
                     </Text>
                   )}
 
-                  <Text className={`text-[10px] mt-1.5 align-self-end ${item.mine ? "text-white/70" : "text-muted"}`}>
-                    {item.time}
-                  </Text>
+                  <View className="flex-row items-center gap-1 justify-end mt-1.5">
+                    <Text className={`text-[10px] ${item.mine ? "text-white/70" : "text-muted"}`}>
+                      {item.time}
+                    </Text>
+                    {item.mine && item.id.startsWith("local_") && (
+                      <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.7)" />
+                    )}
+                  </View>
                 </View>
               </View>
             )}

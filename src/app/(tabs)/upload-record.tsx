@@ -104,13 +104,21 @@ export default function UploadRecordScreen(): JSX.Element {
       return;
     }
 
-    const pregnancyId = activePregnancy?.pregnancy_id || `preg_${Date.now()}`;
-    const visitId = activePregnancy?.prenatalVisits?.[0]?.visit_id || pregnancyId;
+    const currentMotherId = motherRecord?.mother_id || user.user_id;
+    const pregnancyId =
+      activePregnancy?.pregnancy_id ||
+      motherRecord?.pregnancies?.[0]?.pregnancy_id ||
+      `preg_${Date.now()}`;
+    const visitId =
+      activePregnancy?.prenatalVisits?.[0]?.visit_id ||
+      motherRecord?.pregnancies?.[0]?.prenatalVisits?.[0]?.visit_id ||
+      pregnancyId;
 
     setIsLoading(true);
     setError(null);
 
     const payload = {
+      mother_id: currentMotherId,
       pregnancy_id: pregnancyId,
       visit_id: visitId,
       screening_type: recordType,

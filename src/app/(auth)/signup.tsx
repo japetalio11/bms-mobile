@@ -7,7 +7,7 @@ import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { getNativeGoogleSignin } from "../../lib/googleAuthUtils";
 import { makeRedirectUri } from "expo-auth-session";
 import { sendOtpApi, registerApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
@@ -80,12 +80,15 @@ export default function SignupScreen(): JSX.Element {
 
   useEffect(() => {
     if (Platform.OS !== "web") {
-      try {
-        GoogleSignin.configure({
-          webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-        });
-      } catch (e) {
-        console.warn("GoogleSignin configure warning:", e);
+      const nativeGoogleSignin = getNativeGoogleSignin();
+      if (nativeGoogleSignin) {
+        try {
+          nativeGoogleSignin.configure({
+            webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+          });
+        } catch (e) {
+          console.warn("GoogleSignin configure warning:", e);
+        }
       }
     }
   }, []);
@@ -111,9 +114,17 @@ export default function SignupScreen(): JSX.Element {
     }
     setGoogleLoading(true);
     setError(null);
+
+    const nativeGoogleSignin = getNativeGoogleSignin();
+    if (!nativeGoogleSignin) {
+      // Fallback to Expo Auth Session for Expo Go & web
+      promptGoogleAsync();
+      return;
+    }
+
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const response = await GoogleSignin.signIn();
+      await nativeGoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await nativeGoogleSignin.signIn();
       const idToken = response.data?.idToken || (response as any).idToken;
       const user = response.data?.user || (response as any).user;
 
@@ -129,8 +140,8 @@ export default function SignupScreen(): JSX.Element {
         return;
       }
       console.error("Google Sign-In Error:", err);
-      setError(err.message || "Google Sign-In failed. Please try again.");
-      setGoogleLoading(false);
+      // Fall back to promptGoogleAsync if native Google Sign-In fails
+      promptGoogleAsync();
     }
   };
 
@@ -308,9 +319,16 @@ export default function SignupScreen(): JSX.Element {
       console.groupEnd();
       return;
     }
-    if (!phone.trim()) {
-      setError("Phone number is required");
-      console.warn("Validation failed: Phone number is required");
+    if (!email.trim()) {
+      setError("Email address is required");
+      console.warn("Validation failed: Email address is required");
+      console.groupEnd();
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      console.warn("Validation failed: Invalid email format");
       console.groupEnd();
       return;
     }
@@ -325,26 +343,6 @@ export default function SignupScreen(): JSX.Element {
       console.warn("Validation failed: Consent required");
       console.groupEnd();
       return;
-    }
-
-    const isEmailMode = Boolean(email.trim());
-    if (isEmailMode) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        setError("Please enter a valid email address.");
-        console.warn("Validation failed: Invalid email format");
-        console.groupEnd();
-        return;
-      }
-    } else {
-      // SMS OTP mode: require reCAPTCHA to be solved on Web
-      const formatted = formatToE164(phone.trim());
-      if (Platform.OS === "web" && !isTestPhoneNumber(formatted) && !phoneAuth.isRecaptchaSolved) {
-        setError("Please check the 'I\'m not a robot' verification box before continuing.");
-        console.warn("Validation blocked: reCAPTCHA not checked");
-        console.groupEnd();
-        return;
-      }
     }
     console.groupEnd();
 
@@ -484,9 +482,30 @@ export default function SignupScreen(): JSX.Element {
               />
             </TextField>
 
-            {/* Phone Number */}
+            {/* Email Address */}
             <TextField isRequired>
-              <Label>Phone Number</Label>
+              <Label>Email Address</Label>
+              <View className="w-full justify-center">
+                <Input 
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="name@email.com" 
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  className="pr-12"
+                />
+                <StyledIonicons 
+                  name="mail-outline" 
+                  size={20} 
+                  className="absolute right-4 text-muted-foreground" 
+                  pointerEvents="none"
+                />
+              </View>
+            </TextField>
+
+            {/* Phone Number (Optional) */}
+            <TextField>
+              <Label>Phone Number (Optional)</Label>
               <View className="w-full flex-row items-center bg-surface border border-border rounded-xl px-4 h-12">
                 <View className="flex-row items-center gap-1 border-r border-border pr-3 mr-3 h-full">
                   <Text className="text-foreground">+63</Text>
@@ -502,27 +521,6 @@ export default function SignupScreen(): JSX.Element {
                   placeholder="9123456789"
                   keyboardType="phone-pad"
                   className="flex-1 px-0 border-0 bg-transparent h-full"
-                />
-              </View>
-            </TextField>
-
-            {/* Email Address */}
-            <TextField>
-              <Label>Email Address (Optional)</Label>
-              <View className="w-full justify-center">
-                <Input 
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="name@email.com" 
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  className="pr-12"
-                />
-                <StyledIonicons 
-                  name="mail-outline" 
-                  size={20} 
-                  className="absolute right-4 text-muted-foreground" 
-                  pointerEvents="none"
                 />
               </View>
             </TextField>
