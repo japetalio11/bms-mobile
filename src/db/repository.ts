@@ -852,3 +852,79 @@ export async function saveChatContactsLocal(contacts: ChatContact[]) {
     );
   }
 }
+
+export type NotificationRecordLocal = {
+  notification_id: string;
+  user_id: string;
+  notification_type: string;
+  notification_message: string;
+  notification_date: string;
+  is_read: boolean;
+  sender?: string;
+  category?: string;
+};
+
+export async function getNotificationsLocal(userId: string): Promise<NotificationRecordLocal[]> {
+  if (!userId) return [];
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<any>(
+    `SELECT * FROM notifications WHERE user_id = ? ORDER BY notification_date DESC`,
+    [userId]
+  );
+  return rows.map((r) => ({
+    notification_id: r.notification_id,
+    user_id: r.user_id,
+    notification_type: r.notification_type || "system",
+    notification_message: r.notification_message || "",
+    notification_date: r.notification_date || new Date().toISOString(),
+    is_read: Boolean(r.is_read),
+    sender: r.sender || "System",
+    category: r.category || "system",
+  }));
+}
+
+export async function getUnreadNotificationCountLocal(userId: string): Promise<number> {
+  if (!userId) return 0;
+  const db = await getDatabase();
+  const res = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0`,
+    [userId]
+  );
+  return res?.count || 0;
+}
+
+export async function saveNotificationsLocal(notifications: NotificationRecordLocal[]) {
+  if (!Array.isArray(notifications) || notifications.length === 0) return;
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+
+  for (const n of notifications) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO notifications (notification_id, user_id, notification_type, notification_message, notification_date, is_read, sender, category, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        n.notification_id,
+        n.user_id,
+        n.notification_type || "system",
+        n.notification_message || "",
+        n.notification_date || now,
+        n.is_read ? 1 : 0,
+        n.sender || "System",
+        n.category || "system",
+        now,
+      ]
+    );
+  }
+}
+
+export async function markAllNotificationsReadLocal(userId: string) {
+  if (!userId) return;
+  const db = await getDatabase();
+  await db.runAsync(`UPDATE notifications SET is_read = 1 WHERE user_id = ?`, [userId]);
+}
+
+export async function markNotificationReadLocal(notificationId: string) {
+  if (!notificationId) return;
+  const db = await getDatabase();
+  await db.runAsync(`UPDATE notifications SET is_read = 1 WHERE notification_id = ?`, [notificationId]);
+}

@@ -11,6 +11,7 @@ import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { getAppointmentsByUserApi, createAppointmentApi } from "../../config/api";
 import type { AppointmentRecord } from "../../config/api";
+import { getAppointmentStatusConfig } from "../../lib/appointmentUtils";
 import {
   getAppointmentsLocal,
   saveAppointmentsLocal,
@@ -504,8 +505,8 @@ export default function AppointmentsScreen(): JSX.Element {
               const d = parseLocalDate(item.appointment_date);
               const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
               const dateNum = d.getDate();
-              const isCompleted = item.status.toLowerCase() === "completed";
-              const accentColor = getAccentColor(item.appointment_type);
+              const statusCfg = getAppointmentStatusConfig(item.status);
+              const accentColor = statusCfg.color || getAccentColor(item.appointment_type);
               const isPendingSync = (item as any).sync_status === "pending";
 
               return (
@@ -551,13 +552,13 @@ export default function AppointmentsScreen(): JSX.Element {
                           <View className="flex-row items-center gap-1.5">
                             <View
                               className="size-2 rounded-full"
-                              style={{ backgroundColor: isCompleted ? "#10b981" : "#f43f5e" }}
+                              style={{ backgroundColor: statusCfg.color }}
                             />
                             <Text
                               className="text-xs font-semibold"
-                              style={{ color: isCompleted ? "#10b981" : "#f43f5e" }}
+                              style={{ color: statusCfg.color }}
                             >
-                              {item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()}
+                              {statusCfg.label}
                             </Text>
                           </View>
                         </View>

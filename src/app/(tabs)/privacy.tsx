@@ -1,4 +1,4 @@
-import { View, ScrollView, Alert, Share, ActivityIndicator } from "react-native";
+import { View, ScrollView, Share, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, Switch, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,6 +6,7 @@ import { Header } from "../../components/Header";
 import { useState } from "react";
 import { useSettings } from "../../context/settingsContext";
 import { useAuth } from "../../context/UserContext";
+import { useConfirm } from "../../context/ConfirmationContext";
 import { deleteAccountApi } from "../../config/api";
 import { useRouter } from "expo-router";
 
@@ -13,6 +14,7 @@ export default function PrivacyScreen(): JSX.Element {
   const router = useRouter();
   const { user, token, motherRecord, logout } = useAuth();
   const { shareHealthData, setShareHealthData, analyticsEnabled, setAnalyticsEnabled } = useSettings();
+  const { confirm } = useConfirm();
 
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -47,7 +49,13 @@ export default function PrivacyScreen(): JSX.Element {
 
       setStatusMessage("Data export package generated!");
     } catch (err: any) {
-      Alert.alert("Export Failed", err.message || "Could not export personal data.");
+      confirm({
+        title: "Export Failed",
+        message: err.message || "Could not export personal data.",
+        confirmText: "OK",
+        cancelText: "",
+        variant: "danger",
+      });
     } finally {
       setIsExporting(false);
     }
@@ -55,31 +63,41 @@ export default function PrivacyScreen(): JSX.Element {
 
   // Handle Delete Account
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete your account? Your account will be deactivated and you will be signed out immediately.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Account",
-          style: "destructive",
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              const motherId = motherRecord?.mother_id || user.user_id;
-              await deleteAccountApi(motherId, token || "");
-              Alert.alert("Account Deleted", "Your account has been deleted successfully.");
-              logout();
-              router.replace("/(auth)/login");
-            } catch (err: any) {
-              Alert.alert("Delete Failed", err.message || "Failed to delete account. Please contact facility staff.");
-            } finally {
-              setIsDeleting(false);
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: "Delete Account",
+      message: "Are you sure you want to delete your account? Your account will be deactivated and you will be signed out immediately.",
+      confirmText: "Delete Account",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: "trash-outline",
+      onConfirm: async () => {
+        setIsDeleting(true);
+        try {
+          const motherId = motherRecord?.mother_id || user.user_id;
+          await deleteAccountApi(motherId, token || "");
+          confirm({
+            title: "Account Deleted",
+            message: "Your account has been deleted successfully.",
+            confirmText: "OK",
+            cancelText: "",
+            variant: "success",
+            icon: "checkmark-circle-outline",
+          });
+          logout();
+          router.replace("/(auth)/login");
+        } catch (err: any) {
+          confirm({
+            title: "Delete Failed",
+            message: err.message || "Failed to delete account. Please contact facility staff.",
+            confirmText: "OK",
+            cancelText: "",
+            variant: "danger",
+          });
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+    });
   };
 
   return (

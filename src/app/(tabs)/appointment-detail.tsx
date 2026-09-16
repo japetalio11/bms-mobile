@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, Alert, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { Card, Text } from "heroui-native";
 import { Header } from "../../components/Header";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
+import { useConfirm } from "../../context/ConfirmationContext";
 import { cancelAppointmentApi } from "../../config/api";
 import type { AppointmentRecord } from "../../config/api";
+import { getAppointmentStatusConfig } from "../../lib/appointmentUtils";
 import {
   getAppointmentByIdLocal,
   getAppointmentsLocal,
@@ -24,9 +26,10 @@ const DataRow = ({ label, value }: { label: string; value: string }) => (
 
 export default function AppointmentDetailScreen(): JSX.Element {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { user, token, activePregnancy } = useAuth();
   const { isOnline } = useNetwork();
+  const { confirm } = useConfirm();
 
   const [appointment, setAppointment] = useState<AppointmentRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,24 +37,16 @@ export default function AppointmentDetailScreen(): JSX.Element {
 
   useEffect(() => {
     const fetchAppointment = async () => {
+      if (!id) return;
       setIsLoading(true);
       try {
-        if (id) {
-          const localRecord = await getAppointmentByIdLocal(id);
-          if (localRecord) {
-            setAppointment(localRecord);
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // Fallback: search user's appointments
-        if (user?.user_id) {
-          const allUserAppts = await getAppointmentsLocal(user.user_id);
-          const found = id ? allUserAppts.find((a) => a.appointment_id === id) : allUserAppts[0];
-          if (found) {
-            setAppointment(found);
-          }
+        const localItem = await getAppointmentByIdLocal(id);
+        if (localItem) {
+          setAppointment(localItem);
+        } else if (user?.user_id) {
+          const allLocal = await getAppointmentsLocal(user.user_id);
+          const found = allLocal.find((a) => a.appointment_id === id);
+          if (found) setAppointment(found);
         }
       } catch (err) {
         console.warn("Failed to load appointment details:", err);
@@ -66,50 +61,61 @@ export default function AppointmentDetailScreen(): JSX.Element {
   const handleCancelAppointment = () => {
     if (!appointment) return;
 
-    Alert.alert(
-      "Cancel Appointment",
-      "Are you sure you want to cancel this scheduled appointment?",
-      [
-        { text: "No, Keep It", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            setIsCancelling(true);
+    confirm({
+      title: "Cancel Appointment",
+      message: "Are you sure you want to cancel this scheduled appointment?",
+      confirmText: "Yes, Cancel",
+      cancelText: "No, Keep It",
+      variant: "danger",
+      icon: "calendar-outline",
+      onConfirm: async () => {
+        setIsCancelling(true);
+        try {
+          // 1. Update local database and queue for sync if offline
+          await cancelAppointmentLocal(
+            appointment.appointment_id,
+            isOnline,
+            user?.user_id
+          );
+
+          // 2. If online and token available, call backend API directly
+          if (isOnline && token) {
             try {
-              // 1. Update local database and queue for sync if offline
-              await cancelAppointmentLocal(
-                appointment.appointment_id,
-                isOnline,
-                user?.user_id
-              );
-
-              // 2. If online and token available, call backend API directly
-              if (isOnline && token) {
-                try {
-                  await cancelAppointmentApi(appointment.appointment_id, token);
-                } catch (apiErr: any) {
-                  console.warn("Online cancellation call failed, queued via sync engine:", apiErr);
-                }
-              }
-
-              setAppointment((prev) =>
-                prev ? { ...prev, status: "Cancelled" } : null
-              );
-              Alert.alert("Success", "Your appointment has been cancelled.");
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "Failed to cancel appointment.");
-            } finally {
-              setIsCancelling(false);
+              await cancelAppointmentApi(appointment.appointment_id, token);
+            } catch (apiErr: any) {
+              console.warn("Online cancellation call failed, queued via sync engine:", apiErr);
             }
-          },
-        },
-      ]
-    );
+          }
+
+          setAppointment((prev) =>
+            prev ? { ...prev, status: "Cancelled" } : null
+          );
+          confirm({
+            title: "Appointment Cancelled",
+            message: "Your appointment has been cancelled successfully.",
+            confirmText: "OK",
+            cancelText: "",
+            variant: "success",
+            icon: "checkmark-circle-outline",
+          });
+        } catch (err: any) {
+          confirm({
+            title: "Cancellation Failed",
+            message: err.message || "Failed to cancel appointment.",
+            confirmText: "OK",
+            cancelText: "",
+            variant: "danger",
+          });
+        } finally {
+          setIsCancelling(false);
+        }
+      },
+    });
   };
 
   const latestVisit = activePregnancy?.prenatalVisits?.[0];
-  const isCancelled = (appointment?.status || "").toLowerCase() === "cancelled";
+  const statusCfg = getAppointmentStatusConfig(appointment?.status || "scheduled");
+  const isCancelled = (appointment?.status || "").toLowerCase() === "cancelled" || (appointment?.status || "").toLowerCase() === "canceled";
   const isCompleted = (appointment?.status || "").toLowerCase() === "completed";
   const canCancel = appointment && !isCancelled && !isCompleted;
 
@@ -120,14 +126,14 @@ export default function AppointmentDetailScreen(): JSX.Element {
         day: "numeric",
         year: "numeric",
       })
-    : "Appointment Details";
+    : "Date not specified";
 
   return (
     <View className="flex-1 bg-background">
       <Header
         showBackButton
         title="Appointment Details"
-        subtitle={formattedDate}
+        onBack={() => router.back()}
         rightIcon={null}
       />
 
@@ -146,49 +152,25 @@ export default function AppointmentDetailScreen(): JSX.Element {
             <View className="px-5 pt-3 mb-5">
               <View className="bg-surface border border-white/10 rounded-2xl p-5">
                 <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-row items-center gap-2">
+                  <View className="flex-row items-center gap-2 flex-1 mr-2">
                     <Ionicons
-                      name={
-                        isCancelled
-                          ? "close-circle"
-                          : isCompleted
-                          ? "checkmark-circle"
-                          : "calendar"
-                      }
+                      name={statusCfg.icon}
                       size={22}
-                      color={
-                        isCancelled
-                          ? "#ef4444"
-                          : isCompleted
-                          ? "#10b981"
-                          : "#f43f5e"
-                      }
+                      color={statusCfg.color}
                     />
-                    <Text className="text-foreground text-lg font-bold">
+                    <Text className="text-foreground text-lg font-bold flex-1" numberOfLines={1}>
                       {appointment.appointment_type || "Clinic Appointment"}
                     </Text>
                   </View>
 
                   {/* Status Badge */}
                   <View
-                    className={`px-3 py-1 rounded-full ${
-                      isCancelled
-                        ? "bg-rose-500/15 border border-rose-500/30"
-                        : isCompleted
-                        ? "bg-emerald-500/15 border border-emerald-500/30"
-                        : "bg-blue-500/15 border border-blue-500/30"
-                    }`}
+                    className={`px-3 py-1 rounded-full ${statusCfg.bgStyle} border ${statusCfg.borderStyle}`}
                   >
                     <Text
-                      className={`text-xs font-semibold uppercase ${
-                        isCancelled
-                          ? "text-rose-400"
-                          : isCompleted
-                          ? "text-emerald-400"
-                          : "text-blue-400"
-                      }`}
+                      className={`text-xs font-semibold uppercase ${statusCfg.textStyle}`}
                     >
-                      {appointment.status}
+                      {statusCfg.label}
                     </Text>
                   </View>
                 </View>

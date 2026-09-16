@@ -1,12 +1,21 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import { getMotherProfileApi } from "../config/api";
+import {
+  getMotherProfileApi,
+  getNotificationsApi,
+  getUnreadNotificationCountApi,
+  markAllNotificationsReadApi,
+} from "../config/api";
 import type { AuthUser, MotherRecord, PregnancyRecord } from "../config/api";
 import {
   saveMotherProfileLocal,
   getMotherProfileLocal,
+  getNotificationsLocal,
+  getUnreadNotificationCountLocal,
+  saveNotificationsLocal,
+  markAllNotificationsReadLocal,
 } from "../db/repository";
 import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
@@ -31,9 +40,12 @@ export type UserContextType = {
   isAuthenticated: boolean;
   isLoadingStorage: boolean;
   isOnline: boolean;
+  unreadCount: number;
   login: (userData: AuthUser, token: string) => void;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
 };
 
 const emptyUserData: AuthUser = {
@@ -64,9 +76,12 @@ const defaultContext: UserContextType = {
   isAuthenticated: false,
   isLoadingStorage: true,
   isOnline: true,
+  unreadCount: 0,
   login: () => {},
   logout: () => {},
   refreshProfile: async () => {},
+  refreshNotifications: async () => {},
+  markAllNotificationsRead: async () => {},
 };
 
 const UserContext = createContext<UserContextType>(defaultContext);
@@ -78,6 +93,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [activePregnancy, setActivePregnancy] = useState<PregnancyRecord | null>(null);
   const [isLoadingStorage, setIsLoadingStorage] = useState<boolean>(true);
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!user.user_id) return;
+
+    // 1. Read from local SQLite DB first (instant UI, offline fallback)
+    try {
+      const localCount = await getUnreadNotificationCountLocal(user.user_id);
+      setUnreadCount(localCount);
+    } catch (e) {
+      console.warn("Local unread count error:", e);
+    }
+
+    // 2. If online and token available, sync with backend API
+    if (token && isOnline) {
+      try {
+        const [freshCount, freshNotifs] = await Promise.all([
+          getUnreadNotificationCountApi(user.user_id, token),
+          getNotificationsApi(user.user_id, token),
+        ]);
+        setUnreadCount(freshCount);
+        if (Array.isArray(freshNotifs) && freshNotifs.length > 0) {
+          await saveNotificationsLocal(freshNotifs as any);
+        }
+      } catch (err) {
+        console.warn("Backend notification fetch error:", err);
+      }
+    }
+  }, [user.user_id, token, isOnline]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!user.user_id) return;
+    setUnreadCount(0);
+    try {
+      await markAllNotificationsReadLocal(user.user_id);
+      if (token && isOnline) {
+        await markAllNotificationsReadApi(user.user_id, token);
+      }
+    } catch (err) {
+      console.warn("Error marking all notifications read:", err);
+    }
+  }, [user.user_id, token, isOnline]);
 
   // Network State Listener & Sync Engine Trigger
   useEffect(() => {
@@ -86,11 +143,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsOnline(online);
       if (online && token && user.user_id) {
         triggerOutboxSync(token, user.user_id);
+        refreshNotifications();
       }
     });
 
     return () => unsubscribe();
-  }, [token, user.user_id]);
+  }, [token, user.user_id, refreshNotifications]);
+
+  // Refresh notifications whenever user_id or token changes
+  useEffect(() => {
+    if (user.user_id) {
+      refreshNotifications();
+    }
+  }, [user.user_id, token, refreshNotifications]);
 
   // Load stored state on initial mount
   useEffect(() => {
@@ -219,11 +284,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await setSecureToken(authToken);
       await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN); // Ensure plaintext token is deleted
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+      await fetchProfile(authToken, userData.user_id);
+      refreshNotifications();
     } catch (err) {
-      console.error("Failed to persist login session:", err);
+      console.error("Failed to store user session:", err);
     }
-
-    await fetchProfile(authToken, userData.user_id);
   };
 
   const logout = async () => {
@@ -232,6 +297,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setMotherRecord(null);
     setActivePregnancy(null);
+    setUnreadCount(0);
 
     try {
       await deleteSecureToken();
@@ -261,9 +327,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!token,
     isLoadingStorage,
     isOnline,
+    unreadCount,
     login,
     logout,
     refreshProfile,
+    refreshNotifications,
+    markAllNotificationsRead,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

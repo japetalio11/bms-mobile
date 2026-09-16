@@ -18,6 +18,7 @@ import "../global.css";
 import { UserProvider } from "../context/UserContext";
 import { NetworkProvider } from "../context/NetworkContext";
 import { SettingsProvider } from "../context/settingsContext";
+import { ConfirmationProvider } from "../context/ConfirmationContext";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { PushNotificationSubscriber } from "../components/PushNotificationSubscriber";
 
@@ -47,15 +48,17 @@ export default function RootLayout(): JSX.Element | null {
         <SettingsProvider>
           <NetworkProvider>
             <UserProvider>
-              <PushNotificationSubscriber />
-              <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-                <OfflineBanner />
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen name="(tabs)" />
-                </Stack>
-                <StatusBar style="auto" />
-              </SafeAreaView>
+              <ConfirmationProvider>
+                <PushNotificationSubscriber />
+                <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+                  <OfflineBanner />
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen name="(tabs)" />
+                  </Stack>
+                  <StatusBar style="auto" />
+                </SafeAreaView>
+              </ConfirmationProvider>
             </UserProvider>
           </NetworkProvider>
         </SettingsProvider>

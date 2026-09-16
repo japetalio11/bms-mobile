@@ -114,6 +114,18 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       updated_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS notifications (
+      notification_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      notification_type TEXT,
+      notification_message TEXT,
+      notification_date TEXT,
+      is_read INTEGER DEFAULT 0,
+      sender TEXT,
+      category TEXT,
+      updated_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS supplements (
       supplement_id TEXT PRIMARY KEY,
       pregnancy_id TEXT,

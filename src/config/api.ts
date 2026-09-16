@@ -746,3 +746,76 @@ export async function updatePushTokenApi(
 
   return data;
 }
+
+export type NotificationRecord = {
+  notification_id: string;
+  user_id: string;
+  notification_type: string;
+  notification_message: string;
+  notification_date: string;
+  is_read: boolean;
+  sender?: string;
+  category?: string;
+};
+
+export async function getNotificationsApi(userId: string, token: string): Promise<NotificationRecord[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/get/user/${userId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to fetch notifications");
+  }
+
+  return data.notifications || data.data || [];
+}
+
+export async function getUnreadNotificationCountApi(userId: string, token: string): Promise<number> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/unread/count/${userId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return 0;
+  }
+
+  return typeof data.unreadCount === "number" ? data.unreadCount : 0;
+}
+
+export async function markAllNotificationsReadApi(userId: string, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/mark/read/${userId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || "Failed to mark notifications as read");
+  }
+}
+
+export async function updateNotificationReadApi(notificationId: string, isRead: boolean, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/update/${notificationId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ is_read: isRead }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || "Failed to update notification");
+  }
+}

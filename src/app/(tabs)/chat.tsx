@@ -25,6 +25,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
+import { useConfirm } from "../../context/ConfirmationContext";
 import {
   getMessagesApi,
   sendMessageApi,
@@ -59,6 +60,7 @@ export default function ChatScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
   const { isOnline } = useNetwork();
+  const { confirm } = useConfirm();
 
   // State
   const [staffList, setStaffList] = useState<ChatContact[]>([]);
@@ -448,10 +450,14 @@ export default function ChatScreen(): JSX.Element {
   ) => {
     if (!token || !selectedStaff || isSending || !user?.user_id) return;
     if (!isOnline) {
-      Alert.alert(
-        "Offline Mode",
-        "Attachment uploads require an active internet connection. Please reconnect to send photos or files."
-      );
+      confirm({
+        title: "Offline Mode",
+        message: "Attachment uploads require an active internet connection. Please reconnect to send photos or files.",
+        confirmText: "OK",
+        cancelText: "",
+        variant: "warning",
+        icon: "cloud-offline-outline",
+      });
       return;
     }
 
@@ -503,7 +509,13 @@ export default function ChatScreen(): JSX.Element {
       }
     } catch (err: any) {
       console.error("Attachment upload error:", err);
-      Alert.alert("Upload Failed", err.message || "Could not send attachment. Please check your internet connection.");
+      confirm({
+        title: "Upload Failed",
+        message: err.message || "Could not send attachment. Please check your internet connection.",
+        confirmText: "OK",
+        cancelText: "",
+        variant: "danger",
+      });
       // Remove failed local item
       setAllMessages((prev) => prev.filter((m) => m.message_id !== localId));
     } finally {
@@ -524,7 +536,14 @@ export default function ChatScreen(): JSX.Element {
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert("Camera Permission", "Camera access is needed to capture photos.");
+          confirm({
+            title: "Camera Permission Required",
+            message: "Camera access is needed to capture photos. Please enable permissions in your device settings.",
+            confirmText: "OK",
+            cancelText: "",
+            variant: "warning",
+            icon: "camera-outline",
+          });
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -556,7 +575,13 @@ export default function ChatScreen(): JSX.Element {
       }
     } catch (err: any) {
       console.warn("Image picker error:", err);
-      Alert.alert("Error", "Could not pick image.");
+      confirm({
+        title: "Image Selection Error",
+        message: "Could not pick image.",
+        confirmText: "OK",
+        cancelText: "",
+        variant: "danger",
+      });
     }
   };
 
@@ -588,7 +613,13 @@ export default function ChatScreen(): JSX.Element {
       }
     } catch (err: any) {
       console.warn("Document picker error:", err);
-      Alert.alert("Error", "Could not pick document.");
+      confirm({
+        title: "Document Error",
+        message: "Could not pick document.",
+        confirmText: "OK",
+        cancelText: "",
+        variant: "danger",
+      });
     }
   };
 
@@ -604,12 +635,25 @@ export default function ChatScreen(): JSX.Element {
         if (canOpen) {
           await Linking.openURL(targetUrl);
         } else {
-          Alert.alert("Document File", `File path: ${targetUrl}`);
+          confirm({
+            title: "Document File",
+            message: `File path: ${targetUrl}`,
+            confirmText: "OK",
+            cancelText: "",
+            variant: "info",
+            icon: "document-text-outline",
+          });
         }
       }
     } catch (err: any) {
       console.warn("Error opening document:", err);
-      Alert.alert("Document Attachment", "Unable to open document viewer.");
+      confirm({
+        title: "Document Viewer Error",
+        message: "Unable to open document viewer.",
+        confirmText: "OK",
+        cancelText: "",
+        variant: "danger",
+      });
     }
   };
 
