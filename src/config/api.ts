@@ -1,17 +1,25 @@
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 // Helper to determine the backend API base URL
 const getApiBaseUrl = (): string => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  let url = process.env.EXPO_PUBLIC_API_URL || "";
+
+  if (!url) {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const ip = hostUri.split(":")[0];
+      return `http://${ip}:6700`;
+    }
+    url = "http://localhost:6700";
   }
-  // Expo host Uri fallback if running on physical device/emulator
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const ip = hostUri.split(":")[0];
-    return `http://${ip}:6700`;
+
+  // Inside Android emulator, map localhost to 10.0.2.2 so it routes to the PC
+  if (Platform.OS === "android" && url.includes("localhost")) {
+    return url.replace("localhost", "10.0.2.2");
   }
-  return "http://localhost:6700";
+
+  return url;
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -236,7 +244,7 @@ export async function sendOtpApi(payload: SendOtpPayload): Promise<{ message: st
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || data.message || "Failed to send OTP code");
+    throw new Error(data.message || data.error || "Failed to send OTP code");
   }
 
   return data;

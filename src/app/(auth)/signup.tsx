@@ -168,7 +168,14 @@ export default function SignupScreen(): JSX.Element {
     const isEmailMode = Boolean(email.trim());
     const targetIdentifier = isEmailMode ? email.trim() : phone.trim();
 
+    console.group("🚀 [Signup Flow - Request OTP]");
+    console.log("Mode:", isEmailMode ? "Email OTP" : "SMS OTP (Firebase)");
+    console.log("Target Identifier:", targetIdentifier);
+    console.log("Platform:", Platform.OS);
+
     if (!targetIdentifier) {
+      console.warn("⚠️ No identifier provided");
+      console.groupEnd();
       setError("Please provide an email or phone number to receive the verification code.");
       return false;
     }
@@ -178,6 +185,7 @@ export default function SignupScreen(): JSX.Element {
 
     if (isEmailMode) {
       try {
+        console.log("📤 Sending OTP via Backend Email Service...");
         await sendOtpApi({
           identifier: targetIdentifier,
           type: "email",
@@ -185,10 +193,14 @@ export default function SignupScreen(): JSX.Element {
           provider: "email",
         });
 
+        console.log("✅ Email OTP Sent Successfully to:", targetIdentifier);
+        console.groupEnd();
         setTimer(60);
         setInfoMessage(`Verification code sent to ${targetIdentifier}`);
         return true;
       } catch (err: any) {
+        console.error("❌ Email OTP Failed:", err);
+        console.groupEnd();
         setError(err.message || "Failed to send verification code. Please try again.");
         return false;
       } finally {
@@ -196,16 +208,23 @@ export default function SignupScreen(): JSX.Element {
       }
     } else {
       try {
+        console.log("📱 Initiating Phone Auth via Firebase SMS...");
         const sent = await phoneAuth.sendOtp(targetIdentifier, "registration");
         if (sent) {
+          console.log("✅ Firebase Phone Auth sendOtp succeeded!");
+          console.groupEnd();
           setTimer(phoneAuth.cooldown || 60);
           setInfoMessage(phoneAuth.statusMessage || `Verification code sent to ${targetIdentifier}`);
           return true;
         } else {
+          console.warn("❌ Phone Auth sendOtp returned false:", phoneAuth.statusMessage);
+          console.groupEnd();
           setError(phoneAuth.statusMessage || "Failed to send SMS OTP code.");
           return false;
         }
       } catch (err: any) {
+        console.error("❌ Phone Auth Exception caught in Signup:", err);
+        console.groupEnd();
         setError(err.message || "Failed to send SMS OTP code.");
         return false;
       } finally {
@@ -218,24 +237,46 @@ export default function SignupScreen(): JSX.Element {
   const handleProceedToOtp = async () => {
     setError(null);
 
+    console.group("📋 [Signup Step 1: Validate & Proceed]");
+    console.log("Form Values:", {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone.trim(),
+      hasEmail: Boolean(email.trim()),
+      email: email.trim(),
+      agreed,
+      platform: Platform.OS,
+      reCAPTCHASolved: phoneAuth.isRecaptchaSolved,
+    });
+
     if (!firstName.trim()) {
       setError("First name is required");
+      console.warn("Validation failed: First name is required");
+      console.groupEnd();
       return;
     }
     if (!lastName.trim()) {
       setError("Last name is required");
+      console.warn("Validation failed: Last name is required");
+      console.groupEnd();
       return;
     }
     if (!phone.trim()) {
       setError("Phone number is required");
+      console.warn("Validation failed: Phone number is required");
+      console.groupEnd();
       return;
     }
     if (!password) {
       setError("Password is required");
+      console.warn("Validation failed: Password is required");
+      console.groupEnd();
       return;
     }
     if (!agreed) {
       setError("You must agree to the Maternal Consent and Terms");
+      console.warn("Validation failed: Consent required");
+      console.groupEnd();
       return;
     }
 
@@ -244,6 +285,8 @@ export default function SignupScreen(): JSX.Element {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
         setError("Please enter a valid email address.");
+        console.warn("Validation failed: Invalid email format");
+        console.groupEnd();
         return;
       }
     } else {
@@ -251,9 +294,12 @@ export default function SignupScreen(): JSX.Element {
       const formatted = formatToE164(phone.trim());
       if (Platform.OS === "web" && !isTestPhoneNumber(formatted) && !phoneAuth.isRecaptchaSolved) {
         setError("Please check the 'I\'m not a robot' verification box before continuing.");
+        console.warn("Validation blocked: reCAPTCHA not checked");
+        console.groupEnd();
         return;
       }
     }
+    console.groupEnd();
 
     const success = await handleRequestOtp();
     if (success) {

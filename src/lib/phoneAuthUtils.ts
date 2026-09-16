@@ -73,8 +73,12 @@ export function getFirebaseErrorMessage(errorCodeOrMessage: string): string {
     return "📡 Network error. Please check your internet connection and try again.";
   }
 
-  if (code.includes("auth/app-not-authorized")) {
-    return "🔒 Domain or App not authorized for Firebase Phone Auth. Ensure this domain/origin is in Firebase Console Authorized Domains.";
+  if (code.includes("auth/invalid-app-credential")) {
+    return "🔒 Firebase Setup Error (auth/invalid-app-credential):\n1) Ensure 'Phone' provider is enabled in Firebase Console (Authentication > Sign-in method).\n2) If on Web, ensure your domain/IP (e.g. localhost) is in Firebase Authorized Domains.\n3) Ensure Philippines (+63) is allowed in Firebase Console > Authentication > Settings > SMS Region Policy.\n4) If using an Android key, note that Web browser requires Web reCAPTCHA or Firebase Test Numbers.";
+  }
+
+  if (code.includes("auth/operation-not-allowed")) {
+    return "🚫 Phone authentication is not enabled in your Firebase project. Enable 'Phone' provider under Firebase Console > Authentication > Sign-in method.";
   }
 
   return errorCodeOrMessage || "An unexpected error occurred during phone verification. Please try again.";
