@@ -11,7 +11,7 @@ import type { DeliveryOutcomeRecord } from "../../config/api";
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row justify-between py-3.5 border-b border-separator last:border-0">
-    <Text className="text-muted text-sm">{label}</Text>
+    <Text className="text-zinc-400 text-sm">{label}</Text>
     <Text className="text-foreground text-sm font-medium">{value}</Text>
   </View>
 );
@@ -78,7 +78,7 @@ export default function VitalsScreen(): JSX.Element {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
 
@@ -89,14 +89,14 @@ export default function VitalsScreen(): JSX.Element {
               <Tabs.Indicator className="bg-surface-secondary rounded-xl" />
               <Tabs.Trigger value="maternal">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground font-bold" : "text-muted"}`}>
+                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
                     Maternal Analytics
                   </Tabs.Label>
                 )}
               </Tabs.Trigger>
               <Tabs.Trigger value="newborn">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground font-bold" : "text-muted"}`}>
+                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
                     Newborn Analytics
                   </Tabs.Label>
                 )}
@@ -110,7 +110,7 @@ export default function VitalsScreen(): JSX.Element {
             <Text className="text-foreground text-base font-semibold mb-1">Maternal Vitals Log</Text>
             {latestVisit ? (
               <>
-                <Text className="text-muted text-sm mb-4">
+                <Text className="text-zinc-400 text-sm mb-4">
                   Last recorded: {new Date(latestVisit.visit_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </Text>
                 <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
@@ -127,7 +127,7 @@ export default function VitalsScreen(): JSX.Element {
               <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
                 <Ionicons name="pulse" size={28} color="#71717a" className="mb-2" />
                 <Text className="text-foreground font-semibold text-base mb-1">No Recorded Vitals</Text>
-                <Text className="text-muted text-sm text-center">
+                <Text className="text-zinc-400 text-sm text-center">
                   Vitals will be recorded during your prenatal visits at the healthcare facility.
                 </Text>
               </Card>
@@ -140,7 +140,7 @@ export default function VitalsScreen(): JSX.Element {
             <Text className="text-foreground text-base font-semibold mb-1">Newborn Record & Health</Text>
             {latestNewborn ? (
               <>
-                <Text className="text-muted text-sm mb-4">
+                <Text className="text-zinc-400 text-sm mb-4">
                   Delivered: {latestDelivery?.delivery_date ? new Date(latestDelivery.delivery_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recorded"}
                 </Text>
                 <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
@@ -158,7 +158,7 @@ export default function VitalsScreen(): JSX.Element {
                   <Text className="text-3xl">👶</Text>
                 </View>
                 <Text className="text-foreground font-semibold text-base mb-1">Expectant Care Mode</Text>
-                <Text className="text-muted text-sm text-center leading-5">
+                <Text className="text-zinc-400 text-sm text-center leading-5">
                   Newborn delivery records will be updated automatically by your healthcare facility after delivery.
                 </Text>
               </Card>

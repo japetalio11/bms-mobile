@@ -67,8 +67,8 @@ export function MotherQRCodeModal({
           {/* Header */}
           <View className="flex-row items-center justify-between mb-4">
             <View>
-              <Text className="text-foreground text-xl font-bold">My Health Card QR</Text>
-              <Text className="text-muted text-xs mt-0.5">Show code to connect to a facility</Text>
+              <Text className="text-foreground text-lg font-bold">My Health Card QR</Text>
+              <Text className="text-zinc-400 text-sm mt-0.5">Show code to connect to a facility</Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -82,7 +82,7 @@ export function MotherQRCodeModal({
             {/* Mother Card Info */}
             <View className="w-full bg-surface border border-white/10 rounded-2xl p-4 items-center mb-6">
               <Text className="text-foreground text-lg font-bold text-center">{user.name}</Text>
-              <Text className="text-muted text-xs mb-3">{user.email || user.phone_number || "Self-Registered Mother"}</Text>
+              <Text className="text-zinc-400 text-sm mb-3">{user.email || user.phone_number || "Self-Registered Mother"}</Text>
 
               {/* Status Badge & Refresh */}
               <View className="flex-row items-center gap-2">
@@ -92,7 +92,7 @@ export function MotherQRCodeModal({
                     size={14}
                     color={facilityName ? "#10b981" : "#f59e0b"}
                   />
-                  <Text className={`text-xs font-semibold ${facilityName ? "text-emerald-400" : "text-amber-400"}`}>
+                  <Text className={`text-sm font-semibold ${facilityName ? "text-emerald-400" : "text-amber-400"}`}>
                     {facilityName ? `Connected: ${facilityName}` : "Not Connected"}
                   </Text>
                 </View>
@@ -124,7 +124,7 @@ export function MotherQRCodeModal({
             {/* Code Badge & Copy */}
             <View className="w-full flex-row items-center justify-between bg-surface border border-white/10 rounded-xl p-3.5 mb-5">
               <View>
-                <Text className="text-muted text-xs font-medium uppercase tracking-wider">Mother QR Code</Text>
+                <Text className="text-zinc-400 text-sm font-medium uppercase tracking-wider">Mother QR Code</Text>
                 <Text className="text-foreground text-lg font-mono font-bold mt-0.5">{displayCode}</Text>
               </View>
               <Pressable
@@ -132,14 +132,14 @@ export function MotherQRCodeModal({
                 className="flex-row items-center gap-1.5 bg-primary/20 border border-primary/30 px-3 py-2 rounded-lg"
               >
                 <Ionicons name={copied ? "checkmark-outline" : "copy-outline"} size={16} color="#6366f1" />
-                <Text className="text-primary text-xs font-semibold">{copied ? "Copied!" : "Copy Code"}</Text>
+                <Text className="text-primary text-sm font-semibold">{copied ? "Copied!" : "Copy Code"}</Text>
               </Pressable>
             </View>
 
             {/* Instructions */}
             <View className="w-full bg-default/40 rounded-xl p-3.5 flex-row items-start gap-3">
               <Ionicons name="information-circle-outline" size={20} color="#818cf8" style={{ marginTop: 2 }} />
-              <Text className="text-muted text-xs leading-5 flex-1">
+              <Text className="text-zinc-400 text-sm leading-5 flex-1">
                 When visiting a health center, present this QR code or provide your Mother Code to facility staff. They can scan/input it to register your profile under their facility.
               </Text>
             </View>

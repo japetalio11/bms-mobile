@@ -49,9 +49,9 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
     return {
       label: "Cancelled",
       color: "#ef4444", // Red
-      bgStyle: "bg-rose-500/15",
-      borderStyle: "border-rose-500/30",
-      textStyle: "text-rose-400",
+      bgStyle: "bg-blue-500/15",
+      borderStyle: "border-blue-500/30",
+      textStyle: "text-blue-400",
       icon: "close-circle-outline",
     };
   }

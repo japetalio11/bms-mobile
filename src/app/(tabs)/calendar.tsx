@@ -119,7 +119,7 @@ export default function CalendarScreen(): JSX.Element {
         <Card variant="secondary" className="mx-5 mb-6 rounded-xl p-5 bg-surface border-0">
           <View className="flex-row justify-between mb-4">
             {DAYS.map((day) => (
-              <Text key={day} className="text-muted text-sm flex-1 text-center font-medium">
+              <Text key={day} className="text-zinc-400 text-sm flex-1 text-center font-medium">
                 {day}
               </Text>
             ))}
@@ -176,7 +176,7 @@ export default function CalendarScreen(): JSX.Element {
         {/* Upcoming Events */}
         <View className="px-5">
           <Text className="text-foreground text-lg font-semibold mb-1">Upcoming Events</Text>
-          <Text className="text-muted text-sm mb-4">Scheduled appointments for {monthName}.</Text>
+          <Text className="text-zinc-400 text-sm mb-4">Scheduled appointments for {monthName}.</Text>
 
           {isLoading && appointments.length === 0 ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-6" />
@@ -201,7 +201,7 @@ export default function CalendarScreen(): JSX.Element {
                     <View className="w-px h-10 bg-separator mx-2" />
                     <View className="flex-1 ml-2">
                       <Text className="text-foreground text-base font-semibold mb-1">{item.appointment_type}</Text>
-                      <Text className="text-muted text-sm">{formattedDate} · {item.appointment_time}</Text>
+                      <Text className="text-zinc-400 text-sm">{formattedDate} · {item.appointment_time}</Text>
                     </View>
                   </Card>
                 );
@@ -211,7 +211,7 @@ export default function CalendarScreen(): JSX.Element {
             <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
               <Ionicons name="calendar-outline" size={28} color="#71717a" className="mb-2" />
               <Text className="text-foreground font-semibold text-base mb-1">No Appointments</Text>
-              <Text className="text-muted text-sm text-center">
+              <Text className="text-zinc-400 text-sm text-center">
                 No scheduled appointments for this month.
               </Text>
             </Card>

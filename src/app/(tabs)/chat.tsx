@@ -713,13 +713,13 @@ export default function ChatScreen(): JSX.Element {
         </View>
 
         <View className="flex-1 items-center justify-center p-6">
-          <View className="size-20 rounded-full bg-rose-500/10 border border-rose-500/20 items-center justify-center mb-4">
-            <Ionicons name="business-outline" size={36} color="#f43f5e" />
+          <View className="size-20 rounded-full bg-blue-500/10 border border-blue-500/20 items-center justify-center mb-4">
+            <Ionicons name="business-outline" size={36} color="#3b82f6" />
           </View>
-          <Text className="text-foreground font-bold text-xl mb-2 text-center">
+          <Text className="text-foreground font-bold text-lg mb-2 text-center">
             Not Affiliated with any Facility
           </Text>
-          <Text className="text-muted text-sm text-center max-w-sm leading-6 mb-6">
+          <Text className="text-zinc-400 text-sm text-center max-w-sm leading-6 mb-6">
             You are currently not affiliated with any healthcare facility. Direct messaging is only available once your account is linked to a health center.
           </Text>
 
@@ -775,7 +775,7 @@ export default function ChatScreen(): JSX.Element {
                 ) : (
                   <Avatar.Fallback delayMs={0}>
                     <View className="w-full h-full bg-primary/20 items-center justify-center">
-                      <Text className="text-primary text-xs font-bold">
+                      <Text className="text-primary text-sm font-bold">
                         {selectedStaff.first_name ? selectedStaff.first_name.charAt(0).toUpperCase() : "S"}
                       </Text>
                     </View>
@@ -809,7 +809,7 @@ export default function ChatScreen(): JSX.Element {
                   </Text>
                 </View>
                 {selectedStaff.facility?.facility_name && (
-                  <Text className="text-muted text-[11px] truncate flex-1" numberOfLines={1}>
+                  <Text className="text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
                     • {selectedStaff.facility.facility_name}
                   </Text>
                 )}
@@ -825,7 +825,7 @@ export default function ChatScreen(): JSX.Element {
             data={currentChatMessages}
             keyExtractor={(item) => item.id}
             refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
             }
             contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14 }}
             showsVerticalScrollIndicator={false}
@@ -873,7 +873,7 @@ export default function ChatScreen(): JSX.Element {
                         }`}
                       >
                         {item.status === "sending" ? (
-                          <ActivityIndicator size="small" color={item.mine ? "white" : "#f43f5e"} />
+                          <ActivityIndicator size="small" color={item.mine ? "white" : "#3b82f6"} />
                         ) : (
                           <Ionicons
                             name={
@@ -884,7 +884,7 @@ export default function ChatScreen(): JSX.Element {
                                 : "document"
                             }
                             size={22}
-                            color={item.mine ? "white" : "#f43f5e"}
+                            color={item.mine ? "white" : "#3b82f6"}
                           />
                         )}
                       </View>
@@ -901,14 +901,14 @@ export default function ChatScreen(): JSX.Element {
                         </Text>
                         <Text
                           className={`text-[11px] mt-0.5 ${
-                            item.mine ? "text-white/70" : "text-muted"
+                            item.mine ? "text-white/70" : "text-zinc-400"
                           }`}
                         >
                           {item.status === "sending" ? "Uploading & sending..." : "Tap to open / download"}
                         </Text>
                       </View>
                       {item.status === "sending" ? (
-                        <ActivityIndicator size="small" color={item.mine ? "white" : "#f43f5e"} />
+                        <ActivityIndicator size="small" color={item.mine ? "white" : "#3b82f6"} />
                       ) : (
                         <Ionicons name="open-outline" size={18} color={item.mine ? "white" : "#a1a1aa"} />
                       )}
@@ -921,11 +921,11 @@ export default function ChatScreen(): JSX.Element {
                   )}
 
                   <View className="flex-row items-center gap-1.5 justify-end mt-1.5">
-                    <Text className={`text-[10px] ${item.mine ? "text-white/70" : "text-muted"}`}>
+                    <Text className={`text-[10px] ${item.mine ? "text-white/70" : "text-zinc-400"}`}>
                       {item.time}
                     </Text>
                     {item.mine && item.status === "sending" ? (
-                      <ActivityIndicator size={10} color={item.mine ? "rgba(255,255,255,0.85)" : "#f43f5e"} />
+                      <ActivityIndicator size={10} color={item.mine ? "rgba(255,255,255,0.85)" : "#3b82f6"} />
                     ) : item.mine && item.id.startsWith("local_") ? (
                       <Ionicons name="checkmark-outline" size={12} color="rgba(255,255,255,0.7)" />
                     ) : null}
@@ -937,10 +937,10 @@ export default function ChatScreen(): JSX.Element {
         ) : (
           <View className="flex-1 items-center justify-center p-6">
             <View className="size-16 rounded-full bg-surface items-center justify-center mb-3">
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#f43f5e" />
+              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#3b82f6" />
             </View>
             <Text className="text-foreground font-bold text-lg mb-1">Personalized 1-to-1 Chat</Text>
-            <Text className="text-muted text-sm text-center max-w-xs leading-5">
+            <Text className="text-zinc-400 text-sm text-center max-w-xs leading-5">
               Send a direct message or share health records with {staffDisplayName}.
             </Text>
           </View>
@@ -1029,7 +1029,7 @@ export default function ChatScreen(): JSX.Element {
               <View className="w-12 h-1 bg-default/80 rounded-full self-center mb-4" />
 
               <Text className="text-foreground font-bold text-lg mb-1">Add Attachment</Text>
-              <Text className="text-muted text-xs mb-5">
+              <Text className="text-zinc-400 text-sm mb-5">
                 Share photos or medical documents directly with your healthcare provider.
               </Text>
 
@@ -1039,12 +1039,12 @@ export default function ChatScreen(): JSX.Element {
                   onPress={() => handlePickImage(true)}
                   className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
                 >
-                  <View className="size-11 rounded-xl bg-rose-500/10 border border-rose-500/20 items-center justify-center">
-                    <Ionicons name="camera-outline" size={22} color="#f43f5e" />
+                  <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
+                    <Ionicons name="camera-outline" size={22} color="#3b82f6" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">Take Photo</Text>
-                    <Text className="text-muted text-xs">Use camera to capture a new photo</Text>
+                    <Text className="text-zinc-400 text-sm">Use camera to capture a new photo</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#71717a" />
                 </Pressable>
@@ -1059,7 +1059,7 @@ export default function ChatScreen(): JSX.Element {
                   </View>
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">Photo Library</Text>
-                    <Text className="text-muted text-xs">Select photos from your device gallery</Text>
+                    <Text className="text-zinc-400 text-sm">Select photos from your device gallery</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#71717a" />
                 </Pressable>
@@ -1074,7 +1074,7 @@ export default function ChatScreen(): JSX.Element {
                   </View>
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">Document / Health Record</Text>
-                    <Text className="text-muted text-xs">Upload PDF, Word files, or lab reports</Text>
+                    <Text className="text-zinc-400 text-sm">Upload PDF, Word files, or lab reports</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#71717a" />
                 </Pressable>
@@ -1110,7 +1110,7 @@ export default function ChatScreen(): JSX.Element {
                     <Ionicons
                       name={pendingAttachment.detectedType === "image" ? "image-outline" : "document-text-outline"}
                       size={20}
-                      color="#f43f5e"
+                      color="#3b82f6"
                     />
                     <Text className="text-foreground font-bold text-lg">Confirm Attachment</Text>
                   </View>
@@ -1139,14 +1139,14 @@ export default function ChatScreen(): JSX.Element {
                             : "document-attach"
                         }
                         size={26}
-                        color="#f43f5e"
+                        color="#3b82f6"
                       />
                     </View>
                     <View className="flex-1 min-w-0">
                       <Text className="text-foreground font-bold text-sm" numberOfLines={1}>
                         {pendingAttachment.name}
                       </Text>
-                      <Text className="text-muted text-xs mt-0.5">
+                      <Text className="text-zinc-400 text-sm mt-0.5">
                         {pendingAttachment.sizeFormatted} • {pendingAttachment.name.split(".").pop()?.toUpperCase() || "FILE"}
                       </Text>
                     </View>
@@ -1223,15 +1223,15 @@ export default function ChatScreen(): JSX.Element {
               <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
             </Pressable>
             <View>
-              <Text className="text-foreground font-bold text-xl">Messages</Text>
-              <Text className="text-muted text-xs truncate max-w-[240px]" numberOfLines={1}>
+              <Text className="text-foreground font-bold text-lg">Messages</Text>
+              <Text className="text-zinc-400 text-sm truncate max-w-[240px]" numberOfLines={1}>
                 {facilityTitle}
               </Text>
             </View>
           </View>
 
           <View className="size-9 rounded-full bg-default items-center justify-center">
-            <Ionicons name="chatbubbles" size={18} color="#f43f5e" />
+            <Ionicons name="chatbubbles" size={18} color="#3b82f6" />
           </View>
         </View>
 
@@ -1272,8 +1272,8 @@ export default function ChatScreen(): JSX.Element {
                 }`}
               >
                 <Text
-                  className={`text-xs font-semibold ${
-                    isSelected ? "text-white" : "text-muted"
+                  className={`text-sm font-semibold ${
+                    isSelected ? "text-white" : "text-zinc-400"
                   }`}
                 >
                   {role === "HealthWorker" ? "Health Worker" : role}
@@ -1289,7 +1289,7 @@ export default function ChatScreen(): JSX.Element {
         data={filteredStaff}
         keyExtractor={(item) => item.user_id}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
         contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 90 }}
         ListEmptyComponent={
@@ -1298,7 +1298,7 @@ export default function ChatScreen(): JSX.Element {
               <Ionicons name="people-outline" size={24} color="#71717a" />
             </View>
             <Text className="text-foreground font-semibold text-base mb-1">No Staff Found</Text>
-            <Text className="text-muted text-xs text-center max-w-xs">
+            <Text className="text-zinc-400 text-sm text-center max-w-xs">
               {searchQuery ? "No staff matches your search query." : "No healthcare staff members are listed for your facility."}
             </Text>
           </View>
@@ -1358,7 +1358,7 @@ export default function ChatScreen(): JSX.Element {
                     {displayName}
                   </Text>
                   {item.lastMessageDate && (
-                    <Text className="text-muted text-[11px] shrink-0">
+                    <Text className="text-zinc-400 text-[11px] shrink-0">
                       {formatTimeLabel(item.lastMessageDate)}
                     </Text>
                   )}
@@ -1371,7 +1371,7 @@ export default function ChatScreen(): JSX.Element {
                     </Text>
                   </View>
                   {item.facility?.facility_name && (
-                    <Text className="text-muted text-[11px] truncate flex-1" numberOfLines={1}>
+                    <Text className="text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
                       • {item.facility.facility_name}
                     </Text>
                   )}
@@ -1380,8 +1380,8 @@ export default function ChatScreen(): JSX.Element {
                 {/* Snippet */}
                 <View className="flex-row items-center justify-between">
                   <Text
-                    className={`text-xs truncate flex-1 mr-2 ${
-                      item.unreadCount > 0 ? "text-foreground font-semibold" : "text-muted"
+                    className={`text-sm truncate flex-1 mr-2 ${
+                      item.unreadCount > 0 ? "text-foreground font-semibold" : "text-zinc-400"
                     }`}
                     numberOfLines={1}
                   >

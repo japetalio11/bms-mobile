@@ -20,7 +20,7 @@ import { NetworkProvider } from "../context/NetworkContext";
 import { SettingsProvider } from "../context/settingsContext";
 import { ConfirmationProvider } from "../context/ConfirmationContext";
 import { OfflineBanner } from "../components/OfflineBanner";
-import { PushNotificationSubscriber } from "../components/PushNotificationSubscriber";
+// import { PushNotificationSubscriber } from "../components/PushNotificationSubscriber";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -49,7 +49,7 @@ export default function RootLayout(): JSX.Element | null {
           <NetworkProvider>
             <UserProvider>
               <ConfirmationProvider>
-                <PushNotificationSubscriber />
+                {/* <PushNotificationSubscriber /> */}
                 <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
                   <OfflineBanner />
                   <Stack screenOptions={{ headerShown: false }}>

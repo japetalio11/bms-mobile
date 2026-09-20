@@ -412,7 +412,7 @@ export default function SignupScreen(): JSX.Element {
         </Text>
       </View>
 
-      <Text className="text-3xl font-bold text-foreground mb-6">
+      <Text className="text-lg font-bold text-foreground mb-6">
         {step === 1 ? "Create an account" : "Enter Verification Code"}
       </Text>
 
@@ -446,7 +446,7 @@ export default function SignupScreen(): JSX.Element {
               {googleLoading ? (
                 <ActivityIndicator size="small" className="text-foreground" />
               ) : (
-                <StyledIonicons name="logo-google" size={20} className="text-red-500" />
+                <StyledIonicons name="logo-google" size={20} className="text-white" />
               )}
               <Button.Label className="text-foreground font-semibold">
                 {googleLoading ? "Signing in with Google..." : "Continue with Google"}
@@ -457,7 +457,7 @@ export default function SignupScreen(): JSX.Element {
           {/* Divider */}
           <View className="flex-row items-center mb-6">
             <View className="flex-1 h-[1px] bg-border" />
-            <Text className="px-4 text-xs text-muted-foreground uppercase font-semibold">Or register with details</Text>
+            <Text className="px-4 text-sm text-zinc-400-foreground uppercase font-semibold">Or register with details</Text>
             <View className="flex-1 h-[1px] bg-border" />
           </View>
 
@@ -497,7 +497,7 @@ export default function SignupScreen(): JSX.Element {
                 <StyledIonicons 
                   name="mail-outline" 
                   size={20} 
-                  className="absolute right-4 text-muted-foreground" 
+                  className="absolute right-4 text-zinc-400-foreground" 
                   pointerEvents="none"
                 />
               </View>
@@ -543,7 +543,7 @@ export default function SignupScreen(): JSX.Element {
                   <StyledIonicons 
                     name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
-                    className="text-muted-foreground" 
+                    className="text-zinc-400-foreground" 
                   />
                 </Pressable>
               </View>
@@ -626,10 +626,10 @@ export default function SignupScreen(): JSX.Element {
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-foreground font-medium">Verification Code</Text>
               <Pressable onPress={() => setStep(1)} className="p-1">
-                <Text className="text-primary text-xs font-semibold">Change Info</Text>
+                <Text className="text-primary text-sm font-semibold">Change Info</Text>
               </Pressable>
             </View>
-            <Text className="text-muted text-sm mb-4">
+            <Text className="text-zinc-400 text-sm mb-4">
               Enter the 6-digit code sent to{" "}
               <Text className="text-foreground font-semibold">
                 {email.trim() ? email.trim() : `+63 ${phone.trim()}`}
@@ -643,7 +643,7 @@ export default function SignupScreen(): JSX.Element {
                 placeholder="123456" 
                 keyboardType="number-pad"
                 maxLength={6}
-                className="text-center text-2xl tracking-[8px] font-bold h-14"
+                className="text-center text-lg tracking-[8px] font-bold h-14"
                 autoFocus
               />
             </TextField>
@@ -651,13 +651,13 @@ export default function SignupScreen(): JSX.Element {
 
           {/* Resend Code Button with Timer */}
           <View className="flex-row justify-between items-center mb-8">
-            <Text className="text-muted text-sm">Didn't receive code?</Text>
+            <Text className="text-zinc-400 text-sm">Didn't receive code?</Text>
             <Pressable 
               onPress={handleRequestOtp}
               disabled={timer > 0 || otpLoading}
               className="p-1"
             >
-              <Text className={`text-sm font-semibold ${timer > 0 ? "text-muted" : "text-primary underline"}`}>
+              <Text className={`text-sm font-semibold ${timer > 0 ? "text-zinc-400" : "text-primary underline"}`}>
                 {timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
               </Text>
             </Pressable>
@@ -718,10 +718,10 @@ export default function SignupScreen(): JSX.Element {
             {/* Modal Header */}
             <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-border">
               <View className="flex-1 pr-2">
-                <Text className="text-xl font-bold text-foreground">
+                <Text className="text-lg font-bold text-foreground">
                   Terms & Data Privacy
                 </Text>
-                <Text className="text-xs text-muted-foreground mt-0.5">
+                <Text className="text-sm text-zinc-400-foreground mt-0.5">
                   Birth Monitoring System (BMS) • Maternal Care
                 </Text>
               </View>
@@ -743,10 +743,10 @@ export default function SignupScreen(): JSX.Element {
                     : "bg-transparent active:bg-muted/30"
                 }`}
               >
-                <Text className={`text-xs ${
+                <Text className={`text-sm ${
                   termsTab === "terms" 
                     ? "text-primary-foreground font-bold" 
-                    : "text-muted-foreground font-medium"
+                    : "text-zinc-400-foreground font-medium"
                 }`}>
                   Terms
                 </Text>
@@ -762,10 +762,10 @@ export default function SignupScreen(): JSX.Element {
                     : "bg-transparent active:bg-muted/30"
                 }`}
               >
-                <Text className={`text-xs ${
+                <Text className={`text-sm ${
                   termsTab === "privacy" 
                     ? "text-primary-foreground font-bold" 
-                    : "text-muted-foreground font-medium"
+                    : "text-zinc-400-foreground font-medium"
                 }`}>
                   Privacy
                 </Text>
@@ -781,10 +781,10 @@ export default function SignupScreen(): JSX.Element {
                     : "bg-transparent active:bg-muted/30"
                 }`}
               >
-                <Text className={`text-xs ${
+                <Text className={`text-sm ${
                   termsTab === "data" 
                     ? "text-primary-foreground font-bold" 
-                    : "text-muted-foreground font-medium"
+                    : "text-zinc-400-foreground font-medium"
                 }`}>
                   Health Data
                 </Text>
@@ -876,7 +876,7 @@ export default function SignupScreen(): JSX.Element {
                 onPress={() => setIsTermsModalOpen(false)}
                 className="py-2.5 items-center justify-center active:opacity-70"
               >
-                <Text className="text-muted-foreground text-xs font-semibold">Close</Text>
+                <Text className="text-zinc-400-foreground text-sm font-semibold">Close</Text>
               </Pressable>
             </View>
           </View>

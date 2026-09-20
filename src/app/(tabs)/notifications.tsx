@@ -164,8 +164,8 @@ export default function NotificationCenterScreen(): JSX.Element {
               color={activeTab === "notifications" ? "#ffffff" : "#71717a"}
             />
             <Text
-              className={`text-xs font-bold ${
-                activeTab === "notifications" ? "text-white" : "text-muted"
+              className={`text-sm font-bold ${
+                activeTab === "notifications" ? "text-white" : "text-zinc-400"
               }`}
             >
               Notifications
@@ -184,8 +184,8 @@ export default function NotificationCenterScreen(): JSX.Element {
               color={activeTab === "preferences" ? "#ffffff" : "#71717a"}
             />
             <Text
-              className={`text-xs font-bold ${
-                activeTab === "preferences" ? "text-white" : "text-muted"
+              className={`text-sm font-bold ${
+                activeTab === "preferences" ? "text-white" : "text-zinc-400"
               }`}
             >
               Preferences
@@ -201,7 +201,7 @@ export default function NotificationCenterScreen(): JSX.Element {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor="#f43f5e"
+            tintColor="#3b82f6"
           />
         }
       >
@@ -209,12 +209,12 @@ export default function NotificationCenterScreen(): JSX.Element {
           <View className="px-5">
             {/* Header Action Bar */}
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-muted text-xs font-medium ml-1">
+              <Text className="text-zinc-400 text-sm font-medium ml-1">
                 Recent Alerts & Notifications
               </Text>
               {notificationList.some((n) => !n.is_read) && (
                 <Pressable onPress={handleMarkAllRead}>
-                  <Text className="text-sky-400 text-xs font-semibold">
+                  <Text className="text-sky-400 text-sm font-semibold">
                     Mark All as Read
                   </Text>
                 </Pressable>
@@ -222,7 +222,7 @@ export default function NotificationCenterScreen(): JSX.Element {
             </View>
 
             {isLoading && notificationList.length === 0 ? (
-              <ActivityIndicator size="small" color="#f43f5e" className="py-12" />
+              <ActivityIndicator size="small" color="#3b82f6" className="py-12" />
             ) : notificationList.length > 0 ? (
               <View className="gap-3">
                 {notificationList.map((item) => {
@@ -264,7 +264,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                           </Text>
                         </View>
 
-                        <Text className="text-zinc-300 text-xs leading-5">
+                        <Text className="text-zinc-300 text-sm leading-5">
                           {item.notification_message}
                         </Text>
                       </View>
@@ -285,7 +285,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                 <Text className="text-white font-semibold text-sm mb-1">
                   No notifications yet
                 </Text>
-                <Text className="text-zinc-400 text-xs text-center leading-4">
+                <Text className="text-zinc-400 text-sm text-center leading-4">
                   You are all caught up! Automated care reminders and health alerts will appear here.
                 </Text>
               </View>
@@ -295,7 +295,7 @@ export default function NotificationCenterScreen(): JSX.Element {
           /* Preferences Tab */
           <View className="px-5 gap-6 pt-2">
             <View>
-              <Text className="text-muted text-xs font-medium mb-2 ml-1">
+              <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">
                 Maternal Care Reminders
               </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
@@ -305,7 +305,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Text className="text-foreground text-base font-medium">
                       Prenatal Visit Reminders
                     </Text>
-                    <Text className="text-muted text-xs mt-0.5">
+                    <Text className="text-zinc-400 text-sm mt-0.5">
                       Receive alerts for scheduled checkups and trimester milestones.
                     </Text>
                   </View>
@@ -326,7 +326,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Text className="text-foreground text-base font-medium">
                       Supplement & Iron Reminders
                     </Text>
-                    <Text className="text-muted text-xs mt-0.5">
+                    <Text className="text-zinc-400 text-sm mt-0.5">
                       Daily reminder notifications to log and take prescribed vitamins.
                     </Text>
                   </View>
@@ -347,7 +347,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Text className="text-foreground text-base font-medium">
                       Upcoming Appointment Alerts
                     </Text>
-                    <Text className="text-muted text-xs mt-0.5">
+                    <Text className="text-zinc-400 text-sm mt-0.5">
                       Alerts 24 hours and 1 hour before facility appointments.
                     </Text>
                   </View>
@@ -363,7 +363,7 @@ export default function NotificationCenterScreen(): JSX.Element {
             </View>
 
             <View>
-              <Text className="text-muted text-xs font-medium mb-2 ml-1">
+              <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">
                 General Updates
               </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
@@ -372,7 +372,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Text className="text-foreground text-base font-medium">
                       Health & Wellness Tips
                     </Text>
-                    <Text className="text-muted text-xs mt-0.5">
+                    <Text className="text-zinc-400 text-sm mt-0.5">
                       Receive weekly pregnancy advice and nutrition guides.
                     </Text>
                   </View>

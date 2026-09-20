@@ -161,7 +161,7 @@ export default function DashboardScreen(): JSX.Element {
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
         <View className="px-5 pt-3">
@@ -171,12 +171,12 @@ export default function DashboardScreen(): JSX.Element {
               <>
                 <View className="mb-1">
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-foreground text-xl font-bold">Week {gestationalData.weeks}</Text>
-                    <View className="bg-[#f43f5e]/15 px-3 py-1 rounded-full">
-                      <Text className="text-[#f43f5e] text-sm font-semibold">{gestationalData.progress}%</Text>
+                    <Text className="text-foreground text-lg font-bold">Week {gestationalData.weeks}</Text>
+                    <View className="bg-[#3b82f6]/15 px-3 py-1 rounded-full">
+                      <Text className="text-[#3b82f6] text-sm font-semibold">{gestationalData.progress}%</Text>
                     </View>
                   </View>
-                  <Text className="text-muted text-sm mt-1">
+                  <Text className="text-zinc-400 text-sm mt-1">
                     {gestationalData.trimesterText} · {gestationalData.remainingWeeks} weeks to go
                   </Text>
                 </View>
@@ -190,11 +190,11 @@ export default function DashboardScreen(): JSX.Element {
                 <View className="gap-2 mt-1">
                   <View className="flex-row justify-between items-center">
                     <Text className="text-foreground text-sm font-medium">Maternal Progress Overview</Text>
-                    <Text className="text-muted text-sm">{gestationalData.weeks} wks</Text>
+                    <Text className="text-zinc-400 text-sm">{gestationalData.weeks} wks</Text>
                   </View>
                   <View className="h-2 w-full bg-default rounded-full overflow-hidden">
                     <View
-                      className="h-full bg-[#f43f5e] rounded-full"
+                      className="h-full bg-[#3b82f6] rounded-full"
                       style={{ width: `${gestationalData.progress}%` }}
                     />
                   </View>
@@ -202,9 +202,9 @@ export default function DashboardScreen(): JSX.Element {
               </>
             ) : (
               <View className="py-6 items-center">
-                <Ionicons name="medical-outline" size={32} color="#f43f5e" className="mb-2" />
+                <Ionicons name="medical-outline" size={32} color="#3b82f6" className="mb-2" />
                 <Text className="text-foreground font-semibold text-base mb-1">Maternal Care Dashboard</Text>
-                <Text className="text-muted text-sm text-center">
+                <Text className="text-zinc-400 text-sm text-center">
                   Your pregnancy and prenatal visit records will appear here once registered by your healthcare facility.
                 </Text>
               </View>
@@ -217,12 +217,12 @@ export default function DashboardScreen(): JSX.Element {
 
             <Pressable onPress={() => router.push("/(tabs)/vitals")}>
               <Card className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
-                <View className="size-12 rounded-full bg-rose-500/15 items-center justify-center">
-                  <Ionicons name="pulse" size={22} color="#f43f5e" />
+                <View className="size-12 rounded-full bg-blue-500/15 items-center justify-center">
+                  <Ionicons name="pulse" size={22} color="#3b82f6" />
                 </View>
                 <View className="flex-1">
                   <Text className="text-foreground font-semibold text-base">Blood pressure, heart rate, weight</Text>
-                  <Text className="text-muted text-xs mt-0.5">Mother & newborn health tracking</Text>
+                  <Text className="text-zinc-400 text-sm mt-0.5">Mother & newborn health tracking</Text>
                 </View>
                 <View className="size-8 rounded-full bg-default items-center justify-center">
                   <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />
@@ -246,10 +246,10 @@ export default function DashboardScreen(): JSX.Element {
                     />
                     <View className="flex-1">
                       <Text className="text-foreground font-semibold text-base">{item.supplement_type}</Text>
-                      <Text className="text-muted text-sm">{item.tablets_given_count} tablets prescribed</Text>
+                      <Text className="text-zinc-400 text-sm">{item.tablets_given_count} tablets prescribed</Text>
                     </View>
                     <View className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}>
-                      <Text className={`text-xs font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}>
+                      <Text className={`text-sm font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}>
                         {item.is_completed ? "Done" : "Pending"}
                       </Text>
                     </View>
@@ -259,7 +259,7 @@ export default function DashboardScreen(): JSX.Element {
             ) : (
               <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
                 <Ionicons name="leaf-outline" size={24} color="#71717a" className="mb-2" />
-                <Text className="text-muted text-sm">No active daily prescriptions logged.</Text>
+                <Text className="text-zinc-400 text-sm">No active daily prescriptions logged.</Text>
               </Card>
             )}
           </View>
@@ -271,8 +271,8 @@ export default function DashboardScreen(): JSX.Element {
             {nextAppointment ? (
               <Pressable onPress={() => router.push("/(tabs)/appointments")}>
                 <Card className="p-4 bg-surface flex-row items-center gap-3 rounded-2xl border-0">
-                  <View className="items-center justify-center w-12 bg-[#f43f5e]/15 rounded-xl py-2">
-                    <Text className="text-[#f43f5e] text-sm font-semibold">
+                  <View className="items-center justify-center w-12 bg-[#3b82f6]/15 rounded-xl py-2">
+                    <Text className="text-[#3b82f6] text-sm font-semibold">
                       {new Date(nextAppointment.appointment_date).toLocaleDateString("en-US", { weekday: "short" })}
                     </Text>
                     <Text className="text-foreground text-lg font-bold">
@@ -282,20 +282,20 @@ export default function DashboardScreen(): JSX.Element {
 
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">{nextAppointment.appointment_type}</Text>
-                    <Text className="text-muted text-sm">
+                    <Text className="text-zinc-400 text-sm">
                       {new Date(nextAppointment.appointment_date).toLocaleDateString()} · {nextAppointment.appointment_time}
                     </Text>
                   </View>
 
-                  <View className="size-8 rounded-full bg-[#f43f5e]/15 items-center justify-center">
-                    <Ionicons name="chevron-forward" size={14} color="#f43f5e" />
+                  <View className="size-8 rounded-full bg-[#3b82f6]/15 items-center justify-center">
+                    <Ionicons name="chevron-forward" size={14} color="#3b82f6" />
                   </View>
                 </Card>
               </Pressable>
             ) : (
               <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
                 <Ionicons name="calendar-outline" size={24} color="#71717a" className="mb-2" />
-                <Text className="text-muted text-sm">No upcoming appointments scheduled.</Text>
+                <Text className="text-zinc-400 text-sm">No upcoming appointments scheduled.</Text>
               </Card>
             )}
           </View>

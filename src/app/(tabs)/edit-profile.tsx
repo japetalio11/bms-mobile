@@ -208,7 +208,7 @@ export default function EditProfileScreen(): JSX.Element {
               ) : (
                 <Avatar.Fallback delayMs={0}>
                   <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                    <Text className="text-white text-2xl font-bold">
+                    <Text className="text-white text-lg font-bold">
                       {firstName ? firstName.charAt(0).toUpperCase() : "M"}
                     </Text>
                   </View>
@@ -225,7 +225,7 @@ export default function EditProfileScreen(): JSX.Element {
           </Pressable>
 
           <Text className="text-foreground text-lg font-bold mb-0.5">{user.name || "Mother Profile"}</Text>
-          <Text className="text-muted text-sm">{user.email || user.phone_number || ""}</Text>
+          <Text className="text-zinc-400 text-sm">{user.email || user.phone_number || ""}</Text>
         </View>
 
         {/* Error Alert */}
@@ -248,7 +248,7 @@ export default function EditProfileScreen(): JSX.Element {
 
         {/* Form Fields */}
         <View className="px-5 gap-5">
-          <Text className="text-muted text-sm font-medium ml-1">Personal Information</Text>
+          <Text className="text-zinc-400 text-sm font-medium ml-1">Personal Information</Text>
 
           <TextField isRequired>
             <Label>First Name</Label>

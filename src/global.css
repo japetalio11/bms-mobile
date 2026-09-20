@@ -35,20 +35,21 @@
     --backdrop: oklch(0% 0 0 / 25%);
 
     /* Muted */
-    --muted: oklch(0.52 0.024 258);
+    --muted: oklch(0.96 0 0);
+    --muted-foreground: oklch(0.45 0 0);
 
     /* Default (used for form fields, tab backgrounds, etc.) */
     --default: oklch(0.93 0.012 258);
     --default-foreground: oklch(0.32 0.04 258);
 
-    /* Accent (primary maternal brand color - warm rose / soft coral) */
-    --accent: oklch(0.60 0.20 18);
+    /* Accent (primary brand color - blue) */
+    --accent: oklch(0.65 0.15 250);
     --accent-foreground: oklch(1 0 0);
 
     /* Form fields */
-    --field-background: oklch(0.965 0.009 258);
-    --field-foreground: oklch(0.16 0.035 258);
-    --field-placeholder: var(--muted);
+    --field-background: oklch(0.96 0.01 258);
+    --field-foreground: oklch(0.14 0.04 258);
+    --field-placeholder: var(--muted-foreground);
     --field-border: transparent;
 
     /* Status */
@@ -79,38 +80,39 @@
   }
 
   @variant dark {
-    /* Base - Warm Charcoal (#121214) */
-    --background: oklch(0.14 0.005 285);
+    /* Base - True Black/Gray */
+    --background: oklch(0.11 0 0);
     --foreground: oklch(0.98 0 0);
 
-    /* Surfaces - Soft Dark Charcoal (#18171C / #1F1E24) */
-    --surface: oklch(0.18 0.006 285);
+    /* Surfaces - Dark Gray */
+    --surface: oklch(0.15 0 0);
     --surface-foreground: oklch(0.98 0 0);
-    --surface-secondary: oklch(0.22 0.006 285);
+    --surface-secondary: oklch(0.20 0 0);
     --surface-secondary-foreground: oklch(0.98 0 0);
-    --surface-tertiary: oklch(0.25 0.006 285);
+    --surface-tertiary: oklch(0.24 0 0);
     --surface-tertiary-foreground: oklch(0.98 0 0);
 
     /* Overlay */
-    --overlay: oklch(0.18 0.006 285);
+    --overlay: oklch(0.15 0 0);
     --overlay-foreground: oklch(0.98 0 0);
     --backdrop: oklch(0% 0 0 / 50%);
 
     /* Muted */
-    --muted: oklch(0.68 0.01 285);
+    --muted: oklch(0.18 0 0);
+    --muted-foreground: oklch(0.65 0 0);
 
     /* Default */
-    --default: oklch(0.24 0.006 285);
+    --default: oklch(0.20 0 0);
     --default-foreground: oklch(0.98 0 0);
 
     /* Accent */
-    --accent: oklch(0.60 0.20 18);
+    --accent: oklch(0.65 0.15 250);
     --accent-foreground: oklch(1 0 0);
 
     /* Form fields */
-    --field-background: oklch(0.18 0.006 285);
+    --field-background: oklch(0.15 0 0);
     --field-foreground: oklch(0.98 0 0);
-    --field-placeholder: var(--muted);
+    --field-placeholder: var(--muted-foreground);
     --field-border: transparent;
 
     /* Status */
@@ -122,9 +124,9 @@
     --danger-foreground: oklch(0.98 0 0);
 
     /* Misc */
-    --border: oklch(0.24 0.006 285);
-    --separator: oklch(0.26 0.006 285);
-    --segment: oklch(0.22 0.006 285);
+    --border: oklch(0.24 0 0);
+    --separator: oklch(0.24 0 0);
+    --segment: oklch(0.20 0 0);
     --segment-foreground: oklch(0.98 0 0);
 
     /* Shadows */

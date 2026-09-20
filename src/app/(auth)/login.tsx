@@ -389,7 +389,7 @@ export default function LoginScreen(): JSX.Element {
         </Text>
       </View>
 
-      <Text className="text-3xl font-bold text-foreground mb-6">
+      <Text className="text-lg font-bold text-foreground mb-6">
         {mode === "login"
           ? "Log in"
           : mode === "setup_otp"
@@ -431,7 +431,7 @@ export default function LoginScreen(): JSX.Element {
                 <StyledIonicons 
                   name="person-outline" 
                   size={20} 
-                  className="absolute right-4 text-muted-foreground" 
+                  className="absolute right-4 text-zinc-400-foreground" 
                   pointerEvents="none"
                 />
               </View>
@@ -459,7 +459,7 @@ export default function LoginScreen(): JSX.Element {
                   <StyledIonicons 
                     name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
-                    className="text-muted-foreground" 
+                    className="text-zinc-400-foreground" 
                   />
                 </Pressable>
               </View>
@@ -479,7 +479,7 @@ export default function LoginScreen(): JSX.Element {
 
           <View className="flex-row items-center my-4">
             <View className="flex-1 h-[1px] bg-border" />
-            <Text className="mx-4 text-xs font-semibold text-muted-foreground uppercase">OR</Text>
+            <Text className="mx-4 text-sm font-semibold text-zinc-400-foreground uppercase">OR</Text>
             <View className="flex-1 h-[1px] bg-border" />
           </View>
 
@@ -491,7 +491,7 @@ export default function LoginScreen(): JSX.Element {
             {googleLoading ? (
               <ActivityIndicator size="small" color="#4285F4" />
             ) : (
-              <StyledIonicons name="logo-google" size={20} color="#EA4335" />
+              <StyledIonicons name="logo-google" size={20} color="#ffffff" />
             )}
             <Text className="text-foreground font-semibold text-base">
               {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
@@ -540,7 +540,7 @@ export default function LoginScreen(): JSX.Element {
                 placeholder="123456"
                 keyboardType="number-pad"
                 maxLength={6}
-                className="text-center text-xl font-bold tracking-widest h-14"
+                className="text-center text-lg font-bold tracking-widest h-14"
               />
             </TextField>
 
@@ -554,7 +554,7 @@ export default function LoginScreen(): JSX.Element {
                 onPress={() => handleSendSetupOtp(identifier)} 
                 disabled={otpLoading || timer > 0}
               >
-                <Text className={`text-sm font-medium ${timer > 0 || otpLoading ? "text-muted-foreground" : "text-primary underline"}`}>
+                <Text className={`text-sm font-medium ${timer > 0 || otpLoading ? "text-zinc-400-foreground" : "text-primary underline"}`}>
                   {otpLoading ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
                 </Text>
               </Pressable>
@@ -604,7 +604,7 @@ export default function LoginScreen(): JSX.Element {
                   <StyledIonicons 
                     name={isNewPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
-                    className="text-muted-foreground" 
+                    className="text-zinc-400-foreground" 
                   />
                 </Pressable>
               </View>

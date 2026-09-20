@@ -191,7 +191,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
         >
           <StyledIonicons name="arrow-back" size={24} className="text-foreground" />
         </Pressable>
-        <Text className="text-xl font-bold text-foreground ml-2">
+        <Text className="text-lg font-bold text-foreground ml-2">
           {mode === "enter_identifier" && "Forgot Password"}
           {mode === "verify_otp" && "Verify OTP"}
           {mode === "reset_password" && "Reset Password"}
@@ -216,14 +216,14 @@ export default function ForgotPasswordScreen(): JSX.Element {
               />
             </View>
 
-            <Text className="text-2xl font-bold text-foreground text-center">
+            <Text className="text-lg font-bold text-foreground text-center">
               {mode === "enter_identifier" && "Reset Your Password"}
               {mode === "verify_otp" && "Enter Verification Code"}
               {mode === "reset_password" && "Create New Password"}
               {mode === "success" && "All Set!"}
             </Text>
 
-            <Text className="text-sm text-muted-foreground text-center mt-2 px-4">
+            <Text className="text-sm text-zinc-400-foreground text-center mt-2 px-4">
               {mode === "enter_identifier" && "Enter the email address or phone number associated with your Mother account to receive an OTP code."}
               {mode === "verify_otp" && `Enter the 6-digit code sent to ${identifier}.`}
               {mode === "reset_password" && "Your new password must be at least 6 characters long."}
@@ -268,7 +268,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                   <StyledIonicons 
                     name={isEmail ? "mail-outline" : "call-outline"} 
                     size={20} 
-                    className="absolute right-4 text-muted-foreground" 
+                    className="absolute right-4 text-zinc-400-foreground" 
                     pointerEvents="none"
                   />
                 </View>
@@ -311,14 +311,14 @@ export default function ForgotPasswordScreen(): JSX.Element {
 
               <View className="flex-row justify-between items-center px-1">
                 <Pressable onPress={() => setMode("enter_identifier")}>
-                  <Text className="text-sm text-muted-foreground underline">Change Identifier</Text>
+                  <Text className="text-sm text-zinc-400-foreground underline">Change Identifier</Text>
                 </Pressable>
 
                 <Pressable 
                   onPress={handleRequestOtp} 
                   disabled={isLoading || timer > 0}
                 >
-                  <Text className={`text-sm font-medium ${timer > 0 || isLoading ? "text-muted-foreground" : "text-primary underline"}`}>
+                  <Text className={`text-sm font-medium ${timer > 0 || isLoading ? "text-zinc-400-foreground" : "text-primary underline"}`}>
                     {isLoading ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
                   </Text>
                 </Pressable>
@@ -346,7 +346,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                     <StyledIonicons 
                       name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                       size={20} 
-                      className="text-muted-foreground" 
+                      className="text-zinc-400-foreground" 
                     />
                   </Pressable>
                 </View>
@@ -369,7 +369,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                     <StyledIonicons 
                       name={isConfirmPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                       size={20} 
-                      className="text-muted-foreground" 
+                      className="text-zinc-400-foreground" 
                     />
                   </Pressable>
                 </View>
@@ -421,7 +421,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
 
           {mode !== "success" && (
             <Pressable onPress={() => router.replace("/(auth)/login")} className="items-center py-2">
-              <Text className="text-sm text-muted-foreground">
+              <Text className="text-sm text-zinc-400-foreground">
                 Remember your password? <Text className="text-primary font-medium underline">Log In</Text>
               </Text>
             </Pressable>

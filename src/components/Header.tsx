@@ -51,7 +51,7 @@ export function Header({
               ) : (
                 <Avatar.Fallback delayMs={0}>
                   <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                    <Text className="text-white text-xs font-bold">
+                    <Text className="text-white text-sm font-bold">
                       {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
                     </Text>
                   </View>
@@ -85,7 +85,7 @@ export function Header({
             {title || user.name}
           </Text>
           {subtitle && (
-            <Text className="text-muted text-sm" numberOfLines={1}>{subtitle}</Text>
+            <Text className="text-zinc-400 text-sm" numberOfLines={1}>{subtitle}</Text>
           )}
         </View>
       </View>

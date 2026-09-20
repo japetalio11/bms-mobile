@@ -131,7 +131,7 @@ export function MotherShareJourneyModal({
                   <Text className="text-emerald-400 text-[10px] font-bold">PIN-Protected</Text>
                 </View>
               </View>
-              <Text className="text-muted text-xs">Let clinicians scan to view records and past vitals</Text>
+              <Text className="text-zinc-400 text-sm">Let clinicians scan to view records and past vitals</Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -145,19 +145,19 @@ export function MotherShareJourneyModal({
             {loading ? (
               <View className="py-20 items-center justify-center">
                 <ActivityIndicator size="large" color="#6366f1" />
-                <Text className="text-muted text-xs mt-3">Generating secure share link & PIN...</Text>
+                <Text className="text-zinc-400 text-sm mt-3">Generating secure share link & PIN...</Text>
               </View>
             ) : errorMsg ? (
               <View className="py-12 items-center justify-center px-4">
                 <Ionicons name="alert-circle-outline" size={40} color="#ef4444" className="mb-2" />
                 <Text className="text-foreground font-semibold text-sm mb-1 text-center">Unable to Load Share Code</Text>
-                <Text className="text-muted text-xs text-center mb-4">{errorMsg}</Text>
+                <Text className="text-zinc-400 text-sm text-center mb-4">{errorMsg}</Text>
                 <Pressable
                   onPress={fetchToken}
                   className="bg-primary px-4 py-2 rounded-xl flex-row items-center gap-2"
                 >
                   <Ionicons name="refresh" size={16} color="white" />
-                  <Text className="text-white text-xs font-semibold">Retry</Text>
+                  <Text className="text-white text-sm font-semibold">Retry</Text>
                 </Pressable>
               </View>
             ) : (
@@ -179,7 +179,7 @@ export function MotherShareJourneyModal({
 
                 {/* PIN Code Box */}
                 <View className="w-full bg-surface border border-white/15 rounded-2xl p-4 mb-4">
-                  <Text className="text-muted text-[11px] font-bold uppercase tracking-wider text-center mb-1">
+                  <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider text-center mb-1">
                     Clinician Access PIN Code
                   </Text>
                   
@@ -190,7 +190,7 @@ export function MotherShareJourneyModal({
                     </Text>
                   </View>
 
-                  <Text className="text-muted text-[11px] text-center mb-3.5">
+                  <Text className="text-zinc-400 text-[11px] text-center mb-3.5">
                     Provide this 6-digit PIN to the attending health worker to unlock your full medical history.
                   </Text>
 
@@ -201,7 +201,7 @@ export function MotherShareJourneyModal({
                       className="flex-1 flex-row items-center justify-center gap-2 bg-indigo-600 active:bg-indigo-700 py-3 rounded-xl shadow-sm"
                     >
                       <Ionicons name={copiedPin ? "checkmark" : "copy-outline"} size={16} color="#ffffff" />
-                      <Text className="text-white text-xs font-bold">{copiedPin ? "PIN Copied!" : "Copy PIN"}</Text>
+                      <Text className="text-white text-sm font-bold">{copiedPin ? "PIN Copied!" : "Copy PIN"}</Text>
                     </Pressable>
 
                     <Pressable
@@ -209,7 +209,7 @@ export function MotherShareJourneyModal({
                       className="flex-1 flex-row items-center justify-center gap-2 bg-[#27272a] active:bg-[#3f3f46] border border-white/15 py-3 rounded-xl"
                     >
                       <Ionicons name={copiedLink ? "checkmark" : "link-outline"} size={16} color="#e4e4e7" />
-                      <Text className="text-white text-xs font-bold">{copiedLink ? "Link Copied!" : "Copy Link"}</Text>
+                      <Text className="text-white text-sm font-bold">{copiedLink ? "Link Copied!" : "Copy Link"}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -221,7 +221,7 @@ export function MotherShareJourneyModal({
                     className="flex-1 flex-row items-center justify-center gap-2 bg-[#27272a] active:bg-[#3f3f46] border border-white/15 py-3 rounded-xl"
                   >
                     <Ionicons name="eye-outline" size={16} color="#e4e4e7" />
-                    <Text className="text-white text-xs font-semibold">Preview Web View</Text>
+                    <Text className="text-white text-sm font-semibold">Preview Web View</Text>
                   </Pressable>
 
                   <Pressable
@@ -234,7 +234,7 @@ export function MotherShareJourneyModal({
                     ) : (
                       <>
                         <Ionicons name="refresh-outline" size={16} color="#f87171" />
-                        <Text className="text-red-400 text-xs font-semibold">Reset PIN</Text>
+                        <Text className="text-red-400 text-sm font-semibold">Reset PIN</Text>
                       </>
                     )}
                   </Pressable>
@@ -243,7 +243,7 @@ export function MotherShareJourneyModal({
                 {/* Explanatory Callout */}
                 <View className="w-full bg-[#27272a]/60 border border-white/5 rounded-xl p-3.5 flex-row items-start gap-3">
                   <Ionicons name="information-circle-outline" size={18} color="#818cf8" style={{ marginTop: 2 }} />
-                  <Text className="text-muted text-xs leading-5 flex-1">
+                  <Text className="text-zinc-400 text-sm leading-5 flex-1">
                     When visiting another clinic, hospital, or emergency facility, let the clinician scan this QR code using their camera or barcode scanner, then provide your 6-digit PIN. They will see your complete prenatal visits, past vitals, and diagnostic scans.
                   </Text>
                 </View>

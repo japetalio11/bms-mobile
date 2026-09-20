@@ -64,7 +64,7 @@ export default function SearchScreen(): JSX.Element {
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View className="px-5 mb-6">
           <Text className="text-white text-lg font-semibold mb-1">Search</Text>
-          <Text className="text-muted text-sm mb-4">Find appointments, records, and more.</Text>
+          <Text className="text-zinc-400 text-sm mb-4">Find appointments, records, and more.</Text>
 
           <SearchField 
             value={search} 
@@ -79,7 +79,7 @@ export default function SearchScreen(): JSX.Element {
         </View>
 
         <View className="px-5 mb-6">
-          <Text className="text-muted text-sm mb-3 ml-1">Browse by Category</Text>
+          <Text className="text-zinc-400 text-sm mb-3 ml-1">Browse by Category</Text>
           <View className="flex-row flex-wrap gap-3">
             {CATEGORIES.map((cat) => (
               <Pressable
@@ -100,7 +100,7 @@ export default function SearchScreen(): JSX.Element {
         </View>
 
         <View className="px-5">
-          <Text className="text-muted text-sm mb-3 ml-1">Recent Searches</Text>
+          <Text className="text-zinc-400 text-sm mb-3 ml-1">Recent Searches</Text>
           <Card variant="secondary" className="bg-[#18181b] border-0 rounded-xl p-0 overflow-hidden">
             {recentSearches.map((item, index) => (
               <Pressable
@@ -120,7 +120,7 @@ export default function SearchScreen(): JSX.Element {
             ))}
             {recentSearches.length === 0 && (
               <View className="px-4 py-4 items-center">
-                <Text className="text-muted text-sm">No recent searches</Text>
+                <Text className="text-zinc-400 text-sm">No recent searches</Text>
               </View>
             )}
           </Card>

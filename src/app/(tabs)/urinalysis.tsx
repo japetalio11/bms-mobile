@@ -31,7 +31,7 @@ const Result = ({
     <View className="flex-row justify-between items-center py-3 border-b border-separator last:border-0">
       <View className="flex-1">
         <Text className="text-foreground text-sm font-medium">{label}</Text>
-        <Text className="text-muted text-sm">{unit}</Text>
+        <Text className="text-zinc-400 text-sm">{unit}</Text>
       </View>
       <Text className="text-foreground text-sm font-semibold mx-4">{value}</Text>
       <View className={`px-2 py-0.5 rounded-full ${statusConfig.bg}`}>
@@ -123,7 +123,7 @@ export default function UrinalysisScreen(): JSX.Element {
             <Card className="p-6 bg-surface rounded-xl border-0 items-center py-6">
               <Ionicons name="document-text-outline" size={28} color="#71717a" className="mb-2" />
               <Text className="text-foreground font-semibold text-base mb-1">No Urinalysis Record</Text>
-              <Text className="text-muted text-sm text-center">
+              <Text className="text-zinc-400 text-sm text-center">
                 No urinalysis lab screening record has been submitted yet.
               </Text>
             </Card>
@@ -134,7 +134,7 @@ export default function UrinalysisScreen(): JSX.Element {
           <>
             <View className="px-5 mb-5">
               <Text className="text-foreground text-lg font-semibold mb-1">Physical Examination</Text>
-              <Text className="text-muted text-sm mb-4">Color, clarity, and specific gravity.</Text>
+              <Text className="text-zinc-400 text-sm mb-4">Color, clarity, and specific gravity.</Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
                 <Result label="Color" value="Yellow" unit="Visual" status="normal" />
                 <Result label="Clarity" value="Clear" unit="Visual" status="normal" />
@@ -144,7 +144,7 @@ export default function UrinalysisScreen(): JSX.Element {
 
             <View className="px-5">
               <Text className="text-foreground text-lg font-semibold mb-1">Chemical Examination</Text>
-              <Text className="text-muted text-sm mb-4">Protein, glucose, and other markers.</Text>
+              <Text className="text-zinc-400 text-sm mb-4">Protein, glucose, and other markers.</Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
                 <Result label="Protein" value="None" unit="Qualitative" status="normal" />
                 <Result label="Glucose" value="None" unit="Qualitative" status="normal" />

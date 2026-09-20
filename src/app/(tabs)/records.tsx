@@ -135,7 +135,7 @@ export default function RecordsScreen(): JSX.Element {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
         {/* Main Tabs */}
@@ -145,14 +145,14 @@ export default function RecordsScreen(): JSX.Element {
               <Tabs.Indicator className="bg-surface-secondary rounded-lg" />
               <Tabs.Trigger value="lab" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-semibold text-xs text-center ${isSelected ? "text-foreground font-bold" : "text-muted"}`}>
+                  <Tabs.Label className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
                     Lab Records
                   </Tabs.Label>
                 )}
               </Tabs.Trigger>
               <Tabs.Trigger value="prescriptions" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-semibold text-xs text-center ${isSelected ? "text-foreground font-bold" : "text-muted"}`}>
+                  <Tabs.Label className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
                     Prescriptions
                   </Tabs.Label>
                 )}
@@ -212,7 +212,7 @@ export default function RecordsScreen(): JSX.Element {
                             <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
                               {lab.screening_type}
                             </Text>
-                            <Text className="text-muted text-xs">{dateStr || "Screening Record"}</Text>
+                            <Text className="text-zinc-400 text-sm">{dateStr || "Screening Record"}</Text>
                           </View>
                         </View>
 
@@ -223,7 +223,7 @@ export default function RecordsScreen(): JSX.Element {
                             </View>
                           )}
                           <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
-                            <Text className="text-emerald-400 text-xs font-semibold">
+                            <Text className="text-emerald-400 text-sm font-semibold">
                               {lab.result || "Uploaded"}
                             </Text>
                           </View>
@@ -237,13 +237,13 @@ export default function RecordsScreen(): JSX.Element {
                             className="mt-2.5 mb-2 p-3 bg-default/40 border border-default rounded-xl flex-row items-center gap-3 active:bg-default/70"
                           >
                             <View className="size-10 rounded-lg bg-red-500/20 items-center justify-center">
-                              <Ionicons name="document-text" size={22} color="#f43f5e" />
+                              <Ionicons name="document-text" size={22} color="#3b82f6" />
                             </View>
                             <View className="flex-1 min-w-0">
-                              <Text className="text-foreground text-xs font-semibold" numberOfLines={1}>
+                              <Text className="text-foreground text-sm font-semibold" numberOfLines={1}>
                                 {fileUrl.split("/").pop()?.split("?")[0] || "PDF Document"}
                               </Text>
-                              <Text className="text-muted text-[11px] mt-0.5">PDF Document Attachment • Tap to view</Text>
+                              <Text className="text-zinc-400 text-[11px] mt-0.5">PDF Document Attachment • Tap to view</Text>
                             </View>
                             <Ionicons name="open-outline" size={16} color="#a1a1aa" />
                           </Pressable>
@@ -264,7 +264,7 @@ export default function RecordsScreen(): JSX.Element {
                       ) : null}
 
                       {lab.remarks ? (
-                        <Text className="text-muted text-xs mt-1" numberOfLines={2}>
+                        <Text className="text-zinc-400 text-sm mt-1" numberOfLines={2}>
                           Remarks: {lab.remarks}
                         </Text>
                       ) : null}
@@ -276,7 +276,7 @@ export default function RecordsScreen(): JSX.Element {
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-6 items-center py-10">
                 <Ionicons name="document-text-outline" size={32} color="#71717a" className="mb-2" />
                 <Text className="text-foreground font-semibold text-base mb-1">No Lab Records Found</Text>
-                <Text className="text-muted text-xs text-center max-w-xs mb-4">
+                <Text className="text-zinc-400 text-sm text-center max-w-xs mb-4">
                   {searchLab.trim()
                     ? "No laboratory records match your search criteria."
                     : "You haven't uploaded or received any laboratory records yet."}
@@ -288,7 +288,7 @@ export default function RecordsScreen(): JSX.Element {
                   onPress={() => router.push("/(tabs)/upload-record")}
                 >
                   <Ionicons name="cloud-upload-outline" size={16} color="white" />
-                  <Button.Label className="text-xs font-semibold">Upload First Record</Button.Label>
+                  <Button.Label className="text-sm font-semibold">Upload First Record</Button.Label>
                 </Button>
               </Card>
             )}
@@ -326,18 +326,18 @@ export default function RecordsScreen(): JSX.Element {
                       </View>
                       <View className="flex-1">
                         <Text className="text-foreground font-semibold text-base">{supp.supplement_type}</Text>
-                        <Text className="text-muted text-sm">{supp.tablets_given_count} Tablets Prescribed</Text>
+                        <Text className="text-zinc-400 text-sm">{supp.tablets_given_count} Tablets Prescribed</Text>
                       </View>
                     </View>
                     <View className="gap-2">
                       <View className="flex-row justify-between">
-                        <Text className="text-muted text-sm">Status</Text>
+                        <Text className="text-zinc-400 text-sm">Status</Text>
                         <Text className={`text-sm font-medium ${supp.is_completed ? "text-[#10b981]" : "text-[#f59e0b]"}`}>
                           {supp.is_completed ? "Completed" : "In Progress"}
                         </Text>
                       </View>
                       <View className="flex-row justify-between">
-                        <Text className="text-muted text-sm">Date Prescribed</Text>
+                        <Text className="text-zinc-400 text-sm">Date Prescribed</Text>
                         <Text className="text-foreground text-sm font-medium">
                           {new Date(supp.date_given).toLocaleDateString()}
                         </Text>
@@ -351,7 +351,7 @@ export default function RecordsScreen(): JSX.Element {
               <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
                 <Ionicons name="medkit-outline" size={28} color="#71717a" className="mb-2" />
                 <Text className="text-foreground font-semibold text-base mb-1">No Prescriptions</Text>
-                <Text className="text-muted text-sm text-center">
+                <Text className="text-zinc-400 text-sm text-center">
                   You have no active prescriptions or supplements recorded.
                 </Text>
               </Card>

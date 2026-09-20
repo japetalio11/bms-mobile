@@ -19,7 +19,7 @@ import {
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row justify-between py-3 border-b border-separator last:border-0">
-    <Text className="text-muted text-sm">{label}</Text>
+    <Text className="text-zinc-400 text-sm">{label}</Text>
     <Text className="text-foreground text-sm font-medium">{value}</Text>
   </View>
 );
@@ -143,8 +143,8 @@ export default function AppointmentDetailScreen(): JSX.Element {
       >
         {isLoading ? (
           <View className="py-20 items-center justify-center">
-            <ActivityIndicator size="large" color="#f43f5e" />
-            <Text className="text-muted text-sm mt-3">Loading appointment details...</Text>
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text className="text-zinc-400 text-sm mt-3">Loading appointment details...</Text>
           </View>
         ) : appointment ? (
           <>
@@ -168,7 +168,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                     className={`px-3 py-1 rounded-full ${statusCfg.bgStyle} border ${statusCfg.borderStyle}`}
                   >
                     <Text
-                      className={`text-xs font-semibold uppercase ${statusCfg.textStyle}`}
+                      className={`text-sm font-semibold uppercase ${statusCfg.textStyle}`}
                     >
                       {statusCfg.label}
                     </Text>
@@ -192,7 +192,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                 {(appointment as any).sync_status === "pending" && (
                   <View className="mt-3 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex-row items-center gap-2">
                     <Ionicons name="cloud-offline-outline" size={16} color="#f59e0b" />
-                    <Text className="text-amber-400 text-xs flex-1">
+                    <Text className="text-amber-400 text-sm flex-1">
                       Stored locally on device. Will sync automatically once connected.
                     </Text>
                   </View>
@@ -206,14 +206,14 @@ export default function AppointmentDetailScreen(): JSX.Element {
                 <Pressable
                   onPress={handleCancelAppointment}
                   disabled={isCancelling}
-                  className="bg-rose-500/15 border border-rose-500/30 rounded-2xl py-3.5 px-4 flex-row items-center justify-center gap-2 active:bg-rose-500/25"
+                  className="bg-blue-500/15 border border-blue-500/30 rounded-2xl py-3.5 px-4 flex-row items-center justify-center gap-2 active:bg-blue-500/25"
                 >
                   {isCancelling ? (
-                    <ActivityIndicator size="small" color="#f43f5e" />
+                    <ActivityIndicator size="small" color="#3b82f6" />
                   ) : (
-                    <Ionicons name="close-circle-outline" size={18} color="#f43f5e" />
+                    <Ionicons name="close-circle-outline" size={18} color="#3b82f6" />
                   )}
-                  <Text className="text-rose-400 font-semibold text-sm">
+                  <Text className="text-blue-400 font-semibold text-sm">
                     {isCancelling ? "Cancelling..." : "Cancel Appointment"}
                   </Text>
                 </Pressable>
@@ -225,7 +225,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
               <Text className="text-foreground text-base font-semibold mb-1">
                 Maternal Vitals
               </Text>
-              <Text className="text-muted text-xs mb-3">
+              <Text className="text-zinc-400 text-sm mb-3">
                 Latest recorded vitals for this pregnancy.
               </Text>
 
@@ -253,7 +253,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                   variant="secondary"
                   className="bg-surface border border-white/10 rounded-xl p-4 items-center"
                 >
-                  <Text className="text-muted text-xs">
+                  <Text className="text-zinc-400 text-sm">
                     No vital signs recorded for this visit yet.
                   </Text>
                 </Card>
@@ -265,7 +265,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
               <Text className="text-foreground text-base font-semibold mb-1">
                 Fetal & Visit Metrics
               </Text>
-              <Text className="text-muted text-xs mb-3">
+              <Text className="text-zinc-400 text-sm mb-3">
                 Key indicators from your clinic records.
               </Text>
 
@@ -300,7 +300,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                   variant="secondary"
                   className="bg-surface border border-white/10 rounded-xl p-4 items-center"
                 >
-                  <Text className="text-muted text-xs">
+                  <Text className="text-zinc-400 text-sm">
                     No visit metrics recorded yet.
                   </Text>
                 </Card>
@@ -313,14 +313,14 @@ export default function AppointmentDetailScreen(): JSX.Element {
             <Text className="text-foreground font-bold text-base mt-4 text-center">
               Appointment Not Found
             </Text>
-            <Text className="text-muted text-xs mt-1 text-center max-w-xs">
+            <Text className="text-zinc-400 text-sm mt-1 text-center max-w-xs">
               This appointment could not be located or may have been removed.
             </Text>
             <Pressable
               onPress={() => router.back()}
               className="mt-5 bg-primary px-5 py-2.5 rounded-full"
             >
-              <Text className="text-white text-xs font-semibold">Back to Appointments</Text>
+              <Text className="text-white text-sm font-semibold">Back to Appointments</Text>
             </Pressable>
           </View>
         )}

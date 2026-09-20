@@ -38,7 +38,7 @@ const RECORD_MODULES = [
     title: "Medical History",
     description: "Past pregnancies and pre-existing conditions.",
     icon: "time-outline" as const,
-    color: "#8b5cf6",
+    color: "#3b82f6",
     route: "/(tabs)/history",
   },
   {
@@ -59,7 +59,7 @@ export default function ExploreTab(): JSX.Element {
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View className="px-5 mb-6">
           <Text className="text-white text-lg font-semibold mb-1">Records Overview</Text>
-          <Text className="text-muted text-sm mb-6">Access all your medical information in one place.</Text>
+          <Text className="text-zinc-400 text-sm mb-6">Access all your medical information in one place.</Text>
 
           <View className="flex-col gap-4">
             {RECORD_MODULES.map((mod) => (
@@ -78,7 +78,7 @@ export default function ExploreTab(): JSX.Element {
                   
                   <View className="flex-1">
                     <Text className="text-white text-base font-medium mb-0.5">{mod.title}</Text>
-                    <Text className="text-muted text-sm leading-5">{mod.description}</Text>
+                    <Text className="text-zinc-400 text-sm leading-5">{mod.description}</Text>
                   </View>
 
                   <Ionicons name="chevron-forward" size={20} color="#52525b" />

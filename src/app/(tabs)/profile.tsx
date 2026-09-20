@@ -29,7 +29,7 @@ function SettingRow({
       </View>
       <View className="flex-1">
         <Text className="text-foreground text-base font-medium">{title}</Text>
-        {subtitle && <Text className="text-muted text-sm mt-0.5">{subtitle}</Text>}
+        {subtitle && <Text className="text-zinc-400 text-sm mt-0.5">{subtitle}</Text>}
       </View>
       {showChevron && <Ionicons name="chevron-forward" size={16} color="#71717a" />}
     </Pressable>
@@ -62,7 +62,7 @@ export default function ProfileScreen(): JSX.Element {
             ) : (
               <Avatar.Fallback delayMs={0}>
                 <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                  <Text className="text-white text-xl font-bold">
+                  <Text className="text-white text-lg font-bold">
                     {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
                   </Text>
                 </View>
@@ -70,7 +70,7 @@ export default function ProfileScreen(): JSX.Element {
             )}
           </Avatar>
           <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
-          <Text className="text-muted text-sm mb-4">{user.email || user.phone_number || ""}</Text>
+          <Text className="text-zinc-400 text-sm mb-4">{user.email || user.phone_number || ""}</Text>
 
           <Button
             variant="secondary"
@@ -83,7 +83,7 @@ export default function ProfileScreen(): JSX.Element {
 
         {/* Medical Sharing & Facility Connection */}
         <View className="px-5 mb-4">
-          <Text className="text-muted text-sm font-medium mb-1 ml-1">Clinical Sharing & Facility</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Clinical Sharing & Facility</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
             <SettingRow
               icon="share-social-outline"
@@ -103,7 +103,7 @@ export default function ProfileScreen(): JSX.Element {
 
         {/* Preferences */}
         <View className="px-5 mb-4">
-          <Text className="text-muted text-sm font-medium mb-1 ml-1">Preferences</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Preferences</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
             <SettingRow
               icon="notifications-outline"
@@ -123,7 +123,7 @@ export default function ProfileScreen(): JSX.Element {
 
         {/* Privacy & Security */}
         <View className="px-5 mb-4">
-          <Text className="text-muted text-sm font-medium mb-1 ml-1">Privacy & Security</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Privacy & Security</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
             <SettingRow
               icon="lock-closed-outline"
@@ -143,7 +143,7 @@ export default function ProfileScreen(): JSX.Element {
 
         {/* Account */}
         <View className="px-5">
-          <Text className="text-muted text-sm font-medium mb-1 ml-1">Account</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Account</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
             <SettingRow
               icon="log-out-outline"

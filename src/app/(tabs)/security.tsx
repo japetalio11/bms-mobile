@@ -89,11 +89,11 @@ export default function SecurityScreen(): JSX.Element {
 
         {/* Change Password Form */}
         <View className="px-5 mb-6 pt-2">
-          <Text className="text-muted text-sm font-medium mb-2 ml-1">Password & Credentials</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Password & Credentials</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-5 gap-5">
             <View>
               <Text className="text-foreground text-lg font-bold">Change Password</Text>
-              <Text className="text-muted text-sm mt-0.5">Update your account password to ensure your health account remains secure.</Text>
+              <Text className="text-zinc-400 text-sm mt-0.5">Update your account password to ensure your health account remains secure.</Text>
             </View>
 
             <TextField isRequired>
@@ -172,7 +172,7 @@ export default function SecurityScreen(): JSX.Element {
 
         {/* Active Session Info */}
         <View className="px-5 mb-6">
-          <Text className="text-muted text-sm font-medium mb-2 ml-1">Active Session</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Active Session</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
             <View className="flex-row items-center justify-between gap-3">
               <View className="flex-row items-center gap-3 flex-1 min-w-0">
@@ -181,11 +181,11 @@ export default function SecurityScreen(): JSX.Element {
                 </View>
                 <View className="flex-1 min-w-0">
                   <Text className="text-foreground text-base font-medium" numberOfLines={1} ellipsizeMode="tail">BMS Mobile App</Text>
-                  <Text className="text-muted text-sm mt-0.5" numberOfLines={1} ellipsizeMode="tail">{user.email || user.phone_number || "Active Session"}</Text>
+                  <Text className="text-zinc-400 text-sm mt-0.5" numberOfLines={1} ellipsizeMode="tail">{user.email || user.phone_number || "Active Session"}</Text>
                 </View>
               </View>
               <View className="px-2.5 py-1 bg-green-500/15 rounded-full flex-shrink-0">
-                <Text className="text-green-500 text-xs font-semibold">Active</Text>
+                <Text className="text-green-500 text-sm font-semibold">Active</Text>
               </View>
             </View>
           </Card>

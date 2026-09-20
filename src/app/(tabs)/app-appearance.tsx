@@ -48,7 +48,7 @@ export default function AppAppearanceScreen() {
         </View>
 
         <View className="px-5">
-          <Text className="text-muted text-sm font-medium mb-3 ml-1">Interface Style</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-3 ml-1">Interface Style</Text>
 
           <Card variant="secondary" className="bg-surface border-0 rounded-xl mb-6 flex-row p-1.5">
             <Pressable
@@ -57,8 +57,8 @@ export default function AppAppearanceScreen() {
                 theme === "light" ? "bg-default" : ""
               }`}
             >
-              <Ionicons name="sunny-outline" size={22} color={theme === "light" ? "#f43f5e" : "#a1a1aa"} className="mb-1.5" />
-              <Text className={`font-medium text-sm ${theme === "light" ? "text-foreground font-semibold" : "text-muted"}`}>Light</Text>
+              <Ionicons name="sunny-outline" size={22} color={theme === "light" ? "#3b82f6" : "#a1a1aa"} className="mb-1.5" />
+              <Text className={`font-medium text-sm ${theme === "light" ? "text-foreground font-semibold" : "text-zinc-400"}`}>Light</Text>
             </Pressable>
 
             <Pressable
@@ -67,8 +67,8 @@ export default function AppAppearanceScreen() {
                 theme === "dark" ? "bg-default" : ""
               }`}
             >
-              <Ionicons name="moon-outline" size={22} color={theme === "dark" ? "#f43f5e" : "#a1a1aa"} className="mb-1.5" />
-              <Text className={`font-medium text-sm ${theme === "dark" ? "text-foreground font-semibold" : "text-muted"}`}>Dark</Text>
+              <Ionicons name="moon-outline" size={22} color={theme === "dark" ? "#3b82f6" : "#a1a1aa"} className="mb-1.5" />
+              <Text className={`font-medium text-sm ${theme === "dark" ? "text-foreground font-semibold" : "text-zinc-400"}`}>Dark</Text>
             </Pressable>
 
             <Pressable
@@ -77,12 +77,12 @@ export default function AppAppearanceScreen() {
                 theme === "system" ? "bg-default" : ""
               }`}
             >
-              <Ionicons name="phone-portrait-outline" size={22} color={theme === "system" ? "#f43f5e" : "#a1a1aa"} className="mb-1.5" />
-              <Text className={`font-medium text-sm ${theme === "system" ? "text-foreground font-semibold" : "text-muted"}`}>System</Text>
+              <Ionicons name="phone-portrait-outline" size={22} color={theme === "system" ? "#3b82f6" : "#a1a1aa"} className="mb-1.5" />
+              <Text className={`font-medium text-sm ${theme === "system" ? "text-foreground font-semibold" : "text-zinc-400"}`}>System</Text>
             </Pressable>
           </Card>
 
-          <Text className="text-muted text-sm font-medium mb-3 ml-1">Typography</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-3 ml-1">Typography</Text>
 
           {/* Text Size Selector Card */}
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
@@ -96,7 +96,7 @@ export default function AppAppearanceScreen() {
                 </View>
                 <View>
                   <Text className="text-foreground text-base font-medium">Text Size</Text>
-                  <Text className="text-muted text-sm mt-0.5">{textSizeLabels[textSize]}</Text>
+                  <Text className="text-zinc-400 text-sm mt-0.5">{textSizeLabels[textSize]}</Text>
                 </View>
               </View>
               <Ionicons name={showSizeSelector ? "chevron-up" : "chevron-down"} size={18} color="#a1a1aa" />

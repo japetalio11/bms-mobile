@@ -286,10 +286,10 @@ export default function AppointmentsScreen(): JSX.Element {
 
   const getAccentColor = (typeStr: string) => {
     const t = typeStr.toLowerCase();
-    if (t.includes("prenatal")) return "#f43f5e";
+    if (t.includes("prenatal")) return "#3b82f6";
     if (t.includes("postnatal") || t.includes("postpartum")) return "#10b981";
     if (t.includes("neonatal") || t.includes("newborn")) return "#f59e0b";
-    return "#f43f5e";
+    return "#3b82f6";
   };
 
   const bottomScrollPadding = insets.bottom + 120;
@@ -302,19 +302,19 @@ export default function AppointmentsScreen(): JSX.Element {
         contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#f43f5e" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
         {/* Top Header Row — Above the entire calendar component */}
         <View className="px-5 mb-4 mt-3 flex-row items-center justify-between">
-          <Text className="text-white text-xl font-bold tracking-tight">Appointments</Text>
+          <Text className="text-white text-lg font-bold tracking-tight">Appointments</Text>
 
           <Pressable
             onPress={() => setIsModalOpen(true)}
-            className="bg-[#f43f5e] py-2 px-3.5 rounded-xl flex-row items-center gap-1.5 active:bg-[#e11d48] shadow-sm"
+            className="bg-[#3b82f6] py-2 px-3.5 rounded-xl flex-row items-center gap-1.5 active:bg-[#2563eb] shadow-sm"
           >
             <Ionicons name="add-circle" size={16} color="#ffffff" />
-            <Text className="text-white font-bold text-xs">Schedule Visit</Text>
+            <Text className="text-white font-bold text-sm">Schedule Visit</Text>
           </Pressable>
         </View>
 
@@ -324,7 +324,7 @@ export default function AppointmentsScreen(): JSX.Element {
               <Ionicons name="business-outline" size={18} color="#f59e0b" />
             </View>
             <View className="flex-1">
-              <Text className="text-amber-400 font-bold text-xs mb-0.5">No Health Center Linked</Text>
+              <Text className="text-amber-400 font-bold text-sm mb-0.5">No Health Center Linked</Text>
               <Text className="text-zinc-400 text-[11px] leading-4">
                 Your account is not currently linked to a health center. Contact your facility staff to link your account.
               </Text>
@@ -416,18 +416,18 @@ export default function AppointmentsScreen(): JSX.Element {
                         <View
                           className={`size-7 items-center justify-center rounded-full ${
                             isSelected
-                              ? "bg-[#f43f5e]/20 border border-[#f43f5e]"
+                              ? "bg-[#3b82f6]/20 border border-[#3b82f6]"
                               : isToday
-                              ? "bg-[#f43f5e]"
+                              ? "bg-[#3b82f6]"
                               : "bg-transparent"
                           }`}
                         >
                           <Text
-                            className={`text-xs ${
+                            className={`text-sm ${
                               isToday
                                 ? "text-white font-bold"
                                 : isSelected
-                                ? "text-[#f43f5e] font-bold"
+                                ? "text-[#3b82f6] font-bold"
                                 : "text-white font-normal"
                             }`}
                           >
@@ -437,7 +437,7 @@ export default function AppointmentsScreen(): JSX.Element {
                         {hasEvent && (
                           <View
                             className={`size-1.5 rounded-full ${
-                              isToday ? "bg-white" : "bg-[#f43f5e]"
+                              isToday ? "bg-white" : "bg-[#3b82f6]"
                             } absolute bottom-0.5`}
                           />
                         )}
@@ -459,7 +459,7 @@ export default function AppointmentsScreen(): JSX.Element {
               onChangeText={setSearchValue}
               placeholder="Search appointments..."
               placeholderTextColor="#a1a1aa"
-              className="flex-1 text-xs text-white p-0"
+              className="flex-1 text-sm text-white p-0"
             />
             {searchValue.length > 0 && (
               <Pressable onPress={() => setSearchValue("")}>
@@ -473,15 +473,15 @@ export default function AppointmentsScreen(): JSX.Element {
             onPress={() => setIsFilterModalOpen(true)}
             className={`h-10 px-3.5 rounded-xl border flex-row items-center gap-1.5 ${
               activeFilter !== "all"
-                ? "bg-[#f43f5e]/15 border-[#f43f5e]"
+                ? "bg-[#3b82f6]/15 border-[#3b82f6]"
                 : "bg-[#18171C] border-white/[0.08]"
             }`}
           >
-            <Ionicons name="options-outline" size={16} color={activeFilter !== "all" ? "#f43f5e" : "#a1a1aa"} />
-            <Text className={`text-xs font-semibold ${activeFilter !== "all" ? "text-[#f43f5e]" : "text-zinc-300"}`}>
+            <Ionicons name="options-outline" size={16} color={activeFilter !== "all" ? "#3b82f6" : "#a1a1aa"} />
+            <Text className={`text-sm font-semibold ${activeFilter !== "all" ? "text-[#3b82f6]" : "text-zinc-300"}`}>
               {activeFilter === "all" ? "Filter" : activeFilter === "prenatal" ? "Prenatal" : activeFilter === "postnatal" ? "Postnatal" : "Neonatal"}
             </Text>
-            <Ionicons name="chevron-down" size={12} color={activeFilter !== "all" ? "#f43f5e" : "#a1a1aa"} />
+            <Ionicons name="chevron-down" size={12} color={activeFilter !== "all" ? "#3b82f6" : "#a1a1aa"} />
           </Pressable>
         </View>
 
@@ -489,17 +489,17 @@ export default function AppointmentsScreen(): JSX.Element {
         <View className="px-5 gap-3">
           {selectedDateNum !== null && (
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[#f43f5e] text-xs font-semibold">
+              <Text className="text-[#3b82f6] text-sm font-semibold">
                 Showing visits for {monthName} {selectedDateNum}
               </Text>
               <Pressable onPress={() => setSelectedDateNum(null)}>
-                <Text className="text-zinc-400 text-xs underline">Clear date filter</Text>
+                <Text className="text-zinc-400 text-sm underline">Clear date filter</Text>
               </Pressable>
             </View>
           )}
 
           {isLoading && appointments.length === 0 ? (
-            <ActivityIndicator size="small" color="#f43f5e" className="py-6" />
+            <ActivityIndicator size="small" color="#3b82f6" className="py-6" />
           ) : filteredAppointments.length > 0 ? (
             filteredAppointments.map((item) => {
               const d = parseLocalDate(item.appointment_date);
@@ -544,7 +544,7 @@ export default function AppointmentsScreen(): JSX.Element {
 
                         {/* Standardized 12-hour Time, Inline Notes & Status */}
                         <View className="flex-row items-center justify-between mt-1">
-                          <Text className="text-zinc-400 text-xs font-medium flex-1 mr-2" numberOfLines={1}>
+                          <Text className="text-zinc-400 text-sm font-medium flex-1 mr-2" numberOfLines={1}>
                             {formatTime12h(item.appointment_time)}
                             {item.reason && item.reason.trim().length > 0 ? ` · ${item.reason}` : ""}
                           </Text>
@@ -555,7 +555,7 @@ export default function AppointmentsScreen(): JSX.Element {
                               style={{ backgroundColor: statusCfg.color }}
                             />
                             <Text
-                              className="text-xs font-semibold"
+                              className="text-sm font-semibold"
                               style={{ color: statusCfg.color }}
                             >
                               {statusCfg.label}
@@ -574,7 +574,7 @@ export default function AppointmentsScreen(): JSX.Element {
             <View className="p-6 bg-[#18171C] border border-white/[0.08] rounded-2xl items-center">
               <Ionicons name="calendar-outline" size={24} color="#a1a1aa" className="mb-2" />
               <Text className="text-white font-semibold text-sm mb-1">No appointments found</Text>
-              <Text className="text-zinc-400 text-xs text-center">
+              <Text className="text-zinc-400 text-sm text-center">
                 {searchValue.trim() || activeFilter !== "all" || selectedDateNum !== null
                   ? "No appointments match your filters."
                   : "You have no upcoming or past visits."}
@@ -594,12 +594,12 @@ export default function AppointmentsScreen(): JSX.Element {
             {/* Modal Header */}
             <View className="flex-row justify-between items-center pb-3 border-b border-white/[0.08] mb-3">
               <View className="flex-row items-center gap-2.5">
-                <View className="size-9 rounded-xl bg-[#f43f5e]/15 items-center justify-center border border-[#f43f5e]/30">
-                  <Ionicons name="calendar" size={18} color="#f43f5e" />
+                <View className="size-9 rounded-xl bg-[#3b82f6]/15 items-center justify-center border border-[#3b82f6]/30">
+                  <Ionicons name="calendar" size={18} color="#3b82f6" />
                 </View>
                 <View>
                   <Text className="text-white text-base font-bold">Schedule Appointment</Text>
-                  <Text className="text-zinc-400 text-xs">Select visit type, date, and time slot</Text>
+                  <Text className="text-zinc-400 text-sm">Select visit type, date, and time slot</Text>
                 </View>
               </View>
 
@@ -617,7 +617,7 @@ export default function AppointmentsScreen(): JSX.Element {
             {bookingError && (
               <View className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-2">
                 <Ionicons name="alert-circle" size={18} color="#ef4444" />
-                <Text className="text-red-400 text-xs flex-1 font-medium">{bookingError}</Text>
+                <Text className="text-red-400 text-sm flex-1 font-medium">{bookingError}</Text>
               </View>
             )}
 
@@ -626,7 +626,7 @@ export default function AppointmentsScreen(): JSX.Element {
               {!user?.facility_id && (
                 <View className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex-row items-center gap-2.5">
                   <Ionicons name="warning-outline" size={20} color="#f59e0b" />
-                  <Text className="text-amber-300 text-xs flex-1 leading-4">
+                  <Text className="text-amber-300 text-sm flex-1 leading-4">
                     Note: Your account is not currently linked to a health center. Scheduled appointments will be pending facility assignment.
                   </Text>
                 </View>
@@ -634,7 +634,7 @@ export default function AppointmentsScreen(): JSX.Element {
 
               {/* 1. Visit Type Cards */}
               <View>
-                <Text className="text-white text-xs font-bold mb-2">1. Visit Type</Text>
+                <Text className="text-white text-sm font-bold mb-2">1. Visit Type</Text>
                 <View className="gap-2">
                   {VISIT_TYPES.map((type) => {
                     const isSelected = bookingType === type.id;
@@ -644,21 +644,21 @@ export default function AppointmentsScreen(): JSX.Element {
                         onPress={() => setBookingType(type.id)}
                         className={`p-3 rounded-2xl border flex-row items-center justify-between ${
                           isSelected
-                            ? "bg-[#25242A] border-[#f43f5e]"
+                            ? "bg-[#25242A] border-[#3b82f6]"
                             : "bg-[#18171C] border-white/[0.08]"
                         }`}
                       >
                         <View className="flex-row items-center gap-3">
                           <View className="size-9 rounded-xl items-center justify-center bg-[#25242A] border border-white/[0.06]">
-                            <Ionicons name={type.icon as any} size={18} color={isSelected ? "#f43f5e" : "#a1a1aa"} />
+                            <Ionicons name={type.icon as any} size={18} color={isSelected ? "#3b82f6" : "#a1a1aa"} />
                           </View>
-                          <Text className={`text-xs font-semibold ${isSelected ? "text-white" : "text-zinc-300"}`}>
+                          <Text className={`text-sm font-semibold ${isSelected ? "text-white" : "text-zinc-300"}`}>
                             {type.label}
                           </Text>
                         </View>
                         <View
                           className={`size-5 rounded-full border items-center justify-center ${
-                            isSelected ? "border-[#f43f5e] bg-[#f43f5e]" : "border-zinc-600 bg-transparent"
+                            isSelected ? "border-[#3b82f6] bg-[#3b82f6]" : "border-zinc-600 bg-transparent"
                           }`}
                         >
                           {isSelected && <Ionicons name="checkmark" size={12} color="#ffffff" />}
@@ -671,13 +671,13 @@ export default function AppointmentsScreen(): JSX.Element {
 
               {/* 2. Compact Date Picker (Clean Date Display + Presets + 14-Day Strip) */}
               <View>
-                <Text className="text-white text-xs font-bold mb-2">2. Select Date</Text>
+                <Text className="text-white text-sm font-bold mb-2">2. Select Date</Text>
 
                 {/* Selected Date Banner — Clean format without duplicate ISO text */}
-                <View className="bg-[#f43f5e]/10 border border-[#f43f5e]/30 px-3.5 py-2.5 rounded-2xl flex-row items-center justify-between mb-2.5">
+                <View className="bg-[#3b82f6]/10 border border-[#3b82f6]/30 px-3.5 py-2.5 rounded-2xl flex-row items-center justify-between mb-2.5">
                   <View className="flex-row items-center gap-2">
-                    <Ionicons name="calendar-outline" size={18} color="#f43f5e" />
-                    <Text className="text-white text-xs font-bold">
+                    <Ionicons name="calendar-outline" size={18} color="#3b82f6" />
+                    <Text className="text-white text-sm font-bold">
                       {modalDate.toLocaleDateString("en-US", {
                         weekday: "short",
                         month: "short",
@@ -710,11 +710,11 @@ export default function AppointmentsScreen(): JSX.Element {
                         onPress={() => setDatePreset(p.days)}
                         className={`px-3.5 py-1.5 rounded-xl border shrink-0 ${
                           isSelected
-                            ? "bg-[#f43f5e] border-[#f43f5e]"
+                            ? "bg-[#3b82f6] border-[#3b82f6]"
                             : "bg-[#25242A] border-white/[0.08]"
                         }`}
                       >
-                        <Text className={`text-xs ${isSelected ? "text-white font-bold" : "text-zinc-300 font-medium"}`}>
+                        <Text className={`text-sm ${isSelected ? "text-white font-bold" : "text-zinc-300 font-medium"}`}>
                           {p.label}
                         </Text>
                       </Pressable>
@@ -742,7 +742,7 @@ export default function AppointmentsScreen(): JSX.Element {
                           onPress={() => setModalDate(d)}
                           className={`w-12 h-14 rounded-xl items-center justify-center border ${
                             isSelectedDate
-                              ? "bg-[#f43f5e] border-[#f43f5e]"
+                              ? "bg-[#3b82f6] border-[#3b82f6]"
                               : "bg-[#18171C] border-white/[0.08]"
                           }`}
                         >
@@ -761,7 +761,7 @@ export default function AppointmentsScreen(): JSX.Element {
 
               {/* 3. Preferred Time Slot — Solid Filled Accent when Selected */}
               <View>
-                <Text className="text-white text-xs font-bold mb-2">3. Preferred Time Slot</Text>
+                <Text className="text-white text-sm font-bold mb-2">3. Preferred Time Slot</Text>
                 <View className="flex-row flex-wrap gap-2">
                   {TIME_SLOTS.map((slot) => {
                     const isSelected = bookingTime === slot;
@@ -771,12 +771,12 @@ export default function AppointmentsScreen(): JSX.Element {
                         onPress={() => setBookingTime(slot)}
                         className={`px-3.5 py-2 rounded-xl border ${
                           isSelected
-                            ? "bg-[#f43f5e] border-[#f43f5e] shadow-sm"
+                            ? "bg-[#3b82f6] border-[#3b82f6] shadow-sm"
                             : "bg-[#25242A] border-white/[0.08]"
                         }`}
                       >
                         <Text
-                          className={`text-xs ${
+                          className={`text-sm ${
                             isSelected ? "text-white font-bold" : "text-zinc-300 font-medium"
                           }`}
                         >
@@ -790,7 +790,7 @@ export default function AppointmentsScreen(): JSX.Element {
 
               {/* 4. Notes Input — Improved Placeholder Contrast */}
               <View>
-                <Text className="text-white text-xs font-bold mb-2">4. Reason / Notes (Optional)</Text>
+                <Text className="text-white text-sm font-bold mb-2">4. Reason / Notes (Optional)</Text>
                 <TextInput
                   value={bookingReason}
                   onChangeText={setBookingReason}
@@ -799,7 +799,7 @@ export default function AppointmentsScreen(): JSX.Element {
                   multiline
                   numberOfLines={2}
                   style={{ textAlignVertical: "top" }}
-                  className="bg-[#25242A] border border-white/[0.1] rounded-2xl p-3 text-white text-xs min-h-[60px]"
+                  className="bg-[#25242A] border border-white/[0.1] rounded-2xl p-3 text-white text-sm min-h-[60px]"
                 />
               </View>
             </ScrollView>
@@ -813,20 +813,20 @@ export default function AppointmentsScreen(): JSX.Element {
                 }}
                 className="flex-1 py-3.5 rounded-2xl bg-[#25242A] items-center active:bg-[#2e2d36]"
               >
-                <Text className="text-zinc-300 font-semibold text-xs">Cancel</Text>
+                <Text className="text-zinc-300 font-semibold text-sm">Cancel</Text>
               </Pressable>
 
               <Pressable
                 onPress={handleBookAppointment}
                 disabled={isSubmitting}
-                className="flex-1 py-3.5 rounded-2xl bg-[#f43f5e] flex-row items-center justify-center gap-2 active:bg-[#e11d48] shadow-md"
+                className="flex-1 py-3.5 rounded-2xl bg-[#3b82f6] flex-row items-center justify-center gap-2 active:bg-[#2563eb] shadow-md"
               >
                 {isSubmitting ? (
                   <ActivityIndicator color="white" size="small" />
                 ) : (
                   <Ionicons name="checkmark-circle" size={18} color="white" />
                 )}
-                <Text className="text-white font-bold text-xs">
+                <Text className="text-white font-bold text-sm">
                   {isSubmitting ? "Saving..." : "Confirm Schedule"}
                 </Text>
               </Pressable>
@@ -841,7 +841,7 @@ export default function AppointmentsScreen(): JSX.Element {
           <Pressable className="w-full max-w-sm bg-[#16161C] border border-white/[0.12] rounded-3xl p-5 gap-3 shadow-2xl">
             <View className="flex-row items-center justify-between pb-3 border-b border-white/[0.08]">
               <View className="flex-row items-center gap-2">
-                <Ionicons name="options-outline" size={18} color="#f43f5e" />
+                <Ionicons name="options-outline" size={18} color="#3b82f6" />
                 <Text className="text-white font-bold text-base">Filter Appointments</Text>
               </View>
               <Pressable onPress={() => setIsFilterModalOpen(false)} className="size-7 items-center justify-center rounded-full bg-[#25242A]">
@@ -866,19 +866,19 @@ export default function AppointmentsScreen(): JSX.Element {
                     }}
                     className={`p-3.5 rounded-2xl border flex-row items-center justify-between ${
                       isSelected
-                        ? "bg-[#25242A] border-[#f43f5e]"
+                        ? "bg-[#25242A] border-[#3b82f6]"
                         : "bg-[#18171C] border-white/[0.06]"
                     }`}
                   >
                     <View className="flex-1 mr-2">
-                      <Text className={`text-xs font-bold ${isSelected ? "text-[#f43f5e]" : "text-white"}`}>
+                      <Text className={`text-sm font-bold ${isSelected ? "text-[#3b82f6]" : "text-white"}`}>
                         {opt.label}
                       </Text>
                       <Text className="text-zinc-400 text-[11px] mt-0.5">{opt.desc}</Text>
                     </View>
                     <View
                       className={`size-5 rounded-full border items-center justify-center ${
-                        isSelected ? "border-[#f43f5e] bg-[#f43f5e]" : "border-zinc-600 bg-transparent"
+                        isSelected ? "border-[#3b82f6] bg-[#3b82f6]" : "border-zinc-600 bg-transparent"
                       }`}
                     >
                       {isSelected && <Ionicons name="checkmark" size={12} color="#ffffff" />}
