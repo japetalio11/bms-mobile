@@ -211,6 +211,35 @@ export default function DashboardScreen(): JSX.Element {
             )}
           </Card>
 
+          {/* Assigned Healthcare Provider Quick Card */}
+          {motherRecord?.assignedWorker && (
+            <Pressable onPress={() => router.push("/(tabs)/chat")} className="mb-6">
+              <Card className="p-3.5 bg-blue-500/10 border border-blue-500/20 flex-row items-center gap-3.5 rounded-2xl">
+                <View className="size-10 rounded-full bg-blue-500/20 items-center justify-center">
+                  <Ionicons name="medical" size={20} color="#3b82f6" />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-foreground font-bold text-sm">
+                      {motherRecord.assignedWorker.first_name} {motherRecord.assignedWorker.last_name}
+                    </Text>
+                    <View className="bg-blue-500/20 px-1.5 py-0.2 rounded">
+                      <Text className="text-[#3b82f6] text-[10px] font-semibold">
+                        {motherRecord.assignedWorker.role}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-zinc-400 text-xs mt-0.5">
+                    Assigned Primary Care Provider · Tap to chat
+                  </Text>
+                </View>
+                <View className="size-8 rounded-full bg-blue-500/20 items-center justify-center">
+                  <Ionicons name="chatbubble-ellipses" size={16} color="#3b82f6" />
+                </View>
+              </Card>
+            </Pressable>
+          )}
+
           {/* Cascaded Vitals & Analytics Navigation Option */}
           <View className="mb-6">
             <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>

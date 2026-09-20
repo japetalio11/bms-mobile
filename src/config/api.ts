@@ -91,6 +91,24 @@ export type MotherRecord = {
   age?: number;
   civil_status?: string;
   blood_type?: string;
+  assigned_worker_id?: string | null;
+  created_by_id?: string | null;
+  assignedWorker?: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    role: string;
+    email?: string;
+    phone_number?: string;
+    profile_url?: string;
+  } | null;
+  creator?: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+  } | null;
   pregnancies?: PregnancyRecord[];
 };
 
