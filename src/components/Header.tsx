@@ -2,7 +2,7 @@ import { View, Text, Pressable } from "react-native";
 import { Avatar } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useUser } from "../context/UserContext";
+import { useUser, useAuth } from "../context/UserContext";
 import { useNetwork } from "../context/NetworkContext";
 
 export function Header({
@@ -19,6 +19,7 @@ export function Header({
 }) {
   const router = useRouter();
   const user = useUser();
+  const { unreadCount } = useAuth();
   const { isOnline } = useNetwork();
 
   const handleBack = () => {
@@ -45,8 +46,8 @@ export function Header({
         ) : (
           <View className="relative">
             <Avatar size="sm">
-              {(user as any).profile_picture_url || (user as any).avatar_url ? (
-                <Avatar.Image source={{ uri: (user as any).profile_picture_url || (user as any).avatar_url }} />
+              {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
+                <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
               ) : (
                 <Avatar.Fallback delayMs={0}>
                   <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
@@ -100,10 +101,32 @@ export function Header({
               <Ionicons name="search-outline" size={17} color="#a1a1aa" />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/(tabs)/chat")}
-              className="size-9 rounded-full bg-surface-secondary items-center justify-center"
+              onPress={() => router.push("/(tabs)/notifications")}
+              className="size-9 rounded-full bg-surface-secondary items-center justify-center relative"
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={17} color="#a1a1aa" />
+              <Ionicons name="notifications-outline" size={18} color="#a1a1aa" />
+              {unreadCount > 0 && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: -2,
+                    right: -2,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: "#ef4444",
+                    borderWidth: 1.5,
+                    borderColor: "#121214",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: 3,
+                  }}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "700" }}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </>
         )}

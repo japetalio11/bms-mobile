@@ -3,14 +3,14 @@ import type { JSX } from "react";
 import { Text, Button } from "heroui-native";
 import { Header } from "../../components/Header";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
-import { useRouter } from "expo-router";
+import { useState, useCallback } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
-import { createLabScreeningApi, uploadLabFileApi } from "../../config/api";
+import { createLabScreeningApi, uploadLabFileApi, formatFormDataFile } from "../../config/api";
 import { createLabScreeningLocal, saveLabScreeningsLocal } from "../../db/repository";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -23,25 +23,36 @@ type SelectedFile = {
 };
 
 const RECORD_TYPES = [
+  { id: "General Document", label: "General Document", icon: "document-text-outline" },
   { id: "Urinalysis", label: "Urinalysis", icon: "flask-outline" },
   { id: "Blood Typing", label: "Blood Typing", icon: "water-outline" },
   { id: "Hepatitis B Screening", label: "Hepatitis B Screening", icon: "shield-checkmark-outline" },
   { id: "Complete Blood Count", label: "Complete Blood Count (CBC)", icon: "stats-chart-outline" },
-  { id: "Other", label: "Other Document", icon: "document-text-outline" },
+  { id: "Other", label: "Other Document", icon: "folder-open-outline" },
 ];
 
 export default function UploadRecordScreen(): JSX.Element {
   const router = useRouter();
-  const { token, activePregnancy } = useAuth();
+  const { token, activePregnancy, motherRecord, user } = useAuth();
   const { isOnline } = useNetwork();
 
-  const [recordType, setRecordType] = useState<string>("Urinalysis");
+  const [recordType, setRecordType] = useState<string>("General Document");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setSelectedFile(null);
+      setError(null);
+      setSuccess(false);
+      setIsLoading(false);
+      setRecordType("General Document");
+    }, [])
+  );
 
   const handlePickDocument = async () => {
     setError(null);
@@ -104,13 +115,21 @@ export default function UploadRecordScreen(): JSX.Element {
       return;
     }
 
-    const pregnancyId = activePregnancy?.pregnancy_id || `preg_${Date.now()}`;
-    const visitId = activePregnancy?.prenatalVisits?.[0]?.visit_id || pregnancyId;
+    const currentMotherId = motherRecord?.mother_id || user.user_id;
+    const pregnancyId =
+      activePregnancy?.pregnancy_id ||
+      motherRecord?.pregnancies?.[0]?.pregnancy_id ||
+      `preg_${Date.now()}`;
+    const visitId =
+      activePregnancy?.prenatalVisits?.[0]?.visit_id ||
+      motherRecord?.pregnancies?.[0]?.prenatalVisits?.[0]?.visit_id ||
+      pregnancyId;
 
     setIsLoading(true);
     setError(null);
 
     const payload = {
+      mother_id: currentMotherId,
       pregnancy_id: pregnancyId,
       visit_id: visitId,
       screening_type: recordType,
@@ -123,16 +142,13 @@ export default function UploadRecordScreen(): JSX.Element {
       if (isOnline && token) {
         try {
           let serverFileUrl = undefined;
-          if (selectedFile) {
+          if (selectedFile && selectedFile.uri) {
+            const filePayload = formatFormDataFile(selectedFile.uri, selectedFile.name, selectedFile.mimeType);
             const formData = new FormData();
-            formData.append("file", {
-              uri: selectedFile.uri,
-              name: selectedFile.name,
-              type: selectedFile.mimeType || "image/jpeg",
-            } as any);
+            formData.append("file", filePayload as any);
 
             const uploadRes = await uploadLabFileApi(formData, token);
-            serverFileUrl = uploadRes.fileUrl;
+            serverFileUrl = uploadRes.file_url || uploadRes.fileUrl;
           }
 
           const res = await createLabScreeningApi(
@@ -143,32 +159,44 @@ export default function UploadRecordScreen(): JSX.Element {
             token
           );
 
+          const currentMotherId = motherRecord?.mother_id || user.user_id;
+
           if (res) {
-            await saveLabScreeningsLocal([res], true);
+            await saveLabScreeningsLocal([res], true, currentMotherId);
           }
         } catch (apiErr: any) {
           console.warn("Backend lab registration failed, saving to local SQLite outbox:", apiErr);
+          const currentMotherId = motherRecord?.mother_id || user.user_id;
           await createLabScreeningLocal(
             payload,
             selectedFile?.uri || null,
             selectedFile?.size || null,
-            false
+            false,
+            currentMotherId
           );
         }
       } else {
         // Offline Save to SQLite & outbox queue
+        const currentMotherId = motherRecord?.mother_id || user.user_id;
         await createLabScreeningLocal(
           payload,
           selectedFile?.uri || null,
           selectedFile?.size || null,
-          false
+          false,
+          currentMotherId
         );
       }
 
       setSuccess(true);
       setTimeout(() => {
-        router.back();
-      }, 1200);
+        setSelectedFile(null);
+        setSuccess(false);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/(tabs)/records");
+        }
+      }, 1000);
     } catch (err: any) {
       setError(err.message || "Failed to submit lab record");
     } finally {

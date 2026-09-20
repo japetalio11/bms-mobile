@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, Modal, Pressable, ScrollView } from "react-native";
+import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
-import type { User } from "../context/UserContext";
+import * as Clipboard from "expo-clipboard";
+import { useAuth, type User } from "../context/UserContext";
 import type { MotherRecord } from "../config/api";
 
 type MotherQRCodeModalProps = {
@@ -19,6 +20,8 @@ export function MotherQRCodeModal({
   motherRecord,
 }: MotherQRCodeModalProps) {
   const [copied, setCopied] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { refreshProfile, isOnline } = useAuth();
 
   // Formatted mother code (e.g. MTH-8F3A2190 or user_id)
   const rawId = motherRecord?.mother_id || user.user_id || "BMS-UNKNOWN";
@@ -33,9 +36,26 @@ export function MotherQRCodeModal({
     code: displayCode,
   });
 
-  const handleCopyCode = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyCode = async () => {
+    try {
+      await Clipboard.setStringAsync(displayCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await refreshProfile();
+    } catch (err) {
+      console.log("Could not refresh profile:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const facilityName = user.facility_name || user.facility?.facility_name;
@@ -64,16 +84,29 @@ export function MotherQRCodeModal({
               <Text className="text-foreground text-lg font-bold text-center">{user.name}</Text>
               <Text className="text-muted text-xs mb-3">{user.email || user.phone_number || "Self-Registered Mother"}</Text>
 
-              {/* Status Badge */}
-              <View className={`flex-row items-center gap-1.5 px-3 py-1 rounded-full ${facilityName ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-amber-500/15 border border-amber-500/30"}`}>
-                <Ionicons
-                  name={facilityName ? "checkmark-circle" : "alert-circle-outline"}
-                  size={14}
-                  color={facilityName ? "#10b981" : "#f59e0b"}
-                />
-                <Text className={`text-xs font-semibold ${facilityName ? "text-emerald-400" : "text-amber-400"}`}>
-                  {facilityName ? `Connected: ${facilityName}` : "Not Connected"}
-                </Text>
+              {/* Status Badge & Refresh */}
+              <View className="flex-row items-center gap-2">
+                <View className={`flex-row items-center gap-1.5 px-3 py-1 rounded-full ${facilityName ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-amber-500/15 border border-amber-500/30"}`}>
+                  <Ionicons
+                    name={facilityName ? "checkmark-circle" : "alert-circle-outline"}
+                    size={14}
+                    color={facilityName ? "#10b981" : "#f59e0b"}
+                  />
+                  <Text className={`text-xs font-semibold ${facilityName ? "text-emerald-400" : "text-amber-400"}`}>
+                    {facilityName ? `Connected: ${facilityName}` : "Not Connected"}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={handleRefreshStatus}
+                  disabled={isRefreshing || !isOnline}
+                  className="size-7 rounded-full bg-default/60 items-center justify-center active:bg-default"
+                >
+                  {isRefreshing ? (
+                    <ActivityIndicator size="small" color="#6366f1" />
+                  ) : (
+                    <Ionicons name="refresh-outline" size={14} color="#a1a1aa" />
+                  )}
+                </Pressable>
               </View>
             </View>
 
@@ -84,6 +117,7 @@ export function MotherQRCodeModal({
                 size={220}
                 color="#0f172a"
                 backgroundColor="#ffffff"
+                quietZone={8}
               />
             </View>
 

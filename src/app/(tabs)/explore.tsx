@@ -56,7 +56,7 @@ export default function ExploreTab(): JSX.Element {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View className="px-5 mb-6">
           <Text className="text-white text-lg font-semibold mb-1">Records Overview</Text>
           <Text className="text-muted text-sm mb-6">Access all your medical information in one place.</Text>

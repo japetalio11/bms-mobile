@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -8,12 +8,14 @@ import { withUniwind } from "uniwind";
 import { sendOtpApi, resetPasswordApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
 import { usePhoneAuth } from "../../hooks/usePhoneAuth";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const StyledIonicons = withUniwind(Ionicons);
 
 export default function ForgotPasswordScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Phone Auth Hook
   const phoneAuth = usePhoneAuth({
@@ -176,9 +178,9 @@ export default function ForgotPasswordScreen(): JSX.Element {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="bg-background px-6 pt-12 pb-8">
+    <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 48, 64) }} className="bg-background">
       {/* Header with Back Button */}
-      <View className="flex-row items-center mb-8">
+      <View className="flex-row items-center mb-4">
         <Pressable 
           onPress={() => {
             if (mode === "verify_otp") setMode("enter_identifier");
@@ -198,10 +200,10 @@ export default function ForgotPasswordScreen(): JSX.Element {
       </View>
 
       <View className="flex-1 justify-between">
-        <View className="gap-6">
+        <View className="gap-4">
           {/* Main Illustration/Icon Hero Header */}
-          <View className="items-center my-4">
-            <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-4">
+          <View className="items-center my-2">
+            <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-3">
               <StyledIonicons 
                 name={
                   mode === "enter_identifier" ? "lock-open-outline" :
@@ -272,22 +274,21 @@ export default function ForgotPasswordScreen(): JSX.Element {
                 </View>
               </TextField>
 
-              {/* Visible reCAPTCHA Container */}
-              <View 
-                className="my-1 w-full items-center justify-center overflow-visible"
-                style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
-              >
-                <View 
-                  id="recaptcha-container-forgot"
-                  nativeID="recaptcha-container-forgot"
-                  style={{
-                    minHeight: 78,
-                    minWidth: 304,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                />
-              </View>
+              {/* Visible reCAPTCHA Container - Web only */}
+              {Platform.OS === "web" && (
+                <View className="my-1 w-full items-center justify-center overflow-visible">
+                  <View 
+                    id="recaptcha-container-forgot"
+                    nativeID="recaptcha-container-forgot"
+                    style={{
+                      minHeight: 78,
+                      minWidth: 304,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  />
+                </View>
+              )}
             </>
           )}
 

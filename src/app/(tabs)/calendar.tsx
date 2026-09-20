@@ -95,7 +95,7 @@ export default function CalendarScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Month Header */}
         <View className="px-5 mb-4 flex-row items-center justify-between">
           <Text className="text-primary text-lg font-semibold">{monthName}</Text>

@@ -1,17 +1,25 @@
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 // Helper to determine the backend API base URL
 const getApiBaseUrl = (): string => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  let url = process.env.EXPO_PUBLIC_API_URL || "";
+
+  if (!url) {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri && !hostUri.includes("localhost") && !hostUri.includes("127.0.0.1")) {
+      const ip = hostUri.split(":")[0];
+      return `http://${ip}:6700`;
+    }
+    return "https://bms-backend-g4gi.onrender.com";
   }
-  // Expo host Uri fallback if running on physical device/emulator
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const ip = hostUri.split(":")[0];
-    return `http://${ip}:6700`;
+
+  // Inside Android emulator, map localhost to 10.0.2.2 if localhost is used
+  if (Platform.OS === "android" && url.includes("localhost")) {
+    return url.replace("localhost", "10.0.2.2");
   }
-  return "http://localhost:6700";
+
+  return url;
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -64,6 +72,7 @@ export type AuthUser = {
   email?: string;
   phone_number?: string;
   address?: string;
+  profile_url?: string;
   facility_id?: string | null;
   facility_name?: string;
   facility?: {
@@ -236,7 +245,7 @@ export async function sendOtpApi(payload: SendOtpPayload): Promise<{ message: st
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || data.message || "Failed to send OTP code");
+    throw new Error(data.message || data.error || "Failed to send OTP code");
   }
 
   return data;
@@ -447,21 +456,90 @@ export async function getLabScreeningsByMotherApi(motherId: string, token: strin
   return Array.isArray(list) ? list : [];
 }
 
-export async function uploadLabFileApi(formData: FormData, token: string): Promise<{ fileUrl: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/upload`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to upload file");
+export function formatFormDataFile(uri?: string | null, name?: string | null, type?: string | null) {
+  if (!uri || typeof uri !== "string" || !uri.trim()) {
+    throw new Error("Invalid file URI. Unable to attach file.");
   }
 
-  return data;
+  const cleanUri = uri.trim();
+  let cleanName = (name && typeof name === "string" && name.trim()) ? name.trim() : "";
+  if (!cleanName) {
+    const uriPath = cleanUri.split("/").pop()?.split("?")[0];
+    cleanName = uriPath || `file_${Date.now()}`;
+  }
+
+  let cleanType = (type && typeof type === "string" && type.trim()) ? type.trim() : "";
+  if (!cleanType || cleanType === "*/*") {
+    const ext = cleanName.split(".").pop()?.toLowerCase();
+    if (ext === "jpg" || ext === "jpeg") cleanType = "image/jpeg";
+    else if (ext === "png") cleanType = "image/png";
+    else if (ext === "gif") cleanType = "image/gif";
+    else if (ext === "webp") cleanType = "image/webp";
+    else if (ext === "pdf") cleanType = "application/pdf";
+    else if (ext === "doc" || ext === "docx") cleanType = "application/msword";
+    else if (ext === "xls" || ext === "xlsx") cleanType = "application/vnd.ms-excel";
+    else if (ext === "txt") cleanType = "text/plain";
+    else cleanType = "application/octet-stream";
+  }
+
+  return {
+    uri: cleanUri,
+    name: cleanName,
+    type: cleanType,
+  };
+}
+
+export function getFullFileUrl(url?: string | null, localUri?: string | null): string | null {
+  if (localUri) return localUri;
+  if (!url) return null;
+
+  // Preserve inline data and blob URLs
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+
+  let normalizedUrl = url;
+  if (normalizedUrl.includes("localhost:") || normalizedUrl.includes("127.0.0.1:")) {
+    normalizedUrl = normalizedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1):\d+/, API_BASE_URL);
+  }
+
+  if (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://") || normalizedUrl.startsWith("file://")) {
+    return normalizedUrl;
+  }
+
+  return `${API_BASE_URL}${normalizedUrl.startsWith("/") ? "" : "/"}${normalizedUrl}`;
+}
+
+export async function uploadLabFileApi(formData: FormData, token: string): Promise<{ fileUrl: string; file_url: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/v1/lab-screening/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const file_url = data.file_url || data.fileUrl || "";
+          resolve({
+            fileUrl: file_url,
+            file_url: file_url,
+            ...data,
+          });
+        } else {
+          reject(new Error(data.error || data.message || `Upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network upload request failed."));
+    };
+
+    xhr.send(formData);
+  });
 }
 
 export async function createLabScreeningApi(payload: any, token: string): Promise<LabScreeningRecord> {
@@ -479,7 +557,7 @@ export async function createLabScreeningApi(payload: any, token: string): Promis
     throw new Error(data.error || "Failed to register lab record");
   }
 
-  return data.result || data;
+  return data.data || data.result || data;
 }
 
 export async function changePasswordApi(payload: { currentPassword: string; newPassword: string }, token: string): Promise<{ message: string }> {
@@ -524,15 +602,124 @@ export type InAppMessage = {
   message_content: string;
   message_date: string;
   is_read: boolean;
+  sender?: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    profile_url?: string;
+  };
+  receiver?: {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    profile_url?: string;
+  };
 };
 
 export type ChatContact = {
   user_id: string;
   first_name: string;
+  middle_name?: string;
   last_name: string;
   role: string;
+  phone_number?: string;
+  email?: string;
   profile_url?: string;
+  is_active?: boolean;
+  facility_id?: string;
+  facility?: {
+    facility_id: string;
+    facility_name: string;
+    type?: string;
+  };
 };
+
+export async function getFacilityStaffApi(token: string, facilityId?: string): Promise<ChatContact[]> {
+  const query = facilityId ? `?facility_id=${facilityId}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/facility${query}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return [];
+  }
+
+  return Array.isArray(data.result) ? data.result : [];
+}
+
+export async function uploadMessageFileApi(
+  formData: FormData,
+  token: string
+): Promise<{ fileUrl: string; fileName: string; fileType: string; fileSize?: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/v1/message/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data.error || data.message || `Upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network upload request failed."));
+    };
+
+    xhr.send(formData);
+  });
+}
+
+export async function uploadAvatarApi(
+  formData: FormData,
+  token: string
+): Promise<{ fileUrl: string; fileName: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/v1/mother/avatar/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data.error || data.message || `Avatar upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`Avatar upload failed (HTTP ${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network avatar upload request failed."));
+    };
+
+    xhr.send(formData);
+  });
+}
+
+export async function markMessagesAsReadApi(senderId: string, token: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/v1/message/markAllAsRead`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sender_id: senderId }),
+  }).catch(() => {});
+}
 
 export async function getMessagesApi(token: string): Promise<{ data: InAppMessage[]; contact?: ChatContact; hasFacility?: boolean }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/message/getAll`, {
@@ -574,3 +761,157 @@ export async function sendMessageApi(
 
   return data.data || data;
 }
+
+export async function updatePushTokenApi(
+  token: string,
+  fcmToken: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/push-token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ fcmToken }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Failed to register push token with backend (HTTP ${response.status})`);
+  }
+
+  return data;
+}
+
+export type NotificationRecord = {
+  notification_id: string;
+  user_id: string;
+  notification_type: string;
+  notification_message: string;
+  notification_date: string;
+  is_read: boolean;
+  sender?: string;
+  category?: string;
+};
+
+export async function getNotificationsApi(userId: string, token: string): Promise<NotificationRecord[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/get/user/${userId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to fetch notifications");
+  }
+
+  return data.notifications || data.data || [];
+}
+
+export async function getUnreadNotificationCountApi(userId: string, token: string): Promise<number> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/unread/count/${userId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return 0;
+  }
+
+  return typeof data.unreadCount === "number" ? data.unreadCount : 0;
+}
+
+export async function markAllNotificationsReadApi(userId: string, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/mark/read/${userId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || "Failed to mark notifications as read");
+  }
+}
+
+export async function updateNotificationReadApi(notificationId: string, isRead: boolean, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notification/update/${notificationId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ is_read: isRead }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || data.message || "Failed to update notification");
+  }
+}
+
+// --- Mother Pregnancy Journey QR & PIN Sharing APIs ---
+
+export type MotherShareTokenResponse = {
+  share_id: string;
+  share_token: string;
+  pin_code: string;
+  web_url: string;
+  short_url?: string;
+  is_active: boolean;
+  created_at: string;
+  expires_at?: string | null;
+  access_count?: number;
+};
+
+export async function getMotherShareTokenApi(
+  token: string,
+  motherId?: string
+): Promise<MotherShareTokenResponse> {
+  const url = motherId
+    ? `${API_BASE_URL}/api/v1/mother/share-token?mother_id=${encodeURIComponent(motherId)}`
+    : `${API_BASE_URL}/api/v1/mother/share-token`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to retrieve share token");
+  }
+
+  return data.data;
+}
+
+export async function regenerateMotherShareTokenApi(
+  token: string,
+  motherId?: string
+): Promise<MotherShareTokenResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mother/share-token/regenerate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(motherId ? { mother_id: motherId } : {}),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Failed to regenerate share PIN");
+  }
+
+  return data.data;
+}
+

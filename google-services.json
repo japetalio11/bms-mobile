@@ -12,7 +12,16 @@
           "package_name": "com.bms.mobile"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "583012181682-t1e5n0k1hl5n7t797lo69itdgk9f2rtt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bms.mobile",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA39e4v9WlUJa79YKwyJ_Ku4B6KSXoFHBk"

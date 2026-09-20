@@ -61,7 +61,7 @@ export default function SearchScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View className="px-5 mb-6">
           <Text className="text-white text-lg font-semibold mb-1">Search</Text>
           <Text className="text-muted text-sm mb-4">Find appointments, records, and more.</Text>
@@ -69,11 +69,10 @@ export default function SearchScreen(): JSX.Element {
           <SearchField 
             value={search} 
             onChange={setSearch}
-            onSubmitEditing={() => handleSearch(search)}
           >
             <SearchField.Group className="bg-[#18181b] border-0 rounded-xl h-12">
               <SearchField.SearchIcon />
-              <SearchField.Input placeholder="Search anything..." className="text-sm" returnKeyType="search" />
+              <SearchField.Input placeholder="Search anything..." className="text-sm" returnKeyType="search" onSubmitEditing={() => handleSearch(search)} />
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>

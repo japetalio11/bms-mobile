@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -7,10 +7,12 @@ import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
+import { getNativeGoogleSignin } from "../../lib/googleAuthUtils";
 import { makeRedirectUri } from "expo-auth-session";
 import { loginApi, sendOtpApi, verifyOtpApi, setupPasswordApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
 import { usePhoneAuth } from "../../hooks/usePhoneAuth";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,6 +38,7 @@ function decodeJwtPayload(token: string): any {
 export default function LoginScreen(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Phone Auth Hook for Setup Password OTP
   const phoneAuth = usePhoneAuth({
@@ -46,8 +49,7 @@ export default function LoginScreen(): JSX.Element {
   // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    redirectUri: makeRedirectUri({ scheme: "bmsmobile" }),
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   // Mode: "login" -> "setup_otp" -> "setup_password"
@@ -74,30 +76,86 @@ export default function LoginScreen(): JSX.Element {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (Platform.OS !== "web") {
+      const nativeGoogleSignin = getNativeGoogleSignin();
+      if (nativeGoogleSignin) {
+        try {
+          nativeGoogleSignin.configure({
+            webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+          });
+        } catch (e) {
+          console.warn("GoogleSignin configure warning:", e);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (googleResponse?.type === "success") {
       const responseAny = googleResponse as any;
       const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
       const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
       handleGoogleBackendLogin(idToken, accessToken);
+    } else if (googleResponse?.type === "error") {
+      const errRes = googleResponse as any;
+      setError(errRes.error?.message || "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console.");
     }
   }, [googleResponse]);
 
-  const handleGoogleBackendLogin = async (idToken?: string, accessToken?: string) => {
+  const handleGooglePress = async () => {
+    if (Platform.OS === "web") {
+      promptGoogleAsync();
+      return;
+    }
+    setGoogleLoading(true);
+    setError(null);
+
+    const nativeGoogleSignin = getNativeGoogleSignin();
+    if (!nativeGoogleSignin) {
+      // Fallback to Expo Auth Session for Expo Go & web
+      promptGoogleAsync();
+      return;
+    }
+
+    try {
+      await nativeGoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await nativeGoogleSignin.signIn();
+      const idToken = response.data?.idToken || (response as any).idToken;
+      const user = response.data?.user || (response as any).user;
+
+      if (idToken) {
+        await handleGoogleBackendLogin(idToken, undefined, user);
+      } else {
+        setError("Failed to obtain Google authentication token.");
+        setGoogleLoading(false);
+      }
+    } catch (err: any) {
+      if (err.code === "CANCELED" || err.code === "12501" || err.code === "SIGN_IN_CANCELLED" || err.code === "ASYNC_OP_IN_PROGRESS") {
+        setGoogleLoading(false);
+        return;
+      }
+      console.error("Google Sign-In Error:", err);
+      // Fall back to promptGoogleAsync if native Google Sign-In fails
+      promptGoogleAsync();
+    }
+  };
+
+  const handleGoogleBackendLogin = async (idToken?: string, accessToken?: string, nativeUser?: any) => {
     setGoogleLoading(true);
     setError(null);
     try {
-      let email: string | undefined = undefined;
-      let firstName: string | undefined = undefined;
-      let lastName: string | undefined = undefined;
-      let profileUrl: string | undefined = undefined;
+      let email: string | undefined = nativeUser?.email;
+      let firstName: string | undefined = nativeUser?.givenName || nativeUser?.name;
+      let lastName: string | undefined = nativeUser?.familyName;
+      let profileUrl: string | undefined = nativeUser?.photo;
 
-      if (idToken) {
+      if (idToken && (!email || !firstName)) {
         const decoded = decodeJwtPayload(idToken);
         if (decoded) {
-          email = decoded.email;
-          firstName = decoded.given_name || decoded.name;
-          lastName = decoded.family_name;
-          profileUrl = decoded.picture;
+          email = email || decoded.email;
+          firstName = firstName || decoded.given_name || decoded.name;
+          lastName = lastName || decoded.family_name;
+          profileUrl = profileUrl || decoded.picture;
         }
       }
 
@@ -314,15 +372,12 @@ export default function LoginScreen(): JSX.Element {
   return (
     <ScrollView 
       className="flex-1 bg-background"
-      contentContainerClassName="p-6 pt-24 pb-12"
+      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 40, paddingBottom: Math.max(insets.bottom + 48, 64) }}
       keyboardShouldPersistTaps="handled"
     >
       {/* Logo & Header */}
-      <View className="items-center mb-8">
-        <View className="flex-row items-center justify-center gap-3 mb-4">
-          <View className="bg-primary h-14 w-14 rounded-2xl items-center justify-center">
-            <StyledIonicons name="body" size={32} color="white" />
-          </View>
+      <View className="items-center mb-6">
+        <View className="flex-row items-center justify-center mb-2">
           <Text className="text-primary font-bold text-4xl tracking-tight">bms</Text>
         </View>
         <Text className="text-foreground font-medium text-center">
@@ -429,8 +484,8 @@ export default function LoginScreen(): JSX.Element {
           </View>
 
           <Pressable
-            onPress={() => promptGoogleAsync()}
-            disabled={!googleRequest || googleLoading || isLoading}
+            onPress={handleGooglePress}
+            disabled={googleLoading || isLoading}
             className="flex-row items-center justify-center gap-3 bg-card border border-border rounded-xl h-13 px-4 mb-8 shadow-sm active:opacity-80"
           >
             {googleLoading ? (
@@ -455,22 +510,21 @@ export default function LoginScreen(): JSX.Element {
       ) : mode === "setup_otp" ? (
         /* MODE 2: STEP 1 - OTP VERIFICATION FOR PASSWORD SETUP */
         <>
-          {/* Visible reCAPTCHA Container for Web */}
-          <View 
-            className="my-2 w-full items-center justify-center overflow-visible"
-            style={{ minHeight: 78, alignItems: "center", justifyContent: "center" }}
-          >
-            <View 
-              id="recaptcha-container-login"
-              nativeID="recaptcha-container-login"
-              style={{
-                minHeight: 78,
-                minWidth: 304,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            />
-          </View>
+          {/* Visible reCAPTCHA Container for Web only */}
+          {Platform.OS === "web" && (
+            <View className="my-2 w-full items-center justify-center overflow-visible">
+              <View 
+                id="recaptcha-container-login"
+                nativeID="recaptcha-container-login"
+                style={{
+                  minHeight: 78,
+                  minWidth: 304,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              />
+            </View>
+          )}
 
           <View className="gap-6 mb-8">
             <Text className="text-foreground text-base">

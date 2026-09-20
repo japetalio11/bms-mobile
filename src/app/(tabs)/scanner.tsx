@@ -3,10 +3,16 @@ import { useState } from "react";
 import type { JSX } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useAuth } from "../../context/UserContext";
+import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
 
 export default function ScannerScreen(): JSX.Element {
   const [torchOn, setTorchOn] = useState(false);
+  const [showMyQr, setShowMyQr] = useState(false);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { user, motherRecord } = useAuth();
 
   return (
     <View className="flex-1 bg-black">
@@ -43,34 +49,47 @@ export default function ScannerScreen(): JSX.Element {
         </View>
 
         <Text className="text-white/70 text-sm font-medium mt-8 text-center px-12 leading-5">
-          Point the camera at a QR code to scan your health card or appointment record.
+          Point camera at a clinic check-in terminal or tap below to show your personal health card.
         </Text>
       </View>
 
       {/* Bottom actions */}
       <View style={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 24 }} className="gap-3">
-        <View className="bg-white/10 rounded-xl p-4 flex-row items-center gap-4">
+        <Pressable
+          onPress={() => setShowMyQr(true)}
+          className="bg-white/10 active:bg-white/15 rounded-xl p-4 flex-row items-center gap-4"
+        >
           <View className="size-10 rounded-full bg-primary/20 items-center justify-center">
-            <Ionicons name="card-outline" size={20} color="#6366f1" />
+            <Ionicons name="qr-code-outline" size={20} color="#6366f1" />
           </View>
           <View className="flex-1">
-            <Text className="text-white text-base font-medium">Health Card</Text>
-            <Text className="text-white/50 text-sm">Scan your BMS health card QR</Text>
+            <Text className="text-white text-base font-medium">Show My Health Card QR</Text>
+            <Text className="text-white/50 text-sm">Present your QR card to clinic staff</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#a1a1aa" />
-        </View>
+        </Pressable>
 
-        <View className="bg-white/10 rounded-xl p-4 flex-row items-center gap-4">
+        <Pressable
+          onPress={() => router.push("/(tabs)/appointments")}
+          className="bg-white/10 active:bg-white/15 rounded-xl p-4 flex-row items-center gap-4"
+        >
           <View className="size-10 rounded-full bg-primary/20 items-center justify-center">
             <Ionicons name="calendar-outline" size={20} color="#6366f1" />
           </View>
           <View className="flex-1">
-            <Text className="text-white text-base font-medium">Appointment QR</Text>
-            <Text className="text-white/50 text-sm">Scan your appointment confirmation</Text>
+            <Text className="text-white text-base font-medium">View Scheduled Appointments</Text>
+            <Text className="text-white/50 text-sm">Check upcoming clinic bookings</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#a1a1aa" />
-        </View>
+        </Pressable>
       </View>
+
+      <MotherQRCodeModal
+        visible={showMyQr}
+        onClose={() => setShowMyQr(false)}
+        user={user}
+        motherRecord={motherRecord}
+      />
     </View>
   );
 }

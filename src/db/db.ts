@@ -3,17 +3,41 @@ import * as SQLite from "expo-sqlite";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let dbInstance: any = null;
+let dbInitPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbInstance) {
-    if (Platform.OS === "web") {
-      dbInstance = createWebFallbackDatabase() as any;
-    } else {
-      dbInstance = await SQLite.openDatabaseAsync("bms.db");
-      await initTables(dbInstance);
-    }
+  if (dbInstance) {
+    return dbInstance;
   }
-  return dbInstance as SQLite.SQLiteDatabase;
+
+  if (dbInitPromise) {
+    return dbInitPromise;
+  }
+
+  dbInitPromise = (async () => {
+    try {
+      if (Platform.OS === "web") {
+        dbInstance = createWebFallbackDatabase() as any;
+      } else {
+        const db = await SQLite.openDatabaseAsync("bms.db");
+        await initTables(db);
+        dbInstance = db;
+      }
+      return dbInstance as SQLite.SQLiteDatabase;
+    } catch (err) {
+      dbInstance = null;
+      throw err;
+    } finally {
+      dbInitPromise = null;
+    }
+  })();
+
+  return dbInitPromise;
+}
+
+export function resetDatabaseInstance() {
+  dbInstance = null;
+  dbInitPromise = null;
 }
 
 async function initTables(db: SQLite.SQLiteDatabase) {
@@ -32,6 +56,7 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       address TEXT,
       facility_id TEXT,
       facility_name TEXT,
+      profile_url TEXT,
       updated_at TEXT
     );
 
@@ -90,6 +115,18 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       updated_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS notifications (
+      notification_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      notification_type TEXT,
+      notification_message TEXT,
+      notification_date TEXT,
+      is_read INTEGER DEFAULT 0,
+      sender TEXT,
+      category TEXT,
+      updated_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS supplements (
       supplement_id TEXT PRIMARY KEY,
       pregnancy_id TEXT,
@@ -105,6 +142,7 @@ async function initTables(db: SQLite.SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS lab_screenings (
       screening_id TEXT PRIMARY KEY,
+      mother_id TEXT,
       pregnancy_id TEXT,
       visit_id TEXT,
       screening_type TEXT,
@@ -129,8 +167,56 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS messages (
+      message_id TEXT PRIMARY KEY,
+      sender_id TEXT NOT NULL,
+      receiver_id TEXT NOT NULL,
+      message_type TEXT DEFAULT 'text',
+      message_content TEXT NOT NULL,
+      message_date TEXT NOT NULL,
+      is_read INTEGER DEFAULT 0,
+      sync_status TEXT DEFAULT 'synced',
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_contacts (
+      user_id TEXT PRIMARY KEY,
+      first_name TEXT,
+      last_name TEXT,
+      role TEXT,
+      facility_id TEXT,
+      facility_name TEXT,
+      profile_url TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS delivery_outcomes (
+      delivery_id TEXT PRIMARY KEY,
+      pregnancy_id TEXT,
+      mother_id TEXT,
+      delivery_date TEXT,
+      place_of_delivery TEXT,
+      mode_of_delivery TEXT,
+      duration_of_labor_hours REAL,
+      blood_loss_ml REAL,
+      delivery_complications TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS newborn_records (
+      newborn_id TEXT PRIMARY KEY,
+      delivery_id TEXT,
+      sex TEXT,
+      birth_weight_kg REAL,
+      status_at_birth TEXT,
+      apgar_score INTEGER,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       action_type TEXT NOT NULL,
       endpoint TEXT NOT NULL,
       method TEXT NOT NULL,
@@ -141,6 +227,18 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       error TEXT
     );
   `);
+
+  try {
+    await db.execAsync("ALTER TABLE users ADD COLUMN profile_url TEXT;");
+  } catch {}
+
+  try {
+    await db.execAsync("ALTER TABLE lab_screenings ADD COLUMN mother_id TEXT;");
+  } catch {}
+
+  try {
+    await db.execAsync("ALTER TABLE sync_queue ADD COLUMN user_id TEXT;");
+  } catch {}
 }
 
 function createWebFallbackDatabase() {
@@ -179,6 +277,10 @@ function createWebFallbackDatabase() {
       "supplements",
       "lab_screenings",
       "record_history",
+      "messages",
+      "chat_contacts",
+      "delivery_outcomes",
+      "newborn_records",
       "sync_queue",
     ]) {
       if (s.includes(`from ${table}`) || s.includes(`into ${table}`) || s.includes(`update ${table}`)) {
@@ -241,19 +343,36 @@ function createWebFallbackDatabase() {
           item.updated_at = params[9];
         } else if (table === "lab_screenings") {
           item.screening_id = params[0];
-          item.pregnancy_id = params[1];
-          item.visit_id = params[2];
-          item.screening_type = params[3];
-          item.result = params[4];
-          item.file_url = params[5];
-          item.local_file_uri = params[6];
-          item.file_size_bytes = params[7];
-          item.upload_status = params[8];
-          item.date_of_screening = params[9];
-          item.remarks = params[10];
-          item.version = params[11] || 1;
-          item.sync_status = params[12] || "synced";
-          item.updated_at = params[13];
+          if (params.length >= 15) {
+            item.mother_id = params[1];
+            item.pregnancy_id = params[2];
+            item.visit_id = params[3];
+            item.screening_type = params[4];
+            item.result = params[5];
+            item.file_url = params[6];
+            item.local_file_uri = params[7];
+            item.file_size_bytes = params[8];
+            item.upload_status = params[9];
+            item.date_of_screening = params[10];
+            item.remarks = params[11];
+            item.version = params[12] || 1;
+            item.sync_status = params[13] || "synced";
+            item.updated_at = params[14];
+          } else {
+            item.pregnancy_id = params[1];
+            item.visit_id = params[2];
+            item.screening_type = params[3];
+            item.result = params[4];
+            item.file_url = params[5];
+            item.local_file_uri = params[6];
+            item.file_size_bytes = params[7];
+            item.upload_status = params[8];
+            item.date_of_screening = params[9];
+            item.remarks = params[10];
+            item.version = params[11] || 1;
+            item.sync_status = params[12] || "synced";
+            item.updated_at = params[13];
+          }
         } else if (table === "users") {
           item.user_id = params[0];
           item.first_name = params[1];
@@ -265,7 +384,8 @@ function createWebFallbackDatabase() {
           item.address = params[7];
           item.facility_id = params[8];
           item.facility_name = params[9];
-          item.updated_at = params[10];
+          item.profile_url = params[10];
+          item.updated_at = params[11];
         } else if (table === "mother_records") {
           item.mother_id = params[0];
           item.user_id = params[1];
@@ -349,4 +469,48 @@ function createWebFallbackDatabase() {
       return (rows[0] as T) || null;
     },
   };
+}
+
+export async function clearAllTablesLocal(userId?: string): Promise<void> {
+  try {
+    const db = await getDatabase();
+    const tables = [
+      "users",
+      "mother_records",
+      "pregnancies",
+      "prenatal_visits",
+      "appointments",
+      "supplements",
+      "lab_screenings",
+      "record_history",
+      "messages",
+      "chat_contacts",
+      "delivery_outcomes",
+      "newborn_records",
+      "sync_queue",
+    ];
+
+    if (Platform.OS !== "web") {
+      const deleteSql = tables.map((t) => `DELETE FROM ${t};`).join("\n");
+      await db.execAsync(deleteSql);
+    } else {
+      for (const table of tables) {
+        try {
+          await db.runAsync(`DELETE FROM ${table}`);
+        } catch {}
+      }
+    }
+
+    for (const table of tables) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem(`@sqlite_web_${table}`);
+        }
+        await AsyncStorage.removeItem(`@sqlite_web_${table}`);
+      } catch {}
+    }
+  } catch (e) {
+    console.warn("Failed clearing local tables:", e);
+    resetDatabaseInstance();
+  }
 }
