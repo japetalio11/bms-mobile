@@ -3,7 +3,6 @@ import { View, ScrollView, Pressable } from "react-native";
 import { Text, Avatar, Button, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Header } from "../../components/Header";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
 import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
@@ -51,11 +50,10 @@ export default function ProfileScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-background">
-      <Header rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Profile Hero */}
-        <View className="items-center px-5 pt-2 pb-6">
+        <View className="items-center px-5 pt-8 pb-6">
           <Avatar size="lg" className="mb-4">
             {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
               <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
