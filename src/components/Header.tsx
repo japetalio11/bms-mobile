@@ -33,7 +33,7 @@ export function Header({
   };
 
   return (
-    <View className="flex-row items-center justify-between px-5 pt-14 pb-4">
+    <View className="flex-row items-center justify-between px-5 pt-2 pb-2">
       {/* Left: back button OR avatar + status dot + name */}
       <View className="flex-row items-center gap-3 flex-1 mr-3">
         {showBackButton ? (

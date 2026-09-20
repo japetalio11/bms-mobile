@@ -723,7 +723,7 @@ export default function ChatScreen(): JSX.Element {
   if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
     return (
       <View className="flex-1 bg-background">
-        <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
+        <View className="px-4 pt-2 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
           <Pressable
             onPress={() => {
               if (router.canGoBack()) {
@@ -1237,10 +1237,7 @@ export default function ChatScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background">
       {/* Top Header */}
-      <View
-        style={{ paddingTop: Math.max(insets.top, 16) }}
-        className="px-5 pb-3 bg-surface border-b border-default"
-      >
+      <View className="px-5 pt-2 pb-3 bg-surface border-b border-default">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-3">
             <Pressable
