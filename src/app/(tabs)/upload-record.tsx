@@ -33,7 +33,7 @@ const RECORD_TYPES = [
 
 export default function UploadRecordScreen(): JSX.Element {
   const router = useRouter();
-  const { token, activePregnancy, motherRecord, user } = useAuth();
+  const { token, activePregnancy, motherRecord, user, refreshProfile } = useAuth();
   const { isOnline } = useNetwork();
 
   const [recordType, setRecordType] = useState<string>("General Document");
@@ -115,15 +115,20 @@ export default function UploadRecordScreen(): JSX.Element {
       return;
     }
 
+    if (!selectedFile || !selectedFile.uri) {
+      setError("Please attach or capture a photo/document before submitting.");
+      return;
+    }
+
     const currentMotherId = motherRecord?.mother_id || user.user_id;
     const pregnancyId =
       activePregnancy?.pregnancy_id ||
       motherRecord?.pregnancies?.[0]?.pregnancy_id ||
-      `preg_${Date.now()}`;
+      undefined;
     const visitId =
       activePregnancy?.prenatalVisits?.[0]?.visit_id ||
       motherRecord?.pregnancies?.[0]?.prenatalVisits?.[0]?.visit_id ||
-      pregnancyId;
+      undefined;
 
     setIsLoading(true);
     setError(null);
@@ -162,7 +167,7 @@ export default function UploadRecordScreen(): JSX.Element {
           const currentMotherId = motherRecord?.mother_id || user.user_id;
 
           if (res) {
-            await saveLabScreeningsLocal([res], true, currentMotherId);
+            await saveLabScreeningsLocal([res], true, currentMotherId, false);
           }
         } catch (apiErr: any) {
           console.warn("Backend lab registration failed, saving to local SQLite outbox:", apiErr);
@@ -188,15 +193,14 @@ export default function UploadRecordScreen(): JSX.Element {
       }
 
       setSuccess(true);
+      setSelectedFile(null);
+      if (refreshProfile) {
+        refreshProfile().catch(() => {});
+      }
       setTimeout(() => {
-        setSelectedFile(null);
         setSuccess(false);
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace("/(tabs)/records");
-        }
-      }, 1000);
+        router.replace("/(tabs)/records");
+      }, 1200);
     } catch (err: any) {
       setError(err.message || "Failed to submit lab record");
     } finally {

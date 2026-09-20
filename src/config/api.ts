@@ -456,6 +456,22 @@ export async function getLabScreeningsByMotherApi(motherId: string, token: strin
   return Array.isArray(list) ? list : [];
 }
 
+export async function getMotherEhrDocumentsApi(motherId: string, token: string): Promise<any[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ehr/getAll?mother_id=${encodeURIComponent(motherId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return [];
+    }
+    const list = data.data || data.result || data;
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 export function formatFormDataFile(uri?: string | null, name?: string | null, type?: string | null) {
   if (!uri || typeof uri !== "string" || !uri.trim()) {
     throw new Error("Invalid file URI. Unable to attach file.");
@@ -558,6 +574,38 @@ export async function createLabScreeningApi(payload: any, token: string): Promis
   }
 
   return data.data || data.result || data;
+}
+
+export async function deleteLabScreeningApi(screeningId: string, token: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/delete/${screeningId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to delete lab record");
+  }
+
+  return data;
+}
+
+export async function deleteEhrDocumentApi(documentId: string, token: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/ehr-docs/delete/${documentId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to delete document");
+  }
+
+  return data;
 }
 
 export async function changePasswordApi(payload: { currentPassword: string; newPassword: string }, token: string): Promise<{ message: string }> {

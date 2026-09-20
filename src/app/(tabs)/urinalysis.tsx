@@ -79,7 +79,7 @@ export default function UrinalysisScreen(): JSX.Element {
               r.screening_type.toLowerCase().includes("urinalysis")
             );
             if (u) setRecord(u);
-            await saveLabScreeningsLocal(fresh, true, targetMotherId);
+            await saveLabScreeningsLocal(fresh, true, targetMotherId, true);
           }
         } catch (err) {
           console.warn("Failed to fetch lab screenings:", err);
