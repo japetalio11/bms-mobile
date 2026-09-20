@@ -469,12 +469,14 @@ export async function cancelAppointmentLocal(
 
 // --- Supplements Operations ---
 export async function getSupplementsLocal(motherId: string): Promise<SupplementRecord[]> {
+  if (!motherId) return [];
   const db = await getDatabase();
   const rows = await db.getAllAsync<SupplementRecord>(
     `SELECT s.* FROM supplements s
-     JOIN pregnancies p ON s.pregnancy_id = p.pregnancy_id
-     WHERE p.mother_id = ? ORDER BY s.date_given DESC`,
-    [motherId]
+     LEFT JOIN pregnancies p ON s.pregnancy_id = p.pregnancy_id
+     WHERE p.mother_id = ? OR p.mother_id IS NULL OR s.pregnancy_id IN (SELECT pregnancy_id FROM pregnancies WHERE mother_id = ?)
+     ORDER BY s.date_given DESC`,
+    [motherId, motherId]
   );
   return rows.map((r: any) => ({
     ...r,
@@ -572,14 +574,15 @@ export async function getLabScreeningsLocal(motherId: string): Promise<LabScreen
 export async function saveLabScreeningsLocal(
   screenings: LabScreeningRecord[],
   isFromBackend = true,
-  motherId?: string
+  motherId?: string,
+  isFullSync = false
 ) {
   const db = await getDatabase();
   const now = new Date().toISOString();
 
   await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`).catch(() => {});
 
-  if (isFromBackend && motherId) {
+  if (isFromBackend && motherId && isFullSync) {
     const validIds = new Set(screenings.map((s) => s.screening_id || (s as any).data?.screening_id).filter((id): id is string => Boolean(id && id !== "null" && id !== "undefined")));
     const currentRecords = await getLabScreeningsLocal(motherId);
 
@@ -620,6 +623,12 @@ export async function saveLabScreeningsLocal(
       ]
     );
   }
+}
+
+export async function deleteLabScreeningLocal(screeningId: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id = ?`, [screeningId]);
+  await db.runAsync(`DELETE FROM sync_outbox WHERE payload LIKE ?`, [`%${screeningId}%`]).catch(() => {});
 }
 
 export async function createLabScreeningLocal(

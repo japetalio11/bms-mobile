@@ -8,11 +8,20 @@ import * as WebBrowser from "expo-web-browser";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
-import { getLabScreeningsByMotherApi, getSupplementsByMotherApi, getFullFileUrl, API_BASE_URL } from "../../config/api";
+import {
+  getLabScreeningsByMotherApi,
+  getSupplementsByMotherApi,
+  getMotherEhrDocumentsApi,
+  deleteLabScreeningApi,
+  deleteEhrDocumentApi,
+  getFullFileUrl,
+  API_BASE_URL,
+} from "../../config/api";
 import type { LabScreeningRecord, SupplementRecord } from "../../config/api";
 import {
   getLabScreeningsLocal,
   saveLabScreeningsLocal,
+  deleteLabScreeningLocal,
   getSupplementsLocal,
   saveSupplementsLocal,
 } from "../../db/repository";
@@ -31,8 +40,12 @@ export default function RecordsScreen(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<LabScreeningRecord | null>(null);
+  const [recordToDelete, setRecordToDelete] = useState<LabScreeningRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const handleOpenAttachment = async (url: string) => {
+  const handleOpenAttachment = async (url: string, lab?: LabScreeningRecord) => {
     if (!url) return;
     const lowerUrl = url.toLowerCase();
     if (lowerUrl.includes(".pdf") || lowerUrl.includes("/pdf") || lowerUrl.endsWith(".doc") || lowerUrl.endsWith(".docx")) {
@@ -43,6 +56,75 @@ export default function RecordsScreen(): JSX.Element {
       }
     } else {
       setSelectedImageModal(url);
+      if (lab) setSelectedRecord(lab);
+    }
+  };
+
+  const confirmDeleteRecord = (record: LabScreeningRecord) => {
+    setDeleteError(null);
+    setRecordToDelete(record);
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!recordToDelete) return;
+
+    const targetId =
+      recordToDelete.screening_id ||
+      (recordToDelete as any).id ||
+      (recordToDelete as any).temp_id;
+
+    if (!targetId) {
+      setRecordToDelete(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      // 1. Delete from local SQLite database
+      await deleteLabScreeningLocal(targetId);
+
+      // 2. If online and token available, call backend delete
+      if (isOnline && token) {
+        try {
+          await deleteLabScreeningApi(targetId, token);
+        } catch (err: any) {
+          // Fallback for EHR facility documents
+          try {
+            await deleteEhrDocumentApi(targetId, token);
+          } catch (innerErr) {
+            console.warn("Backend delete document failed:", err, innerErr);
+          }
+        }
+      }
+
+      // 3. Update local state
+      setLabScreenings((prev) =>
+        prev.filter(
+          (l) =>
+            (l.screening_id || (l as any).id || (l as any).temp_id) !== targetId
+        )
+      );
+
+      // 4. Close preview modal if deleting currently viewed image
+      if (
+        selectedRecord &&
+        (selectedRecord.screening_id || (selectedRecord as any).id) === targetId
+      ) {
+        setSelectedImageModal(null);
+        setSelectedRecord(null);
+      }
+
+      setRecordToDelete(null);
+      if (refreshProfile) {
+        refreshProfile().catch(() => {});
+      }
+    } catch (err: any) {
+      console.error("Failed to delete document:", err);
+      setDeleteError(err.message || "Failed to delete document. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -72,20 +154,44 @@ export default function RecordsScreen(): JSX.Element {
       Promise.all([
         getLabScreeningsByMotherApi(motherRecord.mother_id, token),
         getSupplementsByMotherApi(motherRecord.mother_id, token),
+        getMotherEhrDocumentsApi(motherRecord.mother_id, token),
       ])
-        .then(async ([labs, supps]) => {
-          if (Array.isArray(labs)) {
-            // Keep local pending items that haven't synced to server yet
-            const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
-            const pendingLabs = currentLocal.filter(
-              (l: any) => l.sync_status === "pending" && l.screening_id && l.screening_id !== "null" && l.screening_id !== "undefined"
-            );
-            const serverIds = new Set(labs.map((l) => l.screening_id).filter(Boolean));
-            const merged = [...labs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
+        .then(async ([labs, supps, ehrDocs]) => {
+          let allLabs: LabScreeningRecord[] = Array.isArray(labs) ? [...labs] : [];
 
-            setLabScreenings(merged);
-            await saveLabScreeningsLocal(labs, true, motherRecord.mother_id);
+          // Map EHR facility documents into lab screening format
+          if (Array.isArray(ehrDocs) && ehrDocs.length > 0) {
+            const mappedEhrDocs: LabScreeningRecord[] = ehrDocs.map((doc: any) => ({
+              screening_id: doc.document_id || doc.id,
+              pregnancy_id: "",
+              visit_id: "",
+              screening_type: doc.title || doc.category || "Clinical Document",
+              result: doc.category || "Uploaded by Healthcare Staff",
+              file_url: doc.file_url || doc.fileUrl,
+              date_of_screening: doc.created_at || doc.dateUploaded || new Date().toISOString(),
+              remarks: doc.uploaded_by ? `Uploaded by: ${doc.uploaded_by}` : undefined,
+              sync_status: "synced",
+            }));
+
+            // Deduplicate against existing screenings
+            const existingIds = new Set(allLabs.map((l) => l.screening_id));
+            const uniqueEhr = mappedEhrDocs.filter((d) => !existingIds.has(d.screening_id));
+            allLabs = [...allLabs, ...uniqueEhr];
           }
+
+          // Keep local pending items that haven't synced to server yet
+          const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
+          const pendingLabs = currentLocal.filter(
+            (l: any) => l.sync_status === "pending" && l.screening_id && l.screening_id !== "null" && l.screening_id !== "undefined"
+          );
+          const serverIds = new Set(allLabs.map((l) => l.screening_id).filter(Boolean));
+          const merged = [...allLabs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
+
+          setLabScreenings(merged);
+          if (Array.isArray(labs) && labs.length > 0) {
+            await saveLabScreeningsLocal(labs, true, motherRecord.mother_id, true);
+          }
+
           if (Array.isArray(supps)) {
             setSupplements(supps);
             await saveSupplementsLocal(supps, true);
@@ -227,13 +333,20 @@ export default function RecordsScreen(): JSX.Element {
                               {lab.result || "Uploaded"}
                             </Text>
                           </View>
+                          <Pressable
+                            onPress={() => confirmDeleteRecord(lab)}
+                            hitSlop={8}
+                            className="size-8 rounded-full bg-red-500/10 active:bg-red-500/25 items-center justify-center ml-0.5"
+                          >
+                            <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                          </Pressable>
                         </View>
                       </View>
 
                       {fileUrl ? (
                         fileUrl.toLowerCase().includes(".pdf") || fileUrl.toLowerCase().includes("/pdf") ? (
                           <Pressable
-                            onPress={() => handleOpenAttachment(fileUrl)}
+                            onPress={() => handleOpenAttachment(fileUrl, lab)}
                             className="mt-2.5 mb-2 p-3 bg-default/40 border border-default rounded-xl flex-row items-center gap-3 active:bg-default/70"
                           >
                             <View className="size-10 rounded-lg bg-red-500/20 items-center justify-center">
@@ -248,7 +361,7 @@ export default function RecordsScreen(): JSX.Element {
                             <Ionicons name="open-outline" size={16} color="#a1a1aa" />
                           </Pressable>
                         ) : (
-                          <Pressable onPress={() => handleOpenAttachment(fileUrl)} className="mt-2.5 mb-2 relative rounded-xl overflow-hidden">
+                          <Pressable onPress={() => handleOpenAttachment(fileUrl, lab)} className="mt-2.5 mb-2 relative rounded-xl overflow-hidden">
                             <Image
                               source={{ uri: fileUrl }}
                               style={{ width: "100%", height: 180 }}
@@ -361,23 +474,133 @@ export default function RecordsScreen(): JSX.Element {
       </ScrollView>
 
       {/* Full Preview Image Modal */}
-      <Modal visible={!!selectedImageModal} transparent animationType="fade" onRequestClose={() => setSelectedImageModal(null)}>
-        <View className="flex-1 bg-black/90 justify-center items-center p-4">
-          <Pressable
-            onPress={() => setSelectedImageModal(null)}
-            className="absolute top-12 right-5 z-10 size-10 rounded-full bg-white/20 items-center justify-center"
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </Pressable>
-          {selectedImageModal && (
-            <Image
-              source={{ uri: selectedImageModal }}
-              style={{ width: "100%", height: "80%" }}
-              className="w-full h-4/5 rounded-2xl"
-              resizeMode="contain"
-            />
-          )}
+      <Modal
+        visible={!!selectedImageModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setSelectedImageModal(null);
+          setSelectedRecord(null);
+        }}
+      >
+        <View className="flex-1 bg-black/95 justify-between p-4 pt-12 pb-8">
+          {/* Top Action Bar */}
+          <View className="flex-row items-center justify-between px-2 pb-3 border-b border-white/10 z-20">
+            <View className="flex-1 pr-3">
+              <Text className="text-white font-bold text-base" numberOfLines={1}>
+                {selectedRecord?.screening_type || "Document Preview"}
+              </Text>
+              {selectedRecord?.date_of_screening ? (
+                <Text className="text-zinc-400 text-xs mt-0.5">
+                  {new Date(selectedRecord.date_of_screening).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </Text>
+              ) : null}
+            </View>
+
+            <View className="flex-row items-center gap-2">
+              {selectedRecord && (
+                <Pressable
+                  onPress={() => confirmDeleteRecord(selectedRecord)}
+                  className="flex-row items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/20 active:bg-red-500/35 border border-red-500/30"
+                >
+                  <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                  <Text className="text-red-400 text-xs font-semibold">Delete</Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={() => {
+                  setSelectedImageModal(null);
+                  setSelectedRecord(null);
+                }}
+                className="size-9 rounded-full bg-white/15 active:bg-white/25 items-center justify-center"
+              >
+                <Ionicons name="close" size={20} color="white" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Center Image */}
+          <View className="flex-1 justify-center items-center my-4">
+            {selectedImageModal && (
+              <Image
+                source={{ uri: selectedImageModal }}
+                style={{ width: "100%", height: "100%" }}
+                className="w-full h-full rounded-2xl"
+                resizeMode="contain"
+              />
+            )}
+          </View>
         </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={!!recordToDelete}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeleting && setRecordToDelete(null)}
+      >
+        <Pressable
+          onPress={() => !isDeleting && setRecordToDelete(null)}
+          className="flex-1 bg-black/80 justify-center items-center p-5"
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-[#16161C] border border-white/[0.12] rounded-3xl p-6 gap-4 shadow-2xl"
+          >
+            <View className="size-14 rounded-2xl bg-red-500/15 border border-red-500/30 items-center justify-center self-center">
+              <Ionicons name="trash-outline" size={28} color="#ef4444" />
+            </View>
+
+            <View className="items-center gap-1">
+              <Text className="text-white font-bold text-lg text-center">
+                Delete Document
+              </Text>
+              <Text className="text-zinc-400 text-sm text-center">
+                Are you sure you want to delete{" "}
+                <Text className="text-white font-semibold">
+                  {recordToDelete?.screening_type || "this document"}
+                </Text>
+                ? This action cannot be undone.
+              </Text>
+            </View>
+
+            {deleteError && (
+              <View className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <Text className="text-red-400 text-xs text-center">{deleteError}</Text>
+              </View>
+            )}
+
+            <View className="flex-row items-center gap-3 pt-2">
+              <Pressable
+                disabled={isDeleting}
+                onPress={() => setRecordToDelete(null)}
+                className="flex-1 h-11 rounded-xl bg-[#25242A] border border-white/[0.08] items-center justify-center active:bg-[#302f36]"
+              >
+                <Text className="text-zinc-300 font-semibold text-sm">Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={isDeleting}
+                onPress={handleDeleteRecord}
+                className="flex-1 h-11 rounded-xl bg-red-600 items-center justify-center active:bg-red-700 flex-row gap-2"
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="trash" size={16} color="white" />
+                )}
+                <Text className="text-white font-bold text-sm">
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );

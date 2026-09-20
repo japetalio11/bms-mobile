@@ -3,7 +3,6 @@ import { View, ScrollView, Pressable } from "react-native";
 import { Text, Avatar, Button, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Header } from "../../components/Header";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
 import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
@@ -51,11 +50,10 @@ export default function ProfileScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-background">
-      <Header rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Profile Hero */}
-        <View className="items-center px-5 pt-2 pb-6">
+        <View className="items-center px-5 pt-8 pb-6">
           <Avatar size="lg" className="mb-4">
             {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
               <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
@@ -79,6 +77,61 @@ export default function ProfileScreen(): JSX.Element {
           >
             <Button.Label className="text-foreground font-medium">Edit Profile</Button.Label>
           </Button>
+        </View>
+
+        {/* Assigned Care Provider & Healthcare Team */}
+        <View className="px-5 mb-4">
+          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Assigned Care Team</Text>
+          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-3.5">
+            {motherRecord?.assignedWorker ? (
+              <View className="flex-row items-center gap-3">
+                <View className="size-11 rounded-full bg-blue-500/15 items-center justify-center">
+                  <Ionicons name="medical" size={20} color="#3b82f6" />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-foreground text-base font-bold">
+                      {motherRecord.assignedWorker.first_name} {motherRecord.assignedWorker.last_name}
+                    </Text>
+                    <View className="bg-blue-500/15 px-2 py-0.5 rounded-full">
+                      <Text className="text-[#3b82f6] text-xs font-semibold">
+                        {motherRecord.assignedWorker.role}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-zinc-400 text-xs mt-0.5">
+                    Assigned Primary Care Provider · {facilityName || "Primary Facility"}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => router.push("/(tabs)/chat")}
+                  className="size-9 rounded-full bg-blue-500/20 items-center justify-center"
+                >
+                  <Ionicons name="chatbubble-ellipses" size={18} color="#3b82f6" />
+                </Pressable>
+              </View>
+            ) : (
+              <View className="flex-row items-center gap-3">
+                <View className="size-11 rounded-full bg-default items-center justify-center">
+                  <Ionicons name="business-outline" size={20} color="#a1a1aa" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-foreground text-base font-semibold">
+                    {facilityName || "Primary Health Facility"}
+                  </Text>
+                  <Text className="text-zinc-400 text-xs mt-0.5">
+                    Facility Care Team (Direct staff assignment pending)
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => router.push("/(tabs)/chat")}
+                  className="size-9 rounded-full bg-default items-center justify-center"
+                >
+                  <Ionicons name="chatbubble-ellipses" size={18} color="#a1a1aa" />
+                </Pressable>
+              </View>
+            )}
+          </Card>
         </View>
 
         {/* Medical Sharing & Facility Connection */}

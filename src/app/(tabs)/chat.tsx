@@ -58,9 +58,14 @@ type MessageBubble = {
 export default function ChatScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, token } = useAuth();
+  const { user, token, motherRecord } = useAuth();
   const { isOnline } = useNetwork();
   const { confirm } = useConfirm();
+
+  const assignedWorkerId =
+    motherRecord?.assigned_worker_id ||
+    motherRecord?.assignedWorker?.user_id ||
+    null;
 
   // State
   const [staffList, setStaffList] = useState<ChatContact[]>([]);
@@ -158,7 +163,14 @@ export default function ChatScreen(): JSX.Element {
       }
 
       const remoteMessages = messagesRes.data || [];
-      const remoteStaff = staffRes || [];
+      let remoteStaff = staffRes || [];
+
+      if (messagesRes.contact && !remoteStaff.some((s) => s.user_id === messagesRes.contact?.user_id)) {
+        remoteStaff = [messagesRes.contact, ...remoteStaff];
+      }
+      if (motherRecord?.assignedWorker && !remoteStaff.some((s) => s.user_id === motherRecord.assignedWorker?.user_id)) {
+        remoteStaff = [motherRecord.assignedWorker as any, ...remoteStaff];
+      }
 
       // Merge remote messages with in-flight local messages & recently sent state to prevent race-condition drops
       setAllMessages((prev) => {
@@ -214,7 +226,7 @@ export default function ChatScreen(): JSX.Element {
     } catch (err) {
       console.warn("Failed to fetch chat data:", err);
     }
-  }, [token, user?.user_id, user?.facility_id, isOnline]);
+  }, [token, user?.user_id, user?.facility_id, isOnline, motherRecord?.assignedWorker]);
 
   useFocusEffect(
     useCallback(() => {
@@ -245,6 +257,10 @@ export default function ChatScreen(): JSX.Element {
   // Compute per-staff metadata (last message, unread count, timestamp)
   const staffWithMeta = useMemo(() => {
     return staffList.map((staff) => {
+      const isAssigned = Boolean(
+        assignedWorkerId && staff.user_id === assignedWorkerId
+      );
+
       // Filter messages strictly between current mother and this staff member
       const threadMessages = allMessages.filter(
         (m) =>
@@ -260,7 +276,7 @@ export default function ChatScreen(): JSX.Element {
         (m) => m.sender_id === staff.user_id && !m.is_read
       ).length;
 
-      let previewText = "Tap to start conversation";
+      let previewText = isAssigned ? "Your assigned care provider · Tap to message" : "Tap to start conversation";
       if (lastMsg) {
         const isImg =
           lastMsg.message_type === "image" ||
@@ -283,16 +299,25 @@ export default function ChatScreen(): JSX.Element {
 
       return {
         ...staff,
+        isAssigned,
         lastMessage: previewText,
         lastMessageDate: lastMsg ? lastMsg.message_date : null,
         unreadCount: unreadCount,
       };
     });
-  }, [staffList, allMessages, user?.user_id]);
+  }, [staffList, allMessages, user?.user_id, assignedWorkerId]);
 
   // Filter staff directory by search query and role filter
   const filteredStaff = useMemo(() => {
     let list = staffWithMeta;
+
+    // If assigned to a specific worker, prioritize or scope to assigned provider
+    if (assignedWorkerId) {
+      const assignedOnly = list.filter((s) => s.user_id === assignedWorkerId);
+      if (assignedOnly.length > 0) {
+        list = assignedOnly;
+      }
+    }
 
     if (roleFilter !== "All") {
       list = list.filter((s) => {
@@ -314,8 +339,10 @@ export default function ChatScreen(): JSX.Element {
       });
     }
 
-    // Sort by latest message date first, then by name
+    // Sort by assigned first, then latest message date, then by name
     return list.sort((a, b) => {
+      if (a.isAssigned && !b.isAssigned) return -1;
+      if (!a.isAssigned && b.isAssigned) return 1;
       if (a.lastMessageDate && b.lastMessageDate) {
         return new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime();
       }
@@ -323,7 +350,7 @@ export default function ChatScreen(): JSX.Element {
       if (b.lastMessageDate) return 1;
       return (a.first_name || "").localeCompare(b.first_name || "");
     });
-  }, [staffWithMeta, searchQuery, roleFilter]);
+  }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId]);
 
   // Messages for the currently selected 1-to-1 chat with robust deduplication
   const currentChatMessages = useMemo<MessageBubble[]>(() => {
@@ -696,7 +723,7 @@ export default function ChatScreen(): JSX.Element {
   if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
     return (
       <View className="flex-1 bg-background">
-        <View className="px-4 pt-12 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
+        <View className="px-4 pt-6 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
           <Pressable
             onPress={() => {
               if (router.canGoBack()) {
@@ -808,6 +835,12 @@ export default function ChatScreen(): JSX.Element {
                     {selectedStaff.role}
                   </Text>
                 </View>
+                {selectedStaff.user_id === assignedWorkerId && (
+                  <View className="flex-row items-center gap-1 bg-blue-500/15 px-1.5 py-0.2 rounded border border-blue-500/30">
+                    <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
+                    <Text className="text-[10px] font-bold text-[#3b82f6]">Assigned Provider</Text>
+                  </View>
+                )}
                 {selectedStaff.facility?.facility_name && (
                   <Text className="text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
                     • {selectedStaff.facility.facility_name}
@@ -1204,10 +1237,7 @@ export default function ChatScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background">
       {/* Top Header */}
-      <View
-        style={{ paddingTop: Math.max(insets.top, 16) }}
-        className="px-5 pb-3 bg-surface border-b border-default"
-      >
+      <View className="px-5 pt-6 pb-3 bg-surface border-b border-default">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-3">
             <Pressable
@@ -1364,14 +1394,20 @@ export default function ChatScreen(): JSX.Element {
                   )}
                 </View>
 
-                <View className="flex-row items-center gap-1.5 mb-1">
+                <View className="flex-row items-center gap-1.5 mb-1 flex-wrap">
                   <View className={`px-1.5 py-0.2 rounded border ${badge.bg} ${badge.border}`}>
                     <Text className={`text-[10px] font-semibold ${badge.text}`}>
                       {item.role}
                     </Text>
                   </View>
+                  {item.isAssigned && (
+                    <View className="flex-row items-center gap-1 bg-blue-500/15 px-1.5 py-0.2 rounded border border-blue-500/30">
+                      <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
+                      <Text className="text-[10px] font-bold text-[#3b82f6]">Assigned Provider</Text>
+                    </View>
+                  )}
                   {item.facility?.facility_name && (
-                    <Text className="text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
+                    <Text className="text-zinc-400 text-[11px] truncate" numberOfLines={1}>
                       • {item.facility.facility_name}
                     </Text>
                   )}

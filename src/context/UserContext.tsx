@@ -237,6 +237,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
           age: (data.result as any).age,
           civil_status: (data.result as any).civil_status,
           blood_type: (data.result as any).blood_type,
+          assigned_worker_id: (data.result as any).assigned_worker_id || (data.result as any).assignedWorker?.user_id || null,
+          created_by_id: (data.result as any).created_by_id || (data.result as any).creator?.user_id || null,
+          assignedWorker: (data.result as any).assignedWorker || null,
+          creator: (data.result as any).creator || null,
           pregnancies: data.result.pregnancies,
         };
         setMotherRecord(mRecord);
