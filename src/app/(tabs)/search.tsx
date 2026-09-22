@@ -63,14 +63,14 @@ export default function SearchScreen(): JSX.Element {
       <Header rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View className="px-5 mb-6">
-          <Text className="text-white text-lg font-semibold mb-1">Search</Text>
-          <Text className="text-zinc-400 text-sm mb-4">Find appointments, records, and more.</Text>
+          <Text className="text-foreground text-lg font-semibold mb-1">Search</Text>
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Find appointments, records, and more.</Text>
 
           <SearchField 
             value={search} 
             onChange={setSearch}
           >
-            <SearchField.Group className="bg-[#18181b] border-0 rounded-xl h-12">
+            <SearchField.Group className="bg-default border-0 rounded-xl h-12">
               <SearchField.SearchIcon />
               <SearchField.Input placeholder="Search anything..." className="text-sm" returnKeyType="search" onSubmitEditing={() => handleSearch(search)} />
               <SearchField.ClearButton />
@@ -79,13 +79,13 @@ export default function SearchScreen(): JSX.Element {
         </View>
 
         <View className="px-5 mb-6">
-          <Text className="text-zinc-400 text-sm mb-3 ml-1">Browse by Category</Text>
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">Browse by Category</Text>
           <View className="flex-row flex-wrap gap-3">
             {CATEGORIES.map((cat) => (
               <Pressable
                 key={cat.label}
                 onPress={() => router.push(cat.route as any)}
-                className="flex-row items-center gap-2 bg-[#18181b] rounded-xl px-4 py-3 active:opacity-70"
+                className="flex-row items-center gap-2 bg-surface border border-default rounded-xl px-4 py-3 active:bg-surface-secondary shadow-xs"
               >
                 <View
                   className="size-8 rounded-full items-center justify-center"
@@ -93,15 +93,15 @@ export default function SearchScreen(): JSX.Element {
                 >
                   <Ionicons name={cat.icon} size={16} color={cat.color} />
                 </View>
-                <Text className="text-white text-sm font-medium">{cat.label}</Text>
+                <Text className="text-foreground text-sm font-medium">{cat.label}</Text>
               </Pressable>
             ))}
           </View>
         </View>
 
         <View className="px-5">
-          <Text className="text-zinc-400 text-sm mb-3 ml-1">Recent Searches</Text>
-          <Card variant="secondary" className="bg-[#18181b] border-0 rounded-xl p-0 overflow-hidden">
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">Recent Searches</Text>
+          <Card variant="secondary" className="bg-surface border border-default rounded-xl p-0 overflow-hidden shadow-xs">
             {recentSearches.map((item, index) => (
               <Pressable
                 key={item}
@@ -109,18 +109,18 @@ export default function SearchScreen(): JSX.Element {
                   setSearch(item);
                   handleSearch(item);
                 }}
-                className={`flex-row items-center gap-3 px-4 py-3 active:bg-[#27272a] ${
-                  index < recentSearches.length - 1 ? "border-b border-[#27272a]" : ""
+                className={`flex-row items-center gap-3 px-4 py-3 active:bg-default/50 ${
+                  index < recentSearches.length - 1 ? "border-b border-default" : ""
                 }`}
               >
                 <Ionicons name="time-outline" size={18} color="#71717a" />
-                <Text className="text-white text-base flex-1">{item}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#52525b" />
+                <Text className="text-foreground text-base flex-1">{item}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#71717a" />
               </Pressable>
             ))}
             {recentSearches.length === 0 && (
               <View className="px-4 py-4 items-center">
-                <Text className="text-zinc-400 text-sm">No recent searches</Text>
+                <Text className="text-zinc-500 dark:text-zinc-400 text-sm">No recent searches</Text>
               </View>
             )}
           </Card>

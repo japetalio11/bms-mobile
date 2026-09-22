@@ -21,7 +21,7 @@ import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
 import { getSecureToken, setSecureToken, deleteSecureToken } from "../lib/secureStorage";
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   TOKEN: "@bms_auth_token",
   USER: "@bms_user_data",
   MOTHER_RECORD: "@bms_mother_record",
@@ -261,6 +261,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
           age: mRecord.age,
           civil_status: mRecord.civil_status,
           blood_type: mRecord.blood_type,
+          assigned_worker_id: mRecord.assigned_worker_id,
+          created_by_id: mRecord.created_by_id,
+          assignedWorker: mRecord.assignedWorker,
+          creator: mRecord.creator,
           pregnancies: mRecord.pregnancies,
         });
       }

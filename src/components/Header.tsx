@@ -2,6 +2,7 @@ import { View, Text, Pressable } from "react-native";
 import { Avatar } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useUniwind } from "uniwind";
 import { useUser, useAuth } from "../context/UserContext";
 import { useNetwork } from "../context/NetworkContext";
 
@@ -18,6 +19,8 @@ export function Header({
   onBack?: () => void;
 }) {
   const router = useRouter();
+  const { theme } = useUniwind();
+  const isDark = theme === "dark";
   const user = useUser();
   const { unreadCount } = useAuth();
   const { isOnline } = useNetwork();
@@ -32,6 +35,9 @@ export function Header({
     }
   };
 
+  const iconColor = isDark ? "#a1a1aa" : "#52525b";
+  const dotBorder = isDark ? "#121214" : "#ffffff";
+
   return (
     <View className="flex-row items-center justify-between px-5 pt-6 pb-3">
       {/* Left: back button OR avatar + status dot + name */}
@@ -39,9 +45,9 @@ export function Header({
         {showBackButton ? (
           <Pressable
             onPress={handleBack}
-            className="size-9 rounded-full bg-surface-secondary items-center justify-center"
+            className="size-9 rounded-full bg-surface-secondary items-center justify-center active:opacity-80"
           >
-            <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+            <Ionicons name="arrow-back" size={18} color={iconColor} />
           </Pressable>
         ) : (
           <View className="relative">
@@ -50,8 +56,8 @@ export function Header({
                 <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
               ) : (
                 <Avatar.Fallback delayMs={0}>
-                  <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                    <Text className="text-white text-sm font-bold">
+                  <View className="w-full h-full bg-primary/20 items-center justify-center">
+                    <Text className="text-primary text-sm font-bold">
                       {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
                     </Text>
                   </View>
@@ -70,7 +76,7 @@ export function Header({
                 borderRadius: 5,
                 backgroundColor: isOnline ? "#10b981" : "#f59e0b",
                 borderWidth: 1.5,
-                borderColor: "#121214",
+                borderColor: dotBorder,
               }}
             />
           </View>
@@ -85,7 +91,7 @@ export function Header({
             {title || user.name}
           </Text>
           {subtitle && (
-            <Text className="text-zinc-400 text-sm" numberOfLines={1}>{subtitle}</Text>
+            <Text className="text-zinc-500 dark:text-zinc-400 text-sm" numberOfLines={1}>{subtitle}</Text>
           )}
         </View>
       </View>
@@ -96,15 +102,15 @@ export function Header({
           <>
             <Pressable
               onPress={() => router.push("/(tabs)/search")}
-              className="size-9 rounded-full bg-surface-secondary items-center justify-center"
+              className="size-9 rounded-full bg-surface-secondary items-center justify-center active:opacity-80"
             >
-              <Ionicons name="search-outline" size={17} color="#a1a1aa" />
+              <Ionicons name="search-outline" size={17} color={iconColor} />
             </Pressable>
             <Pressable
               onPress={() => router.push("/(tabs)/notifications")}
-              className="size-9 rounded-full bg-surface-secondary items-center justify-center relative"
+              className="size-9 rounded-full bg-surface-secondary items-center justify-center relative active:opacity-80"
             >
-              <Ionicons name="notifications-outline" size={18} color="#a1a1aa" />
+              <Ionicons name="notifications-outline" size={18} color={iconColor} />
               {unreadCount > 0 && (
                 <View
                   style={{
@@ -116,7 +122,7 @@ export function Header({
                     borderRadius: 8,
                     backgroundColor: "#ef4444",
                     borderWidth: 1.5,
-                    borderColor: "#121214",
+                    borderColor: dotBorder,
                     alignItems: "center",
                     justifyContent: "center",
                     paddingHorizontal: 3,

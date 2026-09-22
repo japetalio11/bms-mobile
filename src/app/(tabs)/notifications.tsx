@@ -151,21 +151,21 @@ export default function NotificationCenterScreen(): JSX.Element {
 
       {/* Segment Switcher Tabs */}
       <View className="px-5 pt-2 pb-4">
-        <View className="flex-row bg-[#1c1c22] border border-white/10 rounded-2xl p-1">
+        <View className="flex-row bg-surface border border-default rounded-2xl p-1 shadow-xs">
           <Pressable
             onPress={() => setActiveTab("notifications")}
             className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${
-              activeTab === "notifications" ? "bg-[#272730]" : "bg-transparent"
+              activeTab === "notifications" ? "bg-default" : "bg-transparent"
             }`}
           >
             <Ionicons
               name="notifications"
               size={16}
-              color={activeTab === "notifications" ? "#ffffff" : "#71717a"}
+              color={activeTab === "notifications" ? "#3b82f6" : "#71717a"}
             />
             <Text
-              className={`text-sm font-bold ${
-                activeTab === "notifications" ? "text-white" : "text-zinc-400"
+              className={`text-sm ${
+                activeTab === "notifications" ? "text-foreground font-bold" : "text-zinc-500 dark:text-zinc-400 font-medium"
               }`}
             >
               Notifications
@@ -175,17 +175,17 @@ export default function NotificationCenterScreen(): JSX.Element {
           <Pressable
             onPress={() => setActiveTab("preferences")}
             className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${
-              activeTab === "preferences" ? "bg-[#272730]" : "bg-transparent"
+              activeTab === "preferences" ? "bg-default" : "bg-transparent"
             }`}
           >
             <Ionicons
               name="options-outline"
               size={16}
-              color={activeTab === "preferences" ? "#ffffff" : "#71717a"}
+              color={activeTab === "preferences" ? "#3b82f6" : "#71717a"}
             />
             <Text
-              className={`text-sm font-bold ${
-                activeTab === "preferences" ? "text-white" : "text-zinc-400"
+              className={`text-sm ${
+                activeTab === "preferences" ? "text-foreground font-bold" : "text-zinc-500 dark:text-zinc-400 font-medium"
               }`}
             >
               Preferences
@@ -209,12 +209,12 @@ export default function NotificationCenterScreen(): JSX.Element {
           <View className="px-5">
             {/* Header Action Bar */}
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-zinc-400 text-sm font-medium ml-1">
+              <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium ml-1">
                 Recent Alerts & Notifications
               </Text>
               {notificationList.some((n) => !n.is_read) && (
                 <Pressable onPress={handleMarkAllRead}>
-                  <Text className="text-sky-400 text-sm font-semibold">
+                  <Text className="text-sky-600 dark:text-sky-400 text-sm font-semibold">
                     Mark All as Read
                   </Text>
                 </Pressable>
@@ -240,10 +240,10 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Pressable
                       key={item.notification_id}
                       onPress={() => handleItemPress(item)}
-                      className={`p-4 rounded-2xl border flex-row items-start gap-3.5 ${
+                      className={`p-4 rounded-2xl border flex-row items-start gap-3.5 shadow-xs ${
                         item.is_read
-                          ? "bg-[#18171C] border-white/[0.08]"
-                          : "bg-[#201d27] border-sky-500/30"
+                          ? "bg-surface border-default"
+                          : "bg-primary/5 border-primary/30"
                       }`}
                     >
                       {/* Category Icon Badge */}
@@ -256,36 +256,36 @@ export default function NotificationCenterScreen(): JSX.Element {
                       {/* Content */}
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between mb-1">
-                          <Text className="text-white text-sm font-bold flex-1 mr-2" numberOfLines={1}>
+                          <Text className="text-foreground text-sm font-bold flex-1 mr-2" numberOfLines={1}>
                             {item.sender || catConfig.label}
                           </Text>
-                          <Text className="text-zinc-500 text-[11px] font-medium">
+                          <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] font-medium">
                             {dateStr}
                           </Text>
                         </View>
 
-                        <Text className="text-zinc-300 text-sm leading-5">
+                        <Text className="text-foreground/80 dark:text-zinc-300 text-sm leading-5">
                           {item.notification_message}
                         </Text>
                       </View>
 
                       {/* Unread Dot */}
                       {!item.is_read && (
-                        <View className="size-2.5 rounded-full bg-sky-400 mt-1.5" />
+                        <View className="size-2.5 rounded-full bg-sky-500 mt-1.5" />
                       )}
                     </Pressable>
                   );
                 })}
               </View>
             ) : (
-              <View className="p-8 bg-[#18171C] border border-white/[0.08] rounded-2xl items-center my-4">
+              <View className="p-8 bg-surface border border-default rounded-2xl items-center my-4 shadow-xs">
                 <View className="size-12 rounded-full bg-surface-secondary items-center justify-center mb-3">
                   <Ionicons name="notifications-off-outline" size={24} color="#a1a1aa" />
                 </View>
-                <Text className="text-white font-semibold text-sm mb-1">
+                <Text className="text-foreground font-semibold text-sm mb-1">
                   No notifications yet
                 </Text>
-                <Text className="text-zinc-400 text-sm text-center leading-4">
+                <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center leading-4">
                   You are all caught up! Automated care reminders and health alerts will appear here.
                 </Text>
               </View>
@@ -295,7 +295,7 @@ export default function NotificationCenterScreen(): JSX.Element {
           /* Preferences Tab */
           <View className="px-5 gap-6 pt-2">
             <View>
-              <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">
+              <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-2 ml-1">
                 Maternal Care Reminders
               </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
@@ -305,7 +305,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Text className="text-foreground text-base font-medium">
                       Prenatal Visit Reminders
                     </Text>
-                    <Text className="text-zinc-400 text-sm mt-0.5">
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
                       Receive alerts for scheduled checkups and trimester milestones.
                     </Text>
                   </View>
@@ -318,7 +318,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                   />
                 </View>
 
-                <View className="h-px bg-white/10 mb-4" />
+                <View className="h-px bg-default mb-4" />
 
                 {/* Daily Supplement & Iron Reminders */}
                 <View className="flex-row items-center justify-between mb-4">
@@ -326,7 +326,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                     <Text className="text-foreground text-base font-medium">
                       Supplement & Iron Reminders
                     </Text>
-                    <Text className="text-zinc-400 text-sm mt-0.5">
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
                       Daily reminder notifications to log and take prescribed vitamins.
                     </Text>
                   </View>
@@ -339,7 +339,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                   />
                 </View>
 
-                <View className="h-px bg-white/10 mb-4" />
+                <View className="h-px bg-default mb-4" />
 
                 {/* Upcoming Appointment Alerts */}
                 <View className="flex-row items-center justify-between">

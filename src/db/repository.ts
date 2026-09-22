@@ -120,6 +120,10 @@ export async function saveMotherProfileLocal(data: {
   age?: number;
   civil_status?: string;
   blood_type?: string;
+  assigned_worker_id?: string | null;
+  created_by_id?: string | null;
+  assignedWorker?: any;
+  creator?: any;
   pregnancies?: PregnancyRecord[];
 }) {
   const db = await getDatabase();
@@ -127,8 +131,8 @@ export async function saveMotherProfileLocal(data: {
 
   if (data.user) {
     await db.runAsync(
-      `INSERT OR REPLACE INTO users (user_id, first_name, middle_name, last_name, role, email, phone_number, address, facility_id, facility_name, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO users (user_id, first_name, middle_name, last_name, role, email, phone_number, address, facility_id, facility_name, profile_url, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.user.user_id || "",
         data.user.first_name || "",
@@ -140,15 +144,18 @@ export async function saveMotherProfileLocal(data: {
         data.user.address || "",
         data.user.facility_id || null,
         data.user.facility_name || null,
+        (data.user as any).profile_url || null,
         now,
       ]
     );
   }
 
   if (data.mother_id) {
+    const assignedWorkerJson = data.assignedWorker ? JSON.stringify(data.assignedWorker) : null;
+    const creatorJson = data.creator ? JSON.stringify(data.creator) : null;
     await db.runAsync(
-      `INSERT OR REPLACE INTO mother_records (mother_id, user_id, family_serial_no, birth_date, age, civil_status, blood_type, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO mother_records (mother_id, user_id, family_serial_no, birth_date, age, civil_status, blood_type, assigned_worker_id, created_by_id, assigned_worker_json, creator_json, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.mother_id,
         data.user?.user_id || "",
@@ -157,6 +164,10 @@ export async function saveMotherProfileLocal(data: {
         data.age || null,
         data.civil_status || "",
         data.blood_type || "",
+        data.assigned_worker_id || data.assignedWorker?.user_id || null,
+        data.created_by_id || data.creator?.user_id || null,
+        assignedWorkerJson,
+        creatorJson,
         now,
       ]
     );
@@ -292,16 +303,38 @@ export async function getMotherProfileLocal(userId: string): Promise<{
   const user = await db.getFirstAsync<AuthUser>(`SELECT * FROM users WHERE user_id = ?`, [userId]);
   if (!user) return null;
 
-  const mRecord = await db.getFirstAsync<MotherRecord>(
+  const rawMRecord = await db.getFirstAsync<any>(
     `SELECT * FROM mother_records WHERE user_id = ?`,
     [userId]
   );
 
   let pregnancies: PregnancyRecord[] = [];
-  if (mRecord) {
+  let mRecord: MotherRecord | null = null;
+  if (rawMRecord) {
+    let assignedWorker = null;
+    let creator = null;
+    try {
+      if (rawMRecord.assigned_worker_json) {
+        assignedWorker = JSON.parse(rawMRecord.assigned_worker_json);
+      }
+    } catch {}
+    try {
+      if (rawMRecord.creator_json) {
+        creator = JSON.parse(rawMRecord.creator_json);
+      }
+    } catch {}
+
+    mRecord = {
+      ...rawMRecord,
+      assigned_worker_id: rawMRecord.assigned_worker_id || assignedWorker?.user_id || null,
+      created_by_id: rawMRecord.created_by_id || creator?.user_id || null,
+      assignedWorker: assignedWorker || (rawMRecord.assigned_worker_id ? { user_id: rawMRecord.assigned_worker_id, first_name: "Assigned", last_name: "Health Worker", role: "HealthWorker" } : null),
+      creator: creator,
+    };
+
     const pregs = await db.getAllAsync<PregnancyRecord>(
       `SELECT * FROM pregnancies WHERE mother_id = ?`,
-      [mRecord.mother_id]
+      [rawMRecord.mother_id]
     );
 
     for (const p of pregs) {
@@ -318,7 +351,7 @@ export async function getMotherProfileLocal(userId: string): Promise<{
       p.prenatalVisits = visits;
 
       // Attach delivery outcomes
-      const deliveries = await getDeliveryOutcomesLocal(mRecord.mother_id);
+      const deliveries = await getDeliveryOutcomesLocal(rawMRecord.mother_id);
       p.deliveryOutcomes = deliveries.filter((d) => d.pregnancy_id === p.pregnancy_id);
     }
     pregnancies = pregs;
@@ -333,6 +366,57 @@ export async function getMotherProfileLocal(userId: string): Promise<{
         }
       : null,
   };
+}
+
+export async function updateUserProfileLocal(
+  userId: string,
+  updates: {
+    first_name?: string;
+    middle_name?: string;
+    last_name?: string;
+    phone_number?: string;
+    email?: string;
+    address?: string;
+    profile_url?: string;
+    birth_date?: string;
+    civil_status?: string;
+    blood_type?: string;
+  }
+) {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+
+  // 1. Update users table
+  const userFields: string[] = [];
+  const userParams: any[] = [];
+  if (updates.first_name !== undefined) { userFields.push("first_name = ?"); userParams.push(updates.first_name); }
+  if (updates.middle_name !== undefined) { userFields.push("middle_name = ?"); userParams.push(updates.middle_name); }
+  if (updates.last_name !== undefined) { userFields.push("last_name = ?"); userParams.push(updates.last_name); }
+  if (updates.phone_number !== undefined) { userFields.push("phone_number = ?"); userParams.push(updates.phone_number); }
+  if (updates.email !== undefined) { userFields.push("email = ?"); userParams.push(updates.email); }
+  if (updates.address !== undefined) { userFields.push("address = ?"); userParams.push(updates.address); }
+  if (updates.profile_url !== undefined) { userFields.push("profile_url = ?"); userParams.push(updates.profile_url); }
+
+  if (userFields.length > 0) {
+    userFields.push("updated_at = ?");
+    userParams.push(now);
+    userParams.push(userId);
+    await db.runAsync(`UPDATE users SET ${userFields.join(", ")} WHERE user_id = ?`, userParams);
+  }
+
+  // 2. Update mother_records table
+  const motherFields: string[] = [];
+  const motherParams: any[] = [];
+  if (updates.birth_date !== undefined) { motherFields.push("birth_date = ?"); motherParams.push(updates.birth_date); }
+  if (updates.civil_status !== undefined) { motherFields.push("civil_status = ?"); motherParams.push(updates.civil_status); }
+  if (updates.blood_type !== undefined) { motherFields.push("blood_type = ?"); motherParams.push(updates.blood_type); }
+
+  if (motherFields.length > 0) {
+    motherFields.push("updated_at = ?");
+    motherParams.push(now);
+    motherParams.push(userId);
+    await db.runAsync(`UPDATE mother_records SET ${motherFields.join(", ")} WHERE user_id = ?`, motherParams);
+  }
 }
 
 // --- Appointments Operations ---

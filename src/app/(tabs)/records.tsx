@@ -309,30 +309,31 @@ export default function RecordsScreen(): JSX.Element {
 
                   return (
                     <Card key={labKey} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
-                      <View className="flex-row items-start justify-between mb-2">
-                        <View className="flex-row items-center gap-3 flex-1 pr-2">
-                          <View className="size-10 rounded-xl bg-primary/15 items-center justify-center">
+                      <View className="flex-row items-center justify-between mb-2">
+                        <View className="flex-row items-center gap-3 flex-1 min-w-0 pr-2">
+                          <View className="size-10 rounded-xl bg-primary/15 items-center justify-center shrink-0">
                             <Ionicons name="document-text-outline" size={20} color="#0284c7" />
                           </View>
-                          <View className="flex-1">
+                          <View className="flex-1 min-w-0">
                             <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
                               {lab.screening_type}
                             </Text>
-                            <Text className="text-zinc-400 text-sm">{dateStr || "Screening Record"}</Text>
+                            <Text className="text-zinc-400 text-sm" numberOfLines={1}>{dateStr || "Screening Record"}</Text>
                           </View>
                         </View>
 
-                        <View className="flex-row items-center gap-1.5">
-                          {isPendingSync && (
-                            <View className="px-2 py-0.5 rounded-full bg-amber-500/20">
-                              <Text className="text-amber-400 text-[10px] font-semibold">Pending Upload</Text>
+                        <View className="flex-row items-center gap-1.5 shrink-0">
+                          {isPendingSync ? (
+                            <View className="px-2.5 py-1 rounded-full bg-amber-500/20">
+                              <Text className="text-amber-400 text-xs font-semibold">Pending Upload</Text>
+                            </View>
+                          ) : (
+                            <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
+                              <Text className="text-emerald-400 text-xs font-semibold">
+                                {lab.result || "Uploaded"}
+                              </Text>
                             </View>
                           )}
-                          <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
-                            <Text className="text-emerald-400 text-sm font-semibold">
-                              {lab.result || "Uploaded"}
-                            </Text>
-                          </View>
                           <Pressable
                             onPress={() => confirmDeleteRecord(lab)}
                             hitSlop={8}

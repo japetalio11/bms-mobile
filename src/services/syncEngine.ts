@@ -44,9 +44,21 @@ export async function triggerOutboxSync(
           payload.file_url = fileUrl;
         }
 
+        // Handle offline avatar upload first if updating profile
+        if (item.action_type === "UPDATE_PROFILE" && payload.localAvatarUri && !payload.profile_url) {
+          try {
+            console.log(`[SyncEngine] Uploading local avatar for profile: ${payload.localAvatarUri}`);
+            const fileUrl = await uploadLocalFile(payload.localAvatarUri, authToken);
+            payload.profile_url = fileUrl;
+          } catch (uploadErr) {
+            console.warn("[SyncEngine] Avatar upload warning during profile sync:", uploadErr);
+          }
+        }
+
         // Clean out transient fields before endpoint submission
         const cleanPayload = { ...payload };
         delete cleanPayload.localFileUri;
+        delete cleanPayload.localAvatarUri;
         delete cleanPayload.fileSizeBytes;
         const tempId = cleanPayload.temp_id;
         delete cleanPayload.temp_id;

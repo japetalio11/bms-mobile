@@ -8,6 +8,8 @@
   --font-medium: "Inter-Medium";
   --font-semibold: "Inter-SemiBold";
   --font-bold: "Inter-Bold";
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
 }
 
 /* End-user path: heroui-native lives in the project's node_modules, one
@@ -20,6 +22,10 @@
     /* Base */
     --background: oklch(0.975 0.007 258);
     --foreground: oklch(0.16 0.035 258);
+
+    /* Primary */
+    --primary: oklch(0.60 0.20 250);
+    --primary-foreground: oklch(1 0 0);
 
     /* Surfaces */
     --surface: oklch(1 0 0);
@@ -83,6 +89,10 @@
     /* Base - True Black/Gray */
     --background: oklch(0.11 0 0);
     --foreground: oklch(0.98 0 0);
+
+    /* Primary */
+    --primary: oklch(0.60 0.20 250);
+    --primary-foreground: oklch(1 0 0);
 
     /* Surfaces - Dark Gray */
     --surface: oklch(0.15 0 0);
