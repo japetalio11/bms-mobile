@@ -13,8 +13,9 @@ import {
   RefreshControl,
   Linking,
   Keyboard,
+  Text,
 } from "react-native";
-import { Avatar, Text } from "heroui-native";
+import { Avatar } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { JSX } from "react";
@@ -23,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
+import { useUniwind } from "uniwind";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { useConfirm } from "../../context/ConfirmationContext";
@@ -58,6 +60,8 @@ type MessageBubble = {
 export default function ChatScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { theme } = useUniwind();
+  const isDark = theme === "dark";
   const { user, token, motherRecord } = useAuth();
   const { isOnline } = useNetwork();
   const { confirm } = useConfirm();
@@ -708,15 +712,15 @@ export default function ChatScreen(): JSX.Element {
   const getRoleBadgeStyle = (role: string) => {
     const r = (role || "").toLowerCase();
     if (r.includes("doctor")) {
-      return { bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400" };
+      return { bg: "bg-blue-500/10", border: "border-blue-500/25", text: "text-blue-600 dark:text-blue-400" };
     }
     if (r.includes("midwife")) {
-      return { bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" };
+      return { bg: "bg-purple-500/10", border: "border-purple-500/25", text: "text-purple-600 dark:text-purple-400" };
     }
     if (r.includes("nurse")) {
-      return { bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400" };
+      return { bg: "bg-emerald-500/10", border: "border-emerald-500/25", text: "text-emerald-600 dark:text-emerald-400" };
     }
-    return { bg: "bg-amber-500/10", border: "border-amber-500/20", text: "text-amber-400" };
+    return { bg: "bg-amber-500/10", border: "border-amber-500/25", text: "text-amber-600 dark:text-amber-400" };
   };
 
   // 1. Not affiliated with facility screen
@@ -734,7 +738,7 @@ export default function ChatScreen(): JSX.Element {
             }}
             className="size-9 rounded-full bg-default items-center justify-center"
           >
-            <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+            <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
           </Pressable>
           <Text className="text-foreground font-bold text-lg">Direct Messaging</Text>
         </View>
@@ -746,7 +750,7 @@ export default function ChatScreen(): JSX.Element {
           <Text className="text-foreground font-bold text-lg mb-2 text-center">
             Not Affiliated with any Facility
           </Text>
-          <Text className="text-zinc-400 text-sm text-center max-w-sm leading-6 mb-6">
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-sm leading-6 mb-6">
             You are currently not affiliated with any healthcare facility. Direct messaging is only available once your account is linked to a health center.
           </Text>
 
@@ -791,7 +795,7 @@ export default function ChatScreen(): JSX.Element {
               onPress={() => setSelectedStaff(null)}
               className="size-9 rounded-full bg-default items-center justify-center"
             >
-              <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+              <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
             </Pressable>
 
             {/* Staff Avatar */}
@@ -819,7 +823,7 @@ export default function ChatScreen(): JSX.Element {
                   borderRadius: 5,
                   backgroundColor: isOnline ? "#10b981" : "#f59e0b",
                   borderWidth: 1.5,
-                  borderColor: "#18181b",
+                  borderColor: isDark ? "#18181b" : "#ffffff",
                 }}
               />
             </View>
@@ -836,13 +840,13 @@ export default function ChatScreen(): JSX.Element {
                   </Text>
                 </View>
                 {selectedStaff.user_id === assignedWorkerId && (
-                  <View className="flex-row items-center gap-1 bg-blue-500/15 px-1.5 py-0.2 rounded border border-blue-500/30">
+                  <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
                     <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
-                    <Text className="text-[10px] font-bold text-[#3b82f6]">Assigned Provider</Text>
+                    <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">Assigned Provider</Text>
                   </View>
                 )}
                 {selectedStaff.facility?.facility_name && (
-                  <Text className="text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
+                  <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
                     • {selectedStaff.facility.facility_name}
                   </Text>
                 )}
@@ -870,11 +874,37 @@ export default function ChatScreen(): JSX.Element {
                 }`}
               >
                 <View
-                  className={`p-3.5 rounded-2xl ${
+                  style={
                     item.mine
-                      ? "bg-primary rounded-br-xs shadow-sm shadow-primary/30"
-                      : "bg-surface border border-default rounded-bl-xs"
-                  }`}
+                      ? {
+                          backgroundColor: "#2563eb",
+                          borderTopLeftRadius: 18,
+                          borderTopRightRadius: 18,
+                          borderBottomLeftRadius: 18,
+                          borderBottomRightRadius: 4,
+                          padding: 12,
+                          shadowColor: "#2563eb",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.25,
+                          shadowRadius: 4,
+                          elevation: 3,
+                        }
+                      : {
+                          backgroundColor: isDark ? "#202025" : "#ffffff",
+                          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
+                          borderWidth: 1,
+                          borderTopLeftRadius: 18,
+                          borderTopRightRadius: 18,
+                          borderBottomLeftRadius: 4,
+                          borderBottomRightRadius: 18,
+                          padding: 12,
+                          shadowColor: "#000",
+                          shadowOffset: { width: 0, height: 1 },
+                          shadowOpacity: isDark ? 0.2 : 0.05,
+                          shadowRadius: 3,
+                          elevation: 1,
+                        }
+                  }
                 >
                   {/* Image Attachment */}
                   {item.type === "image" ? (
@@ -894,19 +924,44 @@ export default function ChatScreen(): JSX.Element {
                     /* PDF or generic document attachment */
                     <Pressable
                       onPress={() => handleOpenDocument(item.text)}
-                      className={`flex-row items-center gap-3 p-3 rounded-xl border ${
+                      style={
                         item.mine
-                          ? "bg-white/10 border-white/20 active:bg-white/20"
-                          : "bg-surface border-default active:bg-default/50"
-                      }`}
+                          ? {
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 12,
+                              padding: 10,
+                              borderRadius: 12,
+                              backgroundColor: "rgba(255, 255, 255, 0.15)",
+                              borderWidth: 1,
+                              borderColor: "rgba(255, 255, 255, 0.25)",
+                            }
+                          : {
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 12,
+                              padding: 10,
+                              borderRadius: 12,
+                              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+                              borderWidth: 1,
+                              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                            }
+                      }
                     >
                       <View
-                        className={`size-11 rounded-lg items-center justify-center ${
-                          item.mine ? "bg-white/20" : "bg-primary/10 border border-primary/20"
-                        }`}
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 10,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: item.mine ? "rgba(255, 255, 255, 0.2)" : "rgba(37, 99, 235, 0.1)",
+                          borderWidth: item.mine ? 0 : 1,
+                          borderColor: "rgba(37, 99, 235, 0.2)",
+                        }}
                       >
                         {item.status === "sending" ? (
-                          <ActivityIndicator size="small" color={item.mine ? "white" : "#3b82f6"} />
+                          <ActivityIndicator size="small" color={item.mine ? "#ffffff" : "#2563eb"} />
                         ) : (
                           <Ionicons
                             name={
@@ -917,15 +972,17 @@ export default function ChatScreen(): JSX.Element {
                                 : "document"
                             }
                             size={22}
-                            color={item.mine ? "white" : "#3b82f6"}
+                            color={item.mine ? "#ffffff" : "#2563eb"}
                           />
                         )}
                       </View>
                       <View className="flex-1 min-w-0">
                         <Text
-                          className={`text-sm font-semibold truncate ${
-                            item.mine ? "text-white" : "text-foreground"
-                          }`}
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: item.mine ? "#ffffff" : isDark ? "#f4f4f5" : "#18181b",
+                          }}
                           numberOfLines={1}
                         >
                           {item.text.startsWith("data:")
@@ -933,32 +990,46 @@ export default function ChatScreen(): JSX.Element {
                             : item.text.split("/").pop()?.split("?")[0] || "Document Attachment"}
                         </Text>
                         <Text
-                          className={`text-[11px] mt-0.5 ${
-                            item.mine ? "text-white/70" : "text-zinc-400"
-                          }`}
+                          style={{
+                            fontSize: 11,
+                            marginTop: 2,
+                            color: item.mine ? "rgba(255, 255, 255, 0.75)" : isDark ? "#a1a1aa" : "#71717a",
+                          }}
                         >
                           {item.status === "sending" ? "Uploading & sending..." : "Tap to open / download"}
                         </Text>
                       </View>
                       {item.status === "sending" ? (
-                        <ActivityIndicator size="small" color={item.mine ? "white" : "#3b82f6"} />
+                        <ActivityIndicator size="small" color={item.mine ? "#ffffff" : "#2563eb"} />
                       ) : (
-                        <Ionicons name="open-outline" size={18} color={item.mine ? "white" : "#a1a1aa"} />
+                        <Ionicons name="open-outline" size={18} color={item.mine ? "#ffffff" : isDark ? "#a1a1aa" : "#71717a"} />
                       )}
                     </Pressable>
                   ) : (
                     /* Regular Text Message */
-                    <Text className={`text-base leading-5 ${item.mine ? "text-white font-medium" : "text-foreground"}`}>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 21,
+                        fontWeight: item.mine ? "500" : "400",
+                        color: item.mine ? "#ffffff" : isDark ? "#fafafa" : "#111827",
+                      }}
+                    >
                       {item.text}
                     </Text>
                   )}
 
                   <View className="flex-row items-center gap-1.5 justify-end mt-1.5">
-                    <Text className={`text-[10px] ${item.mine ? "text-white/70" : "text-zinc-400"}`}>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: item.mine ? "rgba(255, 255, 255, 0.75)" : isDark ? "#a1a1aa" : "#71717a",
+                      }}
+                    >
                       {item.time}
                     </Text>
                     {item.mine && item.status === "sending" ? (
-                      <ActivityIndicator size={10} color={item.mine ? "rgba(255,255,255,0.85)" : "#3b82f6"} />
+                      <ActivityIndicator size={10} color="rgba(255,255,255,0.85)" />
                     ) : item.mine && item.id.startsWith("local_") ? (
                       <Ionicons name="checkmark-outline" size={12} color="rgba(255,255,255,0.7)" />
                     ) : null}
@@ -969,11 +1040,11 @@ export default function ChatScreen(): JSX.Element {
           />
         ) : (
           <View className="flex-1 items-center justify-center p-6">
-            <View className="size-16 rounded-full bg-surface items-center justify-center mb-3">
+            <View className="size-16 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-xs">
               <Ionicons name="chatbubble-ellipses-outline" size={28} color="#3b82f6" />
             </View>
             <Text className="text-foreground font-bold text-lg mb-1">Personalized 1-to-1 Chat</Text>
-            <Text className="text-zinc-400 text-sm text-center max-w-xs leading-5">
+            <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs leading-5">
               Send a direct message or share health records with {staffDisplayName}.
             </Text>
           </View>
@@ -991,7 +1062,7 @@ export default function ChatScreen(): JSX.Element {
             disabled={isSending}
             className="size-10 bg-default rounded-full items-center justify-center active:scale-95"
           >
-            <Ionicons name="add" size={22} color="#a1a1aa" />
+            <Ionicons name="add" size={22} color={isDark ? "#a1a1aa" : "#52525b"} />
           </Pressable>
 
           <View className="flex-1 bg-default rounded-2xl px-4 py-2 flex-row items-center min-h-[44px]">
@@ -999,7 +1070,7 @@ export default function ChatScreen(): JSX.Element {
               value={inputText}
               onChangeText={setInputText}
               placeholder={isSending ? "Sending attachment..." : "Type your message..."}
-              placeholderTextColor="#71717a"
+              placeholderTextColor={isDark ? "#71717a" : "#94a3b8"}
               multiline
               editable={!isSending}
               className="flex-1 text-foreground text-base max-h-24 p-0"
@@ -1010,10 +1081,10 @@ export default function ChatScreen(): JSX.Element {
             onPress={handleSendText}
             disabled={!inputText.trim()}
             className={`size-10 rounded-full items-center justify-center ${
-              inputText.trim() ? "bg-primary active:scale-95" : "bg-default opacity-50"
+              inputText.trim() ? "bg-primary active:scale-95 shadow-xs" : "bg-default opacity-50"
             }`}
           >
-            <Ionicons name="send" size={16} color={inputText.trim() ? "white" : "#71717a"} style={{ marginLeft: 2 }} />
+            <Ionicons name="send" size={16} color={inputText.trim() ? "white" : isDark ? "#71717a" : "#94a3b8"} style={{ marginLeft: 2 }} />
           </Pressable>
         </View>
 
@@ -1057,12 +1128,12 @@ export default function ChatScreen(): JSX.Element {
               style={{
                 paddingBottom: Math.max(insets.bottom + 20, 32),
               }}
-              className="bg-surface rounded-t-3xl border-t border-default p-6"
+              className="bg-surface rounded-t-3xl border-t border-default p-6 shadow-2xl"
             >
-              <View className="w-12 h-1 bg-default/80 rounded-full self-center mb-4" />
+              <View className="w-12 h-1 bg-default rounded-full self-center mb-4" />
 
               <Text className="text-foreground font-bold text-lg mb-1">Add Attachment</Text>
-              <Text className="text-zinc-400 text-sm mb-5">
+              <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-5">
                 Share photos or medical documents directly with your healthcare provider.
               </Text>
 
@@ -1070,46 +1141,46 @@ export default function ChatScreen(): JSX.Element {
                 {/* Take Photo */}
                 <Pressable
                   onPress={() => handlePickImage(true)}
-                  className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
+                  className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
                 >
                   <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
                     <Ionicons name="camera-outline" size={22} color="#3b82f6" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">Take Photo</Text>
-                    <Text className="text-zinc-400 text-sm">Use camera to capture a new photo</Text>
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Use camera to capture a new photo</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#71717a" />
+                  <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
                 </Pressable>
 
                 {/* Photo Library */}
                 <Pressable
                   onPress={() => handlePickImage(false)}
-                  className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
+                  className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
                 >
                   <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
                     <Ionicons name="images-outline" size={22} color="#3b82f6" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">Photo Library</Text>
-                    <Text className="text-zinc-400 text-sm">Select photos from your device gallery</Text>
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Select photos from your device gallery</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#71717a" />
+                  <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
                 </Pressable>
 
                 {/* Document / Health Record */}
                 <Pressable
                   onPress={() => handlePickDocument()}
-                  className="flex-row items-center gap-3.5 p-3.5 bg-default/50 rounded-2xl border border-default active:bg-default"
+                  className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
                 >
                   <View className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
                     <Ionicons name="document-text-outline" size={22} color="#10b981" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-foreground font-semibold text-base">Document / Health Record</Text>
-                    <Text className="text-zinc-400 text-sm">Upload PDF, Word files, or lab reports</Text>
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Upload PDF, Word files, or lab reports</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#71717a" />
+                  <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
                 </Pressable>
               </View>
 
@@ -1151,7 +1222,7 @@ export default function ChatScreen(): JSX.Element {
                     onPress={() => setPendingAttachment(null)}
                     className="size-8 rounded-full bg-default items-center justify-center"
                   >
-                    <Ionicons name="close" size={18} color="#a1a1aa" />
+                    <Ionicons name="close" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
                   </Pressable>
                 </View>
 
@@ -1179,7 +1250,7 @@ export default function ChatScreen(): JSX.Element {
                       <Text className="text-foreground font-bold text-sm" numberOfLines={1}>
                         {pendingAttachment.name}
                       </Text>
-                      <Text className="text-zinc-400 text-sm mt-0.5">
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
                         {pendingAttachment.sizeFormatted} • {pendingAttachment.name.split(".").pop()?.toUpperCase() || "FILE"}
                       </Text>
                     </View>
@@ -1250,34 +1321,34 @@ export default function ChatScreen(): JSX.Element {
               }}
               className="size-9 rounded-full bg-default items-center justify-center"
             >
-              <Ionicons name="arrow-back" size={18} color="#a1a1aa" />
+              <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
             </Pressable>
             <View>
               <Text className="text-foreground font-bold text-lg">Messages</Text>
-              <Text className="text-zinc-400 text-sm truncate max-w-[240px]" numberOfLines={1}>
+              <Text className="text-zinc-500 dark:text-zinc-400 text-sm truncate max-w-[240px]" numberOfLines={1}>
                 {facilityTitle}
               </Text>
             </View>
           </View>
 
-          <View className="size-9 rounded-full bg-default items-center justify-center">
+          <View className="size-9 rounded-full bg-primary/10 items-center justify-center">
             <Ionicons name="chatbubbles" size={18} color="#3b82f6" />
           </View>
         </View>
 
         {/* Search Bar */}
         <View className="flex-row items-center bg-default rounded-xl px-3 py-2">
-          <Ionicons name="search-outline" size={18} color="#71717a" className="mr-2" />
+          <Ionicons name="search-outline" size={18} color={isDark ? "#71717a" : "#64748b"} className="mr-2" />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search healthcare staff by name or role..."
-            placeholderTextColor="#71717a"
+            placeholderTextColor={isDark ? "#71717a" : "#94a3b8"}
             className="flex-1 text-foreground text-sm p-0"
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={16} color="#71717a" />
+              <Ionicons name="close-circle" size={16} color={isDark ? "#71717a" : "#94a3b8"} />
             </Pressable>
           )}
         </View>
@@ -1298,12 +1369,12 @@ export default function ChatScreen(): JSX.Element {
                 className={`px-3 py-1.5 rounded-full border ${
                   isSelected
                     ? "bg-primary border-primary"
-                    : "bg-surface border-default"
+                    : "bg-surface dark:bg-default/50 border-default"
                 }`}
               >
                 <Text
                   className={`text-sm font-semibold ${
-                    isSelected ? "text-white" : "text-zinc-400"
+                    isSelected ? "text-white" : "text-zinc-600 dark:text-zinc-400"
                   }`}
                 >
                   {role === "HealthWorker" ? "Health Worker" : role}
@@ -1324,11 +1395,11 @@ export default function ChatScreen(): JSX.Element {
         contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 90 }}
         ListEmptyComponent={
           <View className="items-center justify-center p-10">
-            <View className="size-14 rounded-full bg-surface items-center justify-center mb-3">
-              <Ionicons name="people-outline" size={24} color="#71717a" />
+            <View className="size-14 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-xs">
+              <Ionicons name="people-outline" size={24} color={isDark ? "#71717a" : "#94a3b8"} />
             </View>
             <Text className="text-foreground font-semibold text-base mb-1">No Staff Found</Text>
-            <Text className="text-zinc-400 text-sm text-center max-w-xs">
+            <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs">
               {searchQuery ? "No staff matches your search query." : "No healthcare staff members are listed for your facility."}
             </Text>
           </View>
@@ -1342,7 +1413,7 @@ export default function ChatScreen(): JSX.Element {
           return (
             <Pressable
               onPress={() => setSelectedStaff(item)}
-              className="flex-row items-center px-5 py-3.5 border-b border-default/50 active:bg-surface/50"
+              className="flex-row items-center px-5 py-3.5 border-b border-default/50 active:bg-surface-secondary"
             >
               {/* Staff Avatar with Online Dot */}
               <View className="relative mr-3.5">
@@ -1371,7 +1442,7 @@ export default function ChatScreen(): JSX.Element {
                     borderRadius: 6,
                     backgroundColor: isOnline ? "#10b981" : "#f59e0b",
                     borderWidth: 2,
-                    borderColor: "#18181b",
+                    borderColor: isDark ? "#18181b" : "#ffffff",
                   }}
                 />
               </View>
@@ -1388,7 +1459,7 @@ export default function ChatScreen(): JSX.Element {
                     {displayName}
                   </Text>
                   {item.lastMessageDate && (
-                    <Text className="text-zinc-400 text-[11px] shrink-0">
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] shrink-0">
                       {formatTimeLabel(item.lastMessageDate)}
                     </Text>
                   )}
@@ -1401,13 +1472,13 @@ export default function ChatScreen(): JSX.Element {
                     </Text>
                   </View>
                   {item.isAssigned && (
-                    <View className="flex-row items-center gap-1 bg-blue-500/15 px-1.5 py-0.2 rounded border border-blue-500/30">
+                    <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
                       <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
-                      <Text className="text-[10px] font-bold text-[#3b82f6]">Assigned Provider</Text>
+                      <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">Assigned Provider</Text>
                     </View>
                   )}
                   {item.facility?.facility_name && (
-                    <Text className="text-zinc-400 text-[11px] truncate" numberOfLines={1}>
+                    <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate" numberOfLines={1}>
                       • {item.facility.facility_name}
                     </Text>
                   )}
@@ -1417,7 +1488,7 @@ export default function ChatScreen(): JSX.Element {
                 <View className="flex-row items-center justify-between">
                   <Text
                     className={`text-sm truncate flex-1 mr-2 ${
-                      item.unreadCount > 0 ? "text-foreground font-semibold" : "text-zinc-400"
+                      item.unreadCount > 0 ? "text-foreground font-semibold" : "text-zinc-500 dark:text-zinc-400"
                     }`}
                     numberOfLines={1}
                   >
@@ -1435,7 +1506,7 @@ export default function ChatScreen(): JSX.Element {
                 </View>
               </View>
 
-              <Ionicons name="chevron-forward" size={18} color="#71717a" />
+              <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
             </Pressable>
           );
         }}

@@ -7,6 +7,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUniwind } from 'uniwind';
 
 const TAB_ITEM_SIZE = 50;
 const ITEM_GAP = 4;
@@ -38,6 +39,8 @@ type TabBarItemProps = {
 };
 
 function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: TabBarItemProps) {
+  const { theme } = useUniwind();
+  const isDark = theme === 'dark';
   const progress = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
@@ -49,8 +52,8 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
     transform: [{ scale: interpolate(progress.value, [0, 1], [0.7, 1]) }],
   }));
 
-  const iconColor = isScanner ? '#ffffff' : isFocused ? '#ffffff' : '#71717a';
-  const bgColor = isScanner ? '#3b82f6' : isFocused ? '#3b82f6' : '#27272a';
+  const iconColor = isScanner ? '#ffffff' : isFocused ? '#ffffff' : isDark ? '#a1a1aa' : '#71717a';
+  const bgColor = isScanner ? '#3b82f6' : isFocused ? '#3b82f6' : isDark ? '#27272a' : '#e4e4e7';
 
   return (
     <Pressable
@@ -102,6 +105,8 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
 
 export function AnimatedTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { theme } = useUniwind();
+  const isDark = theme === 'dark';
 
   const currentRoute = state.routes[state.index];
   const { options: currentOptions } = descriptors[currentRoute?.key] || {};
@@ -118,6 +123,7 @@ export function AnimatedTabBar({ state, descriptors, navigation }: any) {
 
   return (
     <View
+      className="bg-surface border-t border-default/70"
       style={{
         position: 'absolute',
         bottom: 0,
@@ -125,13 +131,15 @@ export function AnimatedTabBar({ state, descriptors, navigation }: any) {
         right: 0,
         height: 76 + insets.bottom,
         paddingBottom: insets.bottom,
-        backgroundColor: '#121212',
-        borderTopWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.12)',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
         paddingHorizontal: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: isDark ? 0.25 : 0.06,
+        shadowRadius: 8,
+        elevation: 10,
       }}
     >
       {visibleRoutes.map((route: any) => {

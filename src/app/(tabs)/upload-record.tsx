@@ -7,6 +7,7 @@ import { useState, useCallback } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import { useUniwind } from "uniwind";
 
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
@@ -33,6 +34,8 @@ const RECORD_TYPES = [
 
 export default function UploadRecordScreen(): JSX.Element {
   const router = useRouter();
+  const { theme } = useUniwind();
+  const isDark = theme === "dark";
   const { token, activePregnancy, motherRecord, user, refreshProfile } = useAuth();
   const { isOnline } = useNetwork();
 
@@ -235,37 +238,37 @@ export default function UploadRecordScreen(): JSX.Element {
         {/* Record Type Dropdown Trigger */}
         <View className="px-5 mb-6 pt-2">
           <Text className="text-foreground text-base font-semibold mb-1">Record Type</Text>
-          <Text className="text-zinc-400 text-sm mb-3">Select the type of document or test you are submitting.</Text>
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3">Select the type of document or test you are submitting.</Text>
 
           <Pressable
             onPress={() => setIsDropdownOpen(true)}
-            className="bg-[#18171C] border border-white/[0.08] rounded-2xl p-3.5 flex-row items-center justify-between active:bg-[#25242A]"
+            className="bg-surface border border-default rounded-2xl p-3.5 flex-row items-center justify-between active:bg-surface-secondary shadow-xs"
           >
             <View className="flex-row items-center gap-3 flex-1">
-              <View className="size-9 rounded-xl items-center justify-center bg-[#25242A] border border-white/[0.06]">
+              <View className="size-9 rounded-xl items-center justify-center bg-primary/10 border border-primary/20">
                 <Ionicons name={selectedTypeObj.icon as any} size={18} color="#3b82f6" />
               </View>
               <View className="flex-1">
-                <Text className="text-white text-sm font-bold">{selectedTypeObj.label}</Text>
-                <Text className="text-zinc-400 text-[11px] mt-0.5">Tap to change record type</Text>
+                <Text className="text-foreground text-sm font-bold">{selectedTypeObj.label}</Text>
+                <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] mt-0.5">Tap to change record type</Text>
               </View>
             </View>
-            <Ionicons name="chevron-down" size={18} color="#a1a1aa" />
+            <Ionicons name="chevron-down" size={18} color={isDark ? "#a1a1aa" : "#71717a"} />
           </Pressable>
         </View>
 
         {/* File Selection Box */}
         <View className="px-5 mb-6">
           <Text className="text-foreground text-base font-semibold mb-1">Upload Document Attachment</Text>
-          <Text className="text-zinc-400 text-sm mb-4">Upload a lab scan, image, or report document.</Text>
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Upload a lab scan, image, or report document.</Text>
 
           {selectedFile ? (
-            <View className="bg-surface border border-sky-500/40 rounded-2xl p-4 flex-row items-center gap-3">
+            <View className="bg-surface border border-sky-500/40 rounded-2xl p-4 flex-row items-center gap-3 shadow-xs">
               {selectedFile.mimeType?.startsWith("image/") || selectedFile.uri.match(/\.(jpg|jpeg|png)$/i) ? (
                 <Image source={{ uri: selectedFile.uri }} className="size-14 rounded-xl bg-default/40" />
               ) : (
-                <View className="size-14 rounded-xl bg-sky-500/20 items-center justify-center">
-                  <Ionicons name="document-text" size={26} color="#38bdf8" />
+                <View className="size-14 rounded-xl bg-sky-500/15 border border-sky-500/25 items-center justify-center">
+                  <Ionicons name="document-text" size={26} color="#0284c7" />
                 </View>
               )}
 
@@ -273,7 +276,7 @@ export default function UploadRecordScreen(): JSX.Element {
                 <Text className="text-foreground font-semibold text-sm" numberOfLines={1}>
                   {selectedFile.name}
                 </Text>
-                <Text className="text-zinc-400 text-sm mt-0.5">
+                <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
                   {selectedFile.size
                     ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
                     : "Document attached"}
@@ -292,11 +295,11 @@ export default function UploadRecordScreen(): JSX.Element {
               onPress={handlePickDocument}
               className="bg-surface border-2 border-dashed border-default rounded-2xl items-center justify-center py-8 mb-4 active:bg-surface-secondary"
             >
-              <View className="size-16 rounded-full bg-[#6366f1]/15 items-center justify-center mb-3">
+              <View className="size-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 items-center justify-center mb-3">
                 <Ionicons name="cloud-upload-outline" size={28} color="#6366f1" />
               </View>
               <Text className="text-foreground font-semibold text-base mb-1">Tap to select document</Text>
-              <Text className="text-zinc-400 text-sm">PDF, PNG, or JPG (max 10MB)</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 text-sm">PDF, PNG, or JPG (max 10MB)</Text>
             </Pressable>
           )}
         </View>
@@ -325,15 +328,15 @@ export default function UploadRecordScreen(): JSX.Element {
 
       {/* Record Type Dropdown Selection Modal */}
       <Modal visible={isDropdownOpen} transparent animationType="fade" onRequestClose={() => setIsDropdownOpen(false)}>
-        <Pressable onPress={() => setIsDropdownOpen(false)} className="flex-1 bg-black/80 justify-center items-center p-5">
-          <Pressable className="w-full max-w-sm bg-[#16161C] border border-white/[0.12] rounded-3xl p-5 gap-3 shadow-2xl">
-            <View className="flex-row items-center justify-between pb-3 border-b border-white/[0.08]">
+        <Pressable onPress={() => setIsDropdownOpen(false)} className="flex-1 bg-black/60 justify-center items-center p-5">
+          <Pressable className="w-full max-w-sm bg-surface border border-default rounded-3xl p-5 gap-3 shadow-2xl">
+            <View className="flex-row items-center justify-between pb-3 border-b border-default">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="list" size={18} color="#3b82f6" />
-                <Text className="text-white font-bold text-base">Select Record Type</Text>
+                <Text className="text-foreground font-bold text-base">Select Record Type</Text>
               </View>
-              <Pressable onPress={() => setIsDropdownOpen(false)} className="size-7 items-center justify-center rounded-full bg-[#25242A]">
-                <Ionicons name="close" size={16} color="#a1a1aa" />
+              <Pressable onPress={() => setIsDropdownOpen(false)} className="size-8 items-center justify-center rounded-full bg-default active:opacity-80">
+                <Ionicons name="close" size={16} color={isDark ? "#a1a1aa" : "#52525b"} />
               </Pressable>
             </View>
 
@@ -350,15 +353,15 @@ export default function UploadRecordScreen(): JSX.Element {
                     }}
                     className={`p-3.5 rounded-2xl border flex-row items-center justify-between ${
                       isSelected
-                        ? "bg-[#25242A] border-[#3b82f6]"
-                        : "bg-[#18171C] border-white/[0.06]"
+                        ? "bg-primary/10 border-primary"
+                        : "bg-surface-secondary border-default active:bg-default/50"
                     }`}
                   >
                     <View className="flex-row items-center gap-3">
-                      <View className="size-9 rounded-xl items-center justify-center bg-[#25242A] border border-white/[0.06]">
-                        <Ionicons name={type.icon as any} size={18} color={isSelected ? "#3b82f6" : "#a1a1aa"} />
+                      <View className={`size-9 rounded-xl items-center justify-center ${isSelected ? "bg-primary/20 border border-primary/30" : "bg-default border border-default"}`}>
+                        <Ionicons name={type.icon as any} size={18} color={isSelected ? "#3b82f6" : isDark ? "#a1a1aa" : "#71717a"} />
                       </View>
-                      <Text className={`text-sm font-semibold ${isSelected ? "text-white" : "text-zinc-300"}`}>
+                      <Text className={`text-sm ${isSelected ? "text-primary font-bold" : "text-foreground font-medium"}`}>
                         {type.label}
                       </Text>
                     </View>

@@ -50,7 +50,7 @@ export default function RootLayout(): JSX.Element | null {
             <UserProvider>
               <ConfirmationProvider>
                 <PushNotificationSubscriber />
-                <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+                <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }} edges={["top"]}>
                   <OfflineBanner />
                   <Stack screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="(auth)" />
