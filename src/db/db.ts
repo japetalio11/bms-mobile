@@ -68,6 +68,10 @@ async function initTables(db: SQLite.SQLiteDatabase) {
       age INTEGER,
       civil_status TEXT,
       blood_type TEXT,
+      assigned_worker_id TEXT,
+      created_by_id TEXT,
+      assigned_worker_json TEXT,
+      creator_json TEXT,
       updated_at TEXT
     );
 
@@ -238,6 +242,19 @@ async function initTables(db: SQLite.SQLiteDatabase) {
 
   try {
     await db.execAsync("ALTER TABLE sync_queue ADD COLUMN user_id TEXT;");
+  } catch {}
+
+  try {
+    await db.execAsync("ALTER TABLE mother_records ADD COLUMN assigned_worker_id TEXT;");
+  } catch {}
+  try {
+    await db.execAsync("ALTER TABLE mother_records ADD COLUMN created_by_id TEXT;");
+  } catch {}
+  try {
+    await db.execAsync("ALTER TABLE mother_records ADD COLUMN assigned_worker_json TEXT;");
+  } catch {}
+  try {
+    await db.execAsync("ALTER TABLE mother_records ADD COLUMN creator_json TEXT;");
   } catch {}
 }
 

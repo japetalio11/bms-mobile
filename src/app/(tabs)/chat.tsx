@@ -69,6 +69,8 @@ export default function ChatScreen(): JSX.Element {
   const assignedWorkerId =
     motherRecord?.assigned_worker_id ||
     motherRecord?.assignedWorker?.user_id ||
+    (motherRecord as any)?.created_by_id ||
+    (motherRecord as any)?.creator?.user_id ||
     null;
 
   // State
@@ -136,8 +138,34 @@ export default function ChatScreen(): JSX.Element {
             return Array.from(map.values());
           });
         }
-        if (localStaff.length > 0) {
-          setStaffList(localStaff);
+        const activeAssignedId =
+          motherRecord?.assigned_worker_id ||
+          motherRecord?.assignedWorker?.user_id ||
+          (motherRecord as any)?.created_by_id ||
+          (motherRecord as any)?.creator?.user_id ||
+          null;
+
+        let scopedStaff: ChatContact[] = [];
+        if (activeAssignedId) {
+          scopedStaff = localStaff.filter((s) => s.user_id === activeAssignedId);
+          if (scopedStaff.length === 0 && motherRecord?.assignedWorker) {
+            scopedStaff = [motherRecord.assignedWorker as any];
+          }
+        } else {
+          const messagedIds = new Set(
+            localMsgs
+              .map((m) => (m.sender_id === user.user_id ? m.receiver_id : m.sender_id))
+              .filter(Boolean)
+          );
+          scopedStaff = localStaff.filter((s) => messagedIds.has(s.user_id));
+        }
+
+        if (scopedStaff.length > 0) {
+          setStaffList(scopedStaff);
+        } else if (motherRecord?.assignedWorker) {
+          setStaffList([motherRecord.assignedWorker as any]);
+        } else {
+          setStaffList([]);
         }
         isInitialHydrationDone.current = true;
       }
@@ -315,12 +343,37 @@ export default function ChatScreen(): JSX.Element {
   const filteredStaff = useMemo(() => {
     let list = staffWithMeta;
 
-    // If assigned to a specific worker, prioritize or scope to assigned provider
+    // Security & scoping rule: In mother app, a mother can only chat with the person in charge of her (assigned worker / care provider)
     if (assignedWorkerId) {
       const assignedOnly = list.filter((s) => s.user_id === assignedWorkerId);
       if (assignedOnly.length > 0) {
         list = assignedOnly;
+      } else if (motherRecord?.assignedWorker) {
+        list = [
+          {
+            user_id: assignedWorkerId,
+            first_name: motherRecord.assignedWorker.first_name || "Assigned",
+            last_name: motherRecord.assignedWorker.last_name || "Care Provider",
+            role: motherRecord.assignedWorker.role || "HealthWorker",
+            profile_url: motherRecord.assignedWorker.profile_url,
+            isAssigned: true,
+            lastMessage: "Your assigned care provider · Tap to message",
+            lastMessageDate: null,
+            unreadCount: 0,
+          } as any,
+        ];
+      } else {
+        list = [];
       }
+    } else {
+      // If no assigned worker is explicitly set, ONLY allow staff who have an existing message history with this mother
+      const messagedStaffIds = new Set(
+        allMessages
+          .map((m) => (m.sender_id === user?.user_id ? m.receiver_id : m.sender_id))
+          .filter(Boolean)
+      );
+
+      list = list.filter((s) => messagedStaffIds.has(s.user_id));
     }
 
     if (roleFilter !== "All") {
@@ -354,7 +407,7 @@ export default function ChatScreen(): JSX.Element {
       if (b.lastMessageDate) return 1;
       return (a.first_name || "").localeCompare(b.first_name || "");
     });
-  }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId]);
+  }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId, motherRecord?.assignedWorker, allMessages, user?.user_id]);
 
   // Messages for the currently selected 1-to-1 chat with robust deduplication
   const currentChatMessages = useMemo<MessageBubble[]>(() => {

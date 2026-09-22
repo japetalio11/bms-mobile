@@ -16,7 +16,8 @@ import type { JSX } from "react";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { useAuth } from "../../context/UserContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth, STORAGE_KEYS } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { useConfirm } from "../../context/ConfirmationContext";
 import {
@@ -24,6 +25,7 @@ import {
   uploadAvatarApi,
   formatFormDataFile,
 } from "../../config/api";
+import { updateUserProfileLocal, enqueueSyncAction } from "../../db/repository";
 
 export default function EditProfileScreen(): JSX.Element {
   const router = useRouter();
@@ -127,9 +129,10 @@ export default function EditProfileScreen(): JSX.Element {
 
     try {
       let uploadedProfileUrl: string | undefined = undefined;
+      const isLocalFile = avatarUri && (avatarUri.startsWith("file://") || avatarUri.startsWith("content://"));
 
       // If a new local image was selected (file:// or content://)
-      if (avatarUri && (avatarUri.startsWith("file://") || avatarUri.startsWith("content://"))) {
+      if (isLocalFile) {
         if (isOnline && token) {
           try {
             setIsUploadingPhoto(true);
@@ -154,19 +157,64 @@ export default function EditProfileScreen(): JSX.Element {
         uploadedProfileUrl = avatarUri;
       }
 
-      await updateMotherProfileApi(
-        {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          phone_number: phone.trim(),
-          email: email.trim(),
-          address: address.trim(),
-          ...(uploadedProfileUrl ? { profile_url: uploadedProfileUrl } : {}),
-        },
-        token || ""
-      );
+      const updatedPayload = {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone_number: phone.trim(),
+        email: email.trim(),
+        address: address.trim(),
+        ...(uploadedProfileUrl ? { profile_url: uploadedProfileUrl } : {}),
+      };
 
-      await refreshProfile();
+      // 1. Immediately persist to SQLite database for offline longevity
+      if (user.user_id) {
+        await updateUserProfileLocal(user.user_id, updatedPayload);
+      }
+
+      // 2. Immediately persist to AsyncStorage for instant UI reflection
+      const updatedUser = {
+        ...user,
+        ...updatedPayload,
+        name: [updatedPayload.first_name, user.middle_name, updatedPayload.last_name].filter(Boolean).join(" "),
+      };
+      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+
+      // 3. Online sync or queue for background offline sync
+      if (isOnline && token) {
+        try {
+          await updateMotherProfileApi(updatedPayload, token);
+          await refreshProfile();
+        } catch (apiErr: any) {
+          console.warn("Online profile update failed, queued to offline sync engine:", apiErr);
+          if (user.user_id) {
+            await enqueueSyncAction(
+              "UPDATE_PROFILE",
+              "/api/v1/mother/profile/update",
+              "PUT",
+              {
+                ...updatedPayload,
+                ...(isLocalFile ? { localAvatarUri: avatarUri } : {}),
+              },
+              user.user_id
+            );
+          }
+        }
+      } else {
+        if (user.user_id) {
+          await enqueueSyncAction(
+            "UPDATE_PROFILE",
+            "/api/v1/mother/profile/update",
+            "PUT",
+            {
+              ...updatedPayload,
+              ...(isLocalFile ? { localAvatarUri: avatarUri } : {}),
+            },
+            user.user_id
+          );
+        }
+        await refreshProfile();
+      }
+
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
@@ -175,7 +223,7 @@ export default function EditProfileScreen(): JSX.Element {
         } else {
           router.replace("/(tabs)/profile");
         }
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || "Failed to update profile. Please try again.");
     } finally {
