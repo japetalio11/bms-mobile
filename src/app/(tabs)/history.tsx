@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
+﻿import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,7 +17,6 @@ export default function HistoryScreen(): JSX.Element {
   useEffect(() => {
     let isMounted = true;
     if (user?.user_id) {
-      // 1. Read from local SQLite immediately
       getAppointmentsLocal(user.user_id)
         .then((local) => {
           if (isMounted && local) {
@@ -26,7 +25,6 @@ export default function HistoryScreen(): JSX.Element {
         })
         .catch(() => {});
 
-      // 2. Fetch fresh from API if online
       if (isOnline && token) {
         setIsLoading(true);
         getAppointmentsByUserApi(user.user_id, token)

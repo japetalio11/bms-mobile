@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+﻿import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { View } from "react-native";
 import type { ComponentProps, JSX } from "react";
@@ -26,10 +26,10 @@ export default function TabsLayout(): JSX.Element {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: { display: "none" }, // hidden — we use AnimatedTabBar
+        tabBarStyle: { display: "none" },
       }}
     >
-      {/* ── Visible tabs (appear in scrollable tab bar) ── */}
+      
       <Tabs.Screen
         name="index"
         options={{
@@ -65,7 +65,7 @@ export default function TabsLayout(): JSX.Element {
           tabBarIcon: ({ color }) => <TabIcon name="person-outline" color={color} />,
         }}
       />
-      {/* ── Hidden screens (not shown in tab bar) ── */}
+      
       <Tabs.Screen name="scanner" options={{ href: null }} />
       <Tabs.Screen name="search" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />

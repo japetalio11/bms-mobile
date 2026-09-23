@@ -1,4 +1,4 @@
-import { getDatabase } from "./db";
+﻿import { getDatabase } from "./db";
 import type {
   AuthUser,
   MotherRecord,
@@ -19,7 +19,7 @@ import {
   decryptObject,
 } from "../lib/crypto";
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 export type SyncQueueItem = {
   id: string;
@@ -27,14 +27,13 @@ export type SyncQueueItem = {
   action_type: string;
   endpoint: string;
   method: string;
-  payload: string; // Decrypted or JSON string
+  payload: string;
   created_at: string;
   retry_count: number;
   status: "pending" | "failed" | "completed";
   error?: string;
 };
 
-// --- MVCC Record History ---
 export async function saveRecordHistory(
   entityType: string,
   entityId: string,
@@ -50,7 +49,6 @@ export async function saveRecordHistory(
   );
 }
 
-// --- Sync Queue Operations (Strictly Isolated by user_id) ---
 export async function enqueueSyncAction(
   actionType: string,
   endpoint: string,
@@ -63,7 +61,6 @@ export async function enqueueSyncAction(
   const now = new Date().toISOString();
   const targetUserId = userId || payload.user_id || payload.userId || "";
 
-  // Encrypt payload at rest for offline privacy
   const encryptedPayload = await encryptObject(payload);
 
   await db.runAsync(
@@ -86,7 +83,6 @@ export async function getPendingSyncItems(userId?: string): Promise<SyncQueueIte
         `SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY created_at ASC`
       );
 
-  // Decrypt payloads before passing to the sync engine
   const decryptedItems: SyncQueueItem[] = [];
   for (const row of rows) {
     const rawPayload = await decryptSensitiveText(row.payload);
@@ -111,7 +107,6 @@ export async function markSyncItemFailed(id: string, errorMsg: string) {
   );
 }
 
-// --- Profile & Mother Record Operations ---
 export async function saveMotherProfileLocal(data: {
   user: AuthUser;
   mother_id?: string;
@@ -190,7 +185,6 @@ export async function saveMotherProfileLocal(data: {
         ]
       );
 
-      // Save prenatal visits with encrypted clinical notes
       if (preg.prenatalVisits && preg.prenatalVisits.length > 0) {
         for (const visit of preg.prenatalVisits) {
           const encComplaint = await encryptSensitiveText(visit.chief_complaint || "");
@@ -221,7 +215,6 @@ export async function saveMotherProfileLocal(data: {
         }
       }
 
-      // Save delivery outcomes and newborn records if present
       if (preg.deliveryOutcomes && preg.deliveryOutcomes.length > 0) {
         await saveDeliveryOutcomesLocal(preg.pregnancy_id, data.mother_id || "", preg.deliveryOutcomes);
       }
@@ -343,14 +336,12 @@ export async function getMotherProfileLocal(userId: string): Promise<{
         [p.pregnancy_id]
       );
 
-      // Decrypt clinical notes
       for (const v of visits) {
         v.chief_complaint = await decryptSensitiveText(v.chief_complaint);
         v.risk_level_assessed = await decryptSensitiveText(v.risk_level_assessed);
       }
       p.prenatalVisits = visits;
 
-      // Attach delivery outcomes
       const deliveries = await getDeliveryOutcomesLocal(rawMRecord.mother_id);
       p.deliveryOutcomes = deliveries.filter((d) => d.pregnancy_id === p.pregnancy_id);
     }
@@ -386,7 +377,6 @@ export async function updateUserProfileLocal(
   const db = await getDatabase();
   const now = new Date().toISOString();
 
-  // 1. Update users table
   const userFields: string[] = [];
   const userParams: any[] = [];
   if (updates.first_name !== undefined) { userFields.push("first_name = ?"); userParams.push(updates.first_name); }
@@ -404,7 +394,6 @@ export async function updateUserProfileLocal(
     await db.runAsync(`UPDATE users SET ${userFields.join(", ")} WHERE user_id = ?`, userParams);
   }
 
-  // 2. Update mother_records table
   const motherFields: string[] = [];
   const motherParams: any[] = [];
   if (updates.birth_date !== undefined) { motherFields.push("birth_date = ?"); motherParams.push(updates.birth_date); }
@@ -419,7 +408,6 @@ export async function updateUserProfileLocal(
   }
 }
 
-// --- Appointments Operations ---
 export async function getAppointmentsLocal(userId: string): Promise<AppointmentRecord[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<AppointmentRecord>(
@@ -551,7 +539,6 @@ export async function cancelAppointmentLocal(
   }
 }
 
-// --- Supplements Operations ---
 export async function getSupplementsLocal(motherId: string): Promise<SupplementRecord[]> {
   if (!motherId) return [];
   const db = await getDatabase();
@@ -634,7 +621,6 @@ export async function updateSupplementStatusLocal(
   }
 }
 
-// --- Lab Screenings Operations ---
 export async function getLabScreeningsLocal(motherId: string): Promise<LabScreeningRecord[]> {
   if (!motherId) return [];
   const db = await getDatabase();
@@ -786,7 +772,6 @@ export async function createLabScreeningLocal(
   return record;
 }
 
-// --- Messages & Chat Operations (Encrypted & Isolated) ---
 export async function getMessagesLocal(userId: string, contactId?: string): Promise<InAppMessage[]> {
   const db = await getDatabase();
   let query = `SELECT * FROM messages WHERE (sender_id = ? OR receiver_id = ?)`;
@@ -838,7 +823,6 @@ export async function saveMessagesLocal(messages: InAppMessage[]) {
       ]
     );
 
-    // If this is a confirmed server message (not starting with local_), clean up any old local_ messages that had matching metadata
     if (!m.message_id.startsWith("local_")) {
       await db.runAsync(
         `DELETE FROM messages 
@@ -900,7 +884,6 @@ export async function saveOutgoingMessageLocal(
   return message;
 }
 
-// --- Chat Contacts Operations ---
 export async function getChatContactsLocal(facilityId?: string): Promise<ChatContact[]> {
   const db = await getDatabase();
   let query = `SELECT * FROM chat_contacts`;

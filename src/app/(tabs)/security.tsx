@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+﻿import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, Button, TextField, Label, Input } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -70,8 +70,7 @@ export default function SecurityScreen(): JSX.Element {
     <View className="flex-1 bg-background">
       <Header showBackButton title="Security" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        
-        {/* Error Alert */}
+
         {error && (
           <View className="mx-5 mt-4 mb-2 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="alert-circle-outline" size={22} color="#ef4444" />
@@ -79,7 +78,6 @@ export default function SecurityScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Success Alert */}
         {successMessage && (
           <View className="mx-5 mt-4 mb-2 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
@@ -87,7 +85,6 @@ export default function SecurityScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Change Password Form */}
         <View className="px-5 mb-6 pt-2">
           <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Password & Credentials</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-5 gap-5">
@@ -170,7 +167,6 @@ export default function SecurityScreen(): JSX.Element {
           </Card>
         </View>
 
-        {/* Active Session Info */}
         <View className="px-5 mb-6">
           <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Active Session</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+﻿import { useState, useRef, useEffect, useCallback } from "react";
 import { Platform } from "react-native";
 import {
   RecaptchaVerifier,
@@ -23,7 +23,6 @@ function getNativePhoneAuthHandler() {
 
     const firebaseAuthMod = require("@react-native-firebase/auth");
     
-    // Method 1: Traditional auth() function (e.g. auth().signInWithPhoneNumber)
     let authObj: any = null;
     if (typeof firebaseAuthMod === "function") {
       try { authObj = firebaseAuthMod(); } catch (e) {}
@@ -36,7 +35,6 @@ function getNativePhoneAuthHandler() {
       return (phone: string) => authObj.signInWithPhoneNumber(phone);
     }
 
-    // Method 2: Modular getAuth() (e.g. getAuth().signInWithPhoneNumber)
     if (typeof firebaseAuthMod?.getAuth === "function") {
       try {
         const authInst = firebaseAuthMod.getAuth();
@@ -47,7 +45,6 @@ function getNativePhoneAuthHandler() {
       } catch (e) {}
     }
 
-    // Method 3: Direct modular function signInWithPhoneNumber(auth, phone) or signInWithPhoneNumber(phone)
     if (typeof firebaseAuthMod?.signInWithPhoneNumber === "function") {
       console.log("✅ [Native Firebase Auth] Using modular signInWithPhoneNumber function");
       return (phone: string) => {
@@ -124,7 +121,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
   const [formattedPhone, setFormattedPhone] = useState<string>("");
   const [activeMethod, setActiveMethod] = useState<"firebase" | "backend" | "test">("firebase");
 
-  // Cooldown countdown
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setInterval(() => {
@@ -213,11 +209,9 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
       if (!container) {
         return;
       }
-      // If container was remounted and has no children, clean up previous verifier instance
       if (verifierRef.current && container.children.length === 0) {
         cleanupRecaptcha();
       }
-      // If widget is already mounted in this container, do not re-render
       if (container.children.length > 0 && verifierRef.current) {
         return;
       }
@@ -230,7 +224,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
     }
   }, [containerId, getOrInitRecaptcha, cleanupRecaptcha]);
 
-  // Pre-render visible reCAPTCHA on web after DOM is ready
   useEffect(() => {
     if (Platform.OS === "web") {
       const timer = setTimeout(() => {
@@ -267,7 +260,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
 
       const isTestNum = isTestPhoneNumber(formatted);
 
-      // Handle test phone numbers
       if (isTestNum) {
         setActiveMethod("test");
         setIsOtpSent(true);
@@ -278,7 +270,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
         return true;
       }
 
-      // If running on Web, use Firebase Phone Auth with reCAPTCHA as the default & primary
       if (Platform.OS === "web") {
         if (recaptchaSize === "normal" && !isRecaptchaSolved) {
           console.warn("[PhoneAuth Diagnostic] ⚠️ reCAPTCHA checkbox is not solved yet.");
@@ -368,12 +359,10 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
           setStatusType("error");
           const humanMsg = getFirebaseErrorMessage(firebaseErr?.code || firebaseErr?.message || "");
           setStatusMessage(humanMsg);
-          // Do not fall back to broken backend iProg SMS
           return false;
         }
       }
 
-      // If running on Native (non-web) -> Use Native Firebase Phone Auth
       try {
         console.group("📱 [Firebase Native Phone Auth Android - Dispatching SMS]");
         console.log("Target Phone (E.164):", formatted);
@@ -408,7 +397,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
           console.warn("⚠️ Native Firebase Auth function handler could not be initialized. Falling back to Backend SMS OTP API...");
         }
 
-        // Fallback to Backend SMS OTP API
         console.log(`[Backend SMS Fallback] Sending OTP via backend to ${formatted}...`);
         await sendOtpApi({
           identifier: formatted,
@@ -453,7 +441,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
       setStatusType("info");
       setStatusMessage("Verifying code...");
 
-      // 1. Dev test number verification
       if (activeMethod === "test") {
         if (cleanCode === "123456") {
           setIsVerified(true);
@@ -470,7 +457,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
         }
       }
 
-      // 2. Firebase Phone Auth client verification
       if (activeMethod === "firebase" && confirmationResultRef.current) {
         try {
           await confirmationResultRef.current.confirm(cleanCode);
@@ -488,7 +474,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
         }
       }
 
-      // 3. Backend SMS Verification: Code will be verified by the backend API
       setIsVerified(true);
       setStatusType("success");
       setStatusMessage("Code confirmed. Ready to submit.");

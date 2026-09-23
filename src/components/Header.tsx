@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+﻿import { View, Text, Pressable } from "react-native";
 import { Avatar } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -40,7 +40,7 @@ export function Header({
 
   return (
     <View className="flex-row items-center justify-between px-5 pt-6 pb-3">
-      {/* Left: back button OR avatar + status dot + name */}
+      
       <View className="flex-row items-center gap-3 flex-1 mr-3">
         {showBackButton ? (
           <Pressable
@@ -65,7 +65,6 @@ export function Header({
               )}
             </Avatar>
 
-            {/* Bottom-right Status Dot Indicator (Green = Online, Yellow/Amber = Offline) */}
             <View
               style={{
                 position: "absolute",
@@ -96,7 +95,6 @@ export function Header({
         </View>
       </View>
 
-      {/* Right: action icons */}
       <View className="flex-row items-center gap-2">
         {!showBackButton && (
           <>

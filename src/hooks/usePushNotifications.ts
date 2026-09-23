@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 import { Platform, PermissionsAndroid, Alert } from "react-native";
 import {
   getMessaging,
@@ -21,11 +21,6 @@ type UsePushNotificationsOptions = {
   onNotificationReceived?: (notification: RemoteMessage) => void;
 };
 
-/**
- * Production-ready hook for Firebase Push Notifications (FCM).
- * Prompts for notification permission on initial app launch (including Android 13/14+),
- * fetches the device token, and synchronizes with backend upon login.
- */
 export function usePushNotifications({
   authToken,
   userId,
@@ -35,11 +30,9 @@ export function usePushNotifications({
   const currentTokenRef = useRef<string | null>(null);
   const syncedTokenRef = useRef<string | null>(null);
 
-  // 1. Request notification permissions across Android (13+) and iOS
   const requestUserPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === "android") {
-        // Android 13+ (API level 33+) requires runtime POST_NOTIFICATIONS
         if (Number(Platform.Version) >= 33) {
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
@@ -50,7 +43,6 @@ export function usePushNotifications({
         return true;
       }
 
-      // iOS permission request
       const messagingInstance = getMessaging();
       const authStatus = await requestPermission(messagingInstance, {
         alert: true,
@@ -69,7 +61,6 @@ export function usePushNotifications({
     }
   };
 
-  // 2. Register FCM Device Token with the backend
   const syncTokenWithBackend = async (fcmToken: string) => {
     if (!authToken || !userId) {
       console.log("[FCM] Token stored locally; awaiting user login before backend sync.");
@@ -89,7 +80,6 @@ export function usePushNotifications({
     }
   };
 
-  // 3. Handle navigation when user interacts with a notification
   const handleNotificationNavigation = (remoteMessage: RemoteMessage | null) => {
     if (!remoteMessage || !remoteMessage.data) return;
 
@@ -105,13 +95,11 @@ export function usePushNotifications({
     }
   };
 
-  // Run on startup: prompt permission and retrieve token immediately
   useEffect(() => {
     let isMounted = true;
     const messagingInstance = getMessaging();
 
     const initialize = async () => {
-      // Small timeout allows activity window and splash screen to settle
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (!isMounted) return;
 
@@ -139,7 +127,6 @@ export function usePushNotifications({
 
     initialize();
 
-    // 4. Token Refresh Listener
     const unsubscribeTokenRefresh = onTokenRefresh(
       messagingInstance,
       async (newToken: string) => {
@@ -149,7 +136,6 @@ export function usePushNotifications({
       }
     );
 
-    // 5. Foreground Message Listener (App active)
     const unsubscribeForeground = onMessage(
       messagingInstance,
       (remoteMessage: RemoteMessage) => {
@@ -172,7 +158,6 @@ export function usePushNotifications({
       }
     );
 
-    // 6. Background -> App Open Click Listener
     const unsubscribeNotificationOpened = onNotificationOpenedApp(
       messagingInstance,
       (remoteMessage: RemoteMessage) => {
@@ -181,7 +166,6 @@ export function usePushNotifications({
       }
     );
 
-    // 7. Quit-State -> App Open Click (Cold start)
     getInitialNotification(messagingInstance)
       .then((remoteMessage: RemoteMessage | null) => {
         if (remoteMessage && isMounted) {
@@ -201,7 +185,6 @@ export function usePushNotifications({
     };
   }, []);
 
-  // Sync token whenever user logs in or auth state changes
   useEffect(() => {
     if (authToken && userId && currentTokenRef.current) {
       syncTokenWithBackend(currentTokenRef.current);

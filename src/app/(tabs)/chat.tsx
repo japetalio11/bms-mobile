@@ -52,7 +52,7 @@ type MessageBubble = {
   text: string;
   mine: boolean;
   time: string;
-  type: string; // 'text' | 'image' | 'file'
+  type: string;
   dateRaw: string;
   status?: "sending" | "sent" | "failed" | "queued";
 };
@@ -73,7 +73,6 @@ export default function ChatScreen(): JSX.Element {
     (motherRecord as any)?.creator?.user_id ||
     null;
 
-  // State
   const [staffList, setStaffList] = useState<ChatContact[]>([]);
   const [allMessages, setAllMessages] = useState<InAppMessage[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<ChatContact | null>(null);
@@ -81,7 +80,6 @@ export default function ChatScreen(): JSX.Element {
   const [roleFilter, setRoleFilter] = useState("All");
   const [hasFacility, setHasFacility] = useState<boolean | null>(user?.facility_id ? true : null);
 
-  // Chat conversation state
   const [inputText, setInputText] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -90,7 +88,6 @@ export default function ChatScreen(): JSX.Element {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [sendingMessageIds, setSendingMessageIds] = useState<Set<string>>(new Set());
 
-  // Attachment Modal States
   const [isAttachmentSheetVisible, setIsAttachmentSheetVisible] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{
     uri: string;
@@ -119,11 +116,9 @@ export default function ChatScreen(): JSX.Element {
 
   const isInitialHydrationDone = useRef(false);
 
-  // Fetch all messages and staff directory for affiliated facility
   const fetchAllData = useCallback(async () => {
     if (!token && !user?.user_id) return;
     try {
-      // 1. Initial hydration or Offline: read from local SQLite
       if (user?.user_id && (!isInitialHydrationDone.current || !isOnline)) {
         const [localMsgs, localStaff] = await Promise.all([
           getMessagesLocal(user.user_id),
@@ -170,7 +165,6 @@ export default function ChatScreen(): JSX.Element {
         isInitialHydrationDone.current = true;
       }
 
-      // If offline, don't attempt network calls
       if (!isOnline || !token) {
         return;
       }
@@ -204,18 +198,14 @@ export default function ChatScreen(): JSX.Element {
         remoteStaff = [motherRecord.assignedWorker as any, ...remoteStaff];
       }
 
-      // Merge remote messages with in-flight local messages & recently sent state to prevent race-condition drops
       setAllMessages((prev) => {
         const map = new Map<string, InAppMessage>();
 
-        // 1. Add all remote messages
         remoteMessages.forEach((m) => map.set(m.message_id, m));
 
-        // 2. Preserve local/in-flight messages from state that aren't in remoteMessages yet
         prev.forEach((m) => {
           if (map.has(m.message_id)) return;
 
-          // Check if remote already contains a matching message (by sender, receiver, content, timestamp)
           const matchingRemote = remoteMessages.find(
             (rm) =>
               rm.sender_id === m.sender_id &&
@@ -225,7 +215,6 @@ export default function ChatScreen(): JSX.Element {
           );
 
           if (!matchingRemote) {
-            // Keep message if it's a local draft or sent recently (< 3 min)
             const isLocal = m.message_id.startsWith("local_");
             const isRecent = Math.abs(Date.now() - new Date(m.message_date).getTime()) < 180000;
             if (isLocal || (isRecent && m.sender_id === user?.user_id)) {
@@ -247,7 +236,6 @@ export default function ChatScreen(): JSX.Element {
         setStaffList(remoteStaff);
       }
 
-      // Persist fresh network data to SQLite database
       if (remoteMessages.length > 0) {
         await saveMessagesLocal(remoteMessages);
       }
@@ -279,31 +267,26 @@ export default function ChatScreen(): JSX.Element {
     setIsRefreshing(false);
   };
 
-  // Mark messages as read when opening a conversation with a staff member
   useEffect(() => {
     if (selectedStaff && token && isOnline) {
       markMessagesAsReadApi(selectedStaff.user_id, token).catch(() => {});
     }
   }, [selectedStaff, token, isOnline]);
 
-  // Compute per-staff metadata (last message, unread count, timestamp)
   const staffWithMeta = useMemo(() => {
     return staffList.map((staff) => {
       const isAssigned = Boolean(
         assignedWorkerId && staff.user_id === assignedWorkerId
       );
 
-      // Filter messages strictly between current mother and this staff member
       const threadMessages = allMessages.filter(
         (m) =>
           (m.sender_id === staff.user_id && m.receiver_id === user?.user_id) ||
           (m.sender_id === user?.user_id && m.receiver_id === staff.user_id)
       );
 
-      // Latest message
       const lastMsg = threadMessages.length > 0 ? threadMessages[threadMessages.length - 1] : null;
 
-      // Count unread messages received from this staff member
       const unreadCount = threadMessages.filter(
         (m) => m.sender_id === staff.user_id && !m.is_read
       ).length;
@@ -339,11 +322,9 @@ export default function ChatScreen(): JSX.Element {
     });
   }, [staffList, allMessages, user?.user_id, assignedWorkerId]);
 
-  // Filter staff directory by search query and role filter
   const filteredStaff = useMemo(() => {
     let list = staffWithMeta;
 
-    // Security & scoping rule: In mother app, a mother can only chat with the person in charge of her (assigned worker / care provider)
     if (assignedWorkerId) {
       const assignedOnly = list.filter((s) => s.user_id === assignedWorkerId);
       if (assignedOnly.length > 0) {
@@ -366,7 +347,6 @@ export default function ChatScreen(): JSX.Element {
         list = [];
       }
     } else {
-      // If no assigned worker is explicitly set, ONLY allow staff who have an existing message history with this mother
       const messagedStaffIds = new Set(
         allMessages
           .map((m) => (m.sender_id === user?.user_id ? m.receiver_id : m.sender_id))
@@ -396,7 +376,6 @@ export default function ChatScreen(): JSX.Element {
       });
     }
 
-    // Sort by assigned first, then latest message date, then by name
     return list.sort((a, b) => {
       if (a.isAssigned && !b.isAssigned) return -1;
       if (!a.isAssigned && b.isAssigned) return 1;
@@ -409,7 +388,6 @@ export default function ChatScreen(): JSX.Element {
     });
   }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId, motherRecord?.assignedWorker, allMessages, user?.user_id]);
 
-  // Messages for the currently selected 1-to-1 chat with robust deduplication
   const currentChatMessages = useMemo<MessageBubble[]>(() => {
     if (!selectedStaff) return [];
 
@@ -419,11 +397,9 @@ export default function ChatScreen(): JSX.Element {
         (m.sender_id === user?.user_id && m.receiver_id === selectedStaff.user_id)
     );
 
-    // Deduplicate by message_id
     const seenIds = new Set<string>();
     const uniqueMessages: InAppMessage[] = [];
 
-    // Sort chronologically
     const sortedThread = [...thread].sort(
       (a, b) => new Date(a.message_date).getTime() - new Date(b.message_date).getTime()
     );
@@ -468,7 +444,6 @@ export default function ChatScreen(): JSX.Element {
     }
   }, [currentChatMessages]);
 
-  // Send Text Message with immediate optimistic bubble + loading indicator
   const handleSendText = async () => {
     const trimmed = inputText.trim();
     if (!trimmed || !selectedStaff || isSending || !user?.user_id) return;
@@ -484,9 +459,7 @@ export default function ChatScreen(): JSX.Element {
       is_read: false,
     };
 
-    // 1. Immediately clear input so the user can continue typing
     setInputText("");
-    // 2. Optimistically append message to conversation view right away
     setAllMessages((prev) => [...prev, localMessage]);
     setSendingMessageIds((prev) => new Set(prev).add(localId));
     setIsSending(true);
@@ -501,7 +474,6 @@ export default function ChatScreen(): JSX.Element {
           },
           token
         );
-        // Replace local placeholder with true server message
         if (sentMsg?.message_id) {
           setAllMessages((prev) =>
             prev.map((m) => (m.message_id === localId ? { ...sentMsg, is_read: false } : m))
@@ -527,7 +499,6 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Upload and send attachment (Image or File) with immediate optimistic preview + inline loading
   const uploadAndSendAttachment = async (
     fileInfo: { uri: string; name: string; type: string },
     detectedType: "image" | "file"
@@ -550,13 +521,12 @@ export default function ChatScreen(): JSX.Element {
       message_id: localId,
       sender_id: user.user_id,
       receiver_id: selectedStaff.user_id,
-      message_content: fileInfo.uri, // Show local image preview or local path immediately
+      message_content: fileInfo.uri,
       message_type: detectedType,
       message_date: new Date().toISOString(),
       is_read: false,
     };
 
-    // Optimistically render the image or file bubble right away
     setAllMessages((prev) => [...prev, localMessage]);
     setSendingMessageIds((prev) => new Set(prev).add(localId));
     setIsSending(true);
@@ -600,7 +570,6 @@ export default function ChatScreen(): JSX.Element {
         cancelText: "",
         variant: "danger",
       });
-      // Remove failed local item
       setAllMessages((prev) => prev.filter((m) => m.message_id !== localId));
     } finally {
       setIsSending(false);
@@ -612,7 +581,6 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Handle Photo selection (Camera or Gallery)
   const handlePickImage = async (useCamera = false) => {
     setIsAttachmentSheetVisible(false);
     try {
@@ -669,7 +637,6 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Handle Document Selection (PDF / Records)
   const handlePickDocument = async () => {
     setIsAttachmentSheetVisible(false);
     try {
@@ -707,7 +674,6 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Open Document Attachment using WebBrowser / Linking safely
   const handleOpenDocument = async (fileUrlOrUri: string) => {
     if (!fileUrlOrUri) return;
     const targetUrl = getFullFileUrl(fileUrlOrUri) || fileUrlOrUri;
@@ -741,7 +707,6 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Format timestamp for directory
   const formatTimeLabel = (dateStr: string | null) => {
     if (!dateStr) return "";
     try {
@@ -761,7 +726,6 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
-  // Render role badge colors
   const getRoleBadgeStyle = (role: string) => {
     const r = (role || "").toLowerCase();
     if (r.includes("doctor")) {
@@ -776,7 +740,6 @@ export default function ChatScreen(): JSX.Element {
     return { bg: "bg-amber-500/10", border: "border-amber-500/25", text: "text-amber-600 dark:text-amber-400" };
   };
 
-  // 1. Not affiliated with facility screen
   if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
     return (
       <View className="flex-1 bg-background">
@@ -819,7 +782,6 @@ export default function ChatScreen(): JSX.Element {
     );
   }
 
-  // 2. 1-to-1 Chat Screen with Selected Staff Member
   if (selectedStaff) {
     const staffBadge = getRoleBadgeStyle(selectedStaff.role);
     const staffDisplayName = selectedStaff.role.toLowerCase().includes("doctor")
@@ -837,13 +799,11 @@ export default function ChatScreen(): JSX.Element {
           className="flex-1 bg-background"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-        {/* Chat Header */}
         <View
           style={{ paddingTop: Math.max(insets.top, 16) }}
           className="px-4 pb-3 bg-surface border-b border-default flex-row items-center justify-between"
         >
           <View className="flex-row items-center gap-3 flex-1">
-            {/* Back Button -> Returns to Messenger Staff Directory */}
             <Pressable
               onPress={() => setSelectedStaff(null)}
               className="size-9 rounded-full bg-default items-center justify-center"
@@ -851,7 +811,6 @@ export default function ChatScreen(): JSX.Element {
               <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
             </Pressable>
 
-            {/* Staff Avatar */}
             <View className="relative">
               <Avatar size="sm">
                 {selectedStaff.profile_url ? (
@@ -881,7 +840,6 @@ export default function ChatScreen(): JSX.Element {
               />
             </View>
 
-            {/* Staff Info */}
             <View className="flex-1 min-w-0">
               <Text className="text-foreground font-bold text-base" numberOfLines={1}>
                 {staffDisplayName}
@@ -908,7 +866,6 @@ export default function ChatScreen(): JSX.Element {
           </View>
         </View>
 
-        {/* Chat Messages */}
         {currentChatMessages.length > 0 ? (
           <FlatList
             ref={flatListRef}
@@ -959,7 +916,6 @@ export default function ChatScreen(): JSX.Element {
                         }
                   }
                 >
-                  {/* Image Attachment */}
                   {item.type === "image" ? (
                     <Pressable onPress={() => setPreviewImage(item.text)} className="active:opacity-90 relative">
                       <Image
@@ -974,7 +930,6 @@ export default function ChatScreen(): JSX.Element {
                       )}
                     </Pressable>
                   ) : item.type === "file" ? (
-                    /* PDF or generic document attachment */
                     <Pressable
                       onPress={() => handleOpenDocument(item.text)}
                       style={
@@ -1059,7 +1014,6 @@ export default function ChatScreen(): JSX.Element {
                       )}
                     </Pressable>
                   ) : (
-                    /* Regular Text Message */
                     <Text
                       style={{
                         fontSize: 15,
@@ -1103,7 +1057,6 @@ export default function ChatScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Input Bar */}
         <View
           style={{
             paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom + 16, 32),
@@ -1141,7 +1094,6 @@ export default function ChatScreen(): JSX.Element {
           </Pressable>
         </View>
 
-        {/* Full Screen Image Preview Modal */}
         <Modal
           visible={!!previewImage}
           transparent={true}
@@ -1165,7 +1117,6 @@ export default function ChatScreen(): JSX.Element {
           </View>
         </Modal>
 
-        {/* Custom Styled Attachment Action Sheet Modal */}
         <Modal
           visible={isAttachmentSheetVisible}
           transparent={true}
@@ -1191,7 +1142,6 @@ export default function ChatScreen(): JSX.Element {
               </Text>
 
               <View className="gap-3 mb-4">
-                {/* Take Photo */}
                 <Pressable
                   onPress={() => handlePickImage(true)}
                   className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
@@ -1206,7 +1156,6 @@ export default function ChatScreen(): JSX.Element {
                   <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
                 </Pressable>
 
-                {/* Photo Library */}
                 <Pressable
                   onPress={() => handlePickImage(false)}
                   className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
@@ -1221,7 +1170,6 @@ export default function ChatScreen(): JSX.Element {
                   <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
                 </Pressable>
 
-                {/* Document / Health Record */}
                 <Pressable
                   onPress={() => handlePickDocument()}
                   className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
@@ -1247,7 +1195,6 @@ export default function ChatScreen(): JSX.Element {
           </Pressable>
         </Modal>
 
-        {/* Attachment Preview Modal before sending */}
         <Modal
           visible={!!pendingAttachment}
           transparent={true}
@@ -1279,7 +1226,6 @@ export default function ChatScreen(): JSX.Element {
                   </Pressable>
                 </View>
 
-                {/* Content preview */}
                 {pendingAttachment.detectedType === "image" ? (
                   <Image
                     source={{ uri: pendingAttachment.uri }}
@@ -1310,7 +1256,6 @@ export default function ChatScreen(): JSX.Element {
                   </View>
                 )}
 
-                {/* Confirm Action Buttons */}
                 <View className="flex-row items-center gap-3 mt-1">
                   <Pressable
                     onPress={() => setPendingAttachment(null)}
@@ -1355,12 +1300,10 @@ export default function ChatScreen(): JSX.Element {
     );
   }
 
-  // 3. Messenger-Style Staff & Conversations Directory View
   const facilityTitle = user?.facility_name || user?.facility?.facility_name || "Facility Healthcare Team";
 
   return (
     <View className="flex-1 bg-background">
-      {/* Top Header */}
       <View className="px-5 pt-6 pb-3 bg-surface border-b border-default">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-3">
@@ -1389,7 +1332,6 @@ export default function ChatScreen(): JSX.Element {
           </View>
         </View>
 
-        {/* Search Bar */}
         <View className="flex-row items-center bg-default rounded-xl px-3 py-2">
           <Ionicons name="search-outline" size={18} color={isDark ? "#71717a" : "#64748b"} className="mr-2" />
           <TextInput
@@ -1406,7 +1348,6 @@ export default function ChatScreen(): JSX.Element {
           )}
         </View>
 
-        {/* Role Filter Chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -1438,7 +1379,6 @@ export default function ChatScreen(): JSX.Element {
         </ScrollView>
       </View>
 
-      {/* Staff & Conversation List */}
       <FlatList
         data={filteredStaff}
         keyExtractor={(item) => item.user_id}
@@ -1468,7 +1408,6 @@ export default function ChatScreen(): JSX.Element {
               onPress={() => setSelectedStaff(item)}
               className="flex-row items-center px-5 py-3.5 border-b border-default/50 active:bg-surface-secondary"
             >
-              {/* Staff Avatar with Online Dot */}
               <View className="relative mr-3.5">
                 <Avatar size="md">
                   {item.profile_url ? (
@@ -1484,7 +1423,6 @@ export default function ChatScreen(): JSX.Element {
                   )}
                 </Avatar>
 
-                {/* Status Dot */}
                 <View
                   style={{
                     position: "absolute",
@@ -1500,7 +1438,6 @@ export default function ChatScreen(): JSX.Element {
                 />
               </View>
 
-              {/* Staff Details & Last Message Preview */}
               <View className="flex-1 min-w-0 pr-2">
                 <View className="flex-row items-center justify-between gap-1 mb-1">
                   <Text
@@ -1537,7 +1474,6 @@ export default function ChatScreen(): JSX.Element {
                   )}
                 </View>
 
-                {/* Snippet */}
                 <View className="flex-row items-center justify-between">
                   <Text
                     className={`text-sm truncate flex-1 mr-2 ${
@@ -1548,7 +1484,6 @@ export default function ChatScreen(): JSX.Element {
                     {item.lastMessage}
                   </Text>
 
-                  {/* Unread Badge */}
                   {item.unreadCount > 0 && (
                     <View className="size-5 rounded-full bg-primary items-center justify-center shrink-0">
                       <Text className="text-white text-[10px] font-bold">

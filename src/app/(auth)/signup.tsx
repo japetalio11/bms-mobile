@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image } from "react-native";
+﻿import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button, Checkbox } from "heroui-native";
@@ -41,22 +41,18 @@ export default function SignupScreen(): JSX.Element {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Phone Auth Hook (Firebase Primary + Backend SMS Fallback)
   const phoneAuth = usePhoneAuth({
     containerId: "recaptcha-container",
     cooldownDuration: 60,
   });
 
-  // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
-  // Step state: 1 = Form, 2 = OTP Verification
   const [step, setStep] = useState<1 | 2>(1);
 
-  // Form Fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -67,11 +63,9 @@ export default function SignupScreen(): JSX.Element {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [termsTab, setTermsTab] = useState<"terms" | "privacy" | "data">("terms");
 
-  // OTP Verification state
   const [otp, setOtp] = useState("");
   const [timer, setTimer] = useState(0);
 
-  // UX Feedback states
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
@@ -98,13 +92,11 @@ export default function SignupScreen(): JSX.Element {
       const responseAny = googleResponse as any;
       const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
       const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       handleGoogleBackendRegister(idToken, accessToken);
     } else if (googleResponse?.type === "error") {
       const errRes = googleResponse as any;
       setError(errRes.error?.message || "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console.");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
   const handleGooglePress = async () => {
@@ -117,7 +109,6 @@ export default function SignupScreen(): JSX.Element {
 
     const nativeGoogleSignin = getNativeGoogleSignin();
     if (!nativeGoogleSignin) {
-      // Fallback to Expo Auth Session for Expo Go & web
       promptGoogleAsync();
       return;
     }
@@ -140,7 +131,6 @@ export default function SignupScreen(): JSX.Element {
         return;
       }
       console.error("Google Sign-In Error:", err);
-      // Fall back to promptGoogleAsync if native Google Sign-In fails
       promptGoogleAsync();
     }
   };
@@ -200,7 +190,6 @@ export default function SignupScreen(): JSX.Element {
     }
   };
 
-  // Timer countdown hook
   useEffect(() => {
     if (timer <= 0) return;
     const interval = setInterval(() => {
@@ -211,7 +200,6 @@ export default function SignupScreen(): JSX.Element {
 
   const { initRecaptcha } = phoneAuth;
 
-  // Re-initialize reCAPTCHA if switching back to SMS OTP mode
   useEffect(() => {
     if (!email.trim() && Platform.OS === "web") {
       const t = setTimeout(() => {
@@ -221,18 +209,17 @@ export default function SignupScreen(): JSX.Element {
     }
   }, [email, initRecaptcha]);
 
-  // Request OTP API trigger
   const handleRequestOtp = async (): Promise<boolean> => {
     const isEmailMode = Boolean(email.trim());
     const targetIdentifier = isEmailMode ? email.trim() : phone.trim();
 
-    console.group("🚀 [Signup Flow - Request OTP]");
+    console.group(" [Signup Flow - Request OTP]");
     console.log("Mode:", isEmailMode ? "Email OTP" : "SMS OTP (Firebase)");
     console.log("Target Identifier:", targetIdentifier);
     console.log("Platform:", Platform.OS);
 
     if (!targetIdentifier) {
-      console.warn("⚠️ No identifier provided");
+      console.warn(" No identifier provided");
       console.groupEnd();
       setError("Please provide an email or phone number to receive the verification code.");
       return false;
@@ -243,7 +230,7 @@ export default function SignupScreen(): JSX.Element {
 
     if (isEmailMode) {
       try {
-        console.log("📤 Sending OTP via Backend Email Service...");
+        console.log(" Sending OTP via Backend Email Service...");
         await sendOtpApi({
           identifier: targetIdentifier,
           type: "email",
@@ -251,13 +238,13 @@ export default function SignupScreen(): JSX.Element {
           provider: "email",
         });
 
-        console.log("✅ Email OTP Sent Successfully to:", targetIdentifier);
+        console.log(" Email OTP Sent Successfully to:", targetIdentifier);
         console.groupEnd();
         setTimer(60);
         setInfoMessage(`Verification code sent to ${targetIdentifier}`);
         return true;
       } catch (err: any) {
-        console.error("❌ Email OTP Failed:", err);
+        console.error(" Email OTP Failed:", err);
         console.groupEnd();
         setError(err.message || "Failed to send verification code. Please try again.");
         return false;
@@ -266,22 +253,22 @@ export default function SignupScreen(): JSX.Element {
       }
     } else {
       try {
-        console.log("📱 Initiating Phone Auth via Firebase SMS...");
+        console.log(" Initiating Phone Auth via Firebase SMS...");
         const sent = await phoneAuth.sendOtp(targetIdentifier, "registration");
         if (sent) {
-          console.log("✅ Firebase Phone Auth sendOtp succeeded!");
+          console.log(" Firebase Phone Auth sendOtp succeeded!");
           console.groupEnd();
           setTimer(phoneAuth.cooldown || 60);
           setInfoMessage(phoneAuth.statusMessage || `Verification code sent to ${targetIdentifier}`);
           return true;
         } else {
-          console.warn("❌ Phone Auth sendOtp returned false:", phoneAuth.statusMessage);
+          console.warn(" Phone Auth sendOtp returned false:", phoneAuth.statusMessage);
           console.groupEnd();
           setError(phoneAuth.statusMessage || "Failed to send SMS OTP code.");
           return false;
         }
       } catch (err: any) {
-        console.error("❌ Phone Auth Exception caught in Signup:", err);
+        console.error(" Phone Auth Exception caught in Signup:", err);
         console.groupEnd();
         setError(err.message || "Failed to send SMS OTP code.");
         return false;
@@ -291,7 +278,6 @@ export default function SignupScreen(): JSX.Element {
     }
   };
 
-  // Step 1 handler: validate form & proceed to OTP
   const handleProceedToOtp = async () => {
     setError(null);
 
@@ -352,7 +338,6 @@ export default function SignupScreen(): JSX.Element {
     }
   };
 
-  // Step 2 handler: verify OTP & complete registration
   const handleRegister = async () => {
     if (!otp.trim()) {
       setError("Please enter the 6-digit verification code");
@@ -379,7 +364,7 @@ export default function SignupScreen(): JSX.Element {
       const data = await registerApi({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        role: "Mother", // Mobile self-registration role for mothers
+        role: "Mother", 
         phone_number: phone.trim(),
         email: email.trim() || undefined,
         address: "Not specified",
@@ -402,7 +387,6 @@ export default function SignupScreen(): JSX.Element {
       contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 48, paddingBottom: Math.max(insets.bottom + 48, 64) }}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Logo & Header */}
       <View className="items-center mb-8">
         <Image
           source={require("../../../assets/images/logo.png")}
@@ -414,12 +398,10 @@ export default function SignupScreen(): JSX.Element {
         </Text>
       </View>
 
-      {/* Section heading — only for step 2 */}
       {step !== 1 && (
         <Text className="text-lg font-bold text-foreground mb-6">Enter Verification Code</Text>
       )}
 
-      {/* Error Alert */}
       {error && (
         <View className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
           <StyledIonicons name="alert-circle-outline" size={22} className="text-red-500" />
@@ -427,7 +409,6 @@ export default function SignupScreen(): JSX.Element {
         </View>
       )}
 
-      {/* Info Alert */}
       {infoMessage && (
         <View className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
           <StyledIonicons name="checkmark-circle-outline" size={22} className="text-green-500" />
@@ -436,9 +417,7 @@ export default function SignupScreen(): JSX.Element {
       )}
 
       {step === 1 ? (
-        /* STEP 1: Registration Form */
         <>
-          {/* Google Sign Up Button (Top) */}
           <Pressable
             onPress={handleGooglePress}
             disabled={googleLoading || otpLoading}
@@ -466,7 +445,6 @@ export default function SignupScreen(): JSX.Element {
             </Text>
           </Pressable>
 
-          {/* Divider */}
           <View className="flex-row items-center mb-6">
             <View className="flex-1 h-[1px]" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
             <Text className="px-4 text-sm uppercase font-semibold" style={{ color: '#6b7280' }}>Or register with details</Text>
@@ -474,7 +452,6 @@ export default function SignupScreen(): JSX.Element {
           </View>
 
           <View className="gap-5 mb-6">
-            {/* First Name */}
             <TextField>
               <Label>First Name</Label>
               <Input 
@@ -486,7 +463,6 @@ export default function SignupScreen(): JSX.Element {
               />
             </TextField>
 
-            {/* Last Name */}
             <TextField>
               <Label>Last Name</Label>
               <Input 
@@ -498,7 +474,6 @@ export default function SignupScreen(): JSX.Element {
               />
             </TextField>
 
-            {/* Email Address */}
             <TextField>
               <Label>Email Address</Label>
               <View className="w-full justify-center">
@@ -522,7 +497,6 @@ export default function SignupScreen(): JSX.Element {
               </View>
             </TextField>
 
-            {/* Phone Number (Optional) */}
             <TextField>
               <Label>Phone Number (Optional)</Label>
               <View 
@@ -548,7 +522,6 @@ export default function SignupScreen(): JSX.Element {
               </View>
             </TextField>
 
-            {/* Password */}
             <TextField>
               <Label>Password</Label>
               <View className="w-full justify-center">
@@ -574,7 +547,6 @@ export default function SignupScreen(): JSX.Element {
               </View>
             </TextField>
 
-            {/* Visible reCAPTCHA 'I am not a robot' Checkbox Container - Web only */}
             {Platform.OS === "web" && !email.trim() && (
               <View className="my-2 w-full items-center justify-center overflow-visible">
                 <View 
@@ -591,7 +563,6 @@ export default function SignupScreen(): JSX.Element {
             )}
           </View>
 
-          {/* Terms & Health Data Consent Checkbox Section */}
           <View className="flex-row items-start gap-3 mb-6">
             <Checkbox 
               isSelected={agreed} 
@@ -645,7 +616,6 @@ export default function SignupScreen(): JSX.Element {
           </Button>
         </>
       ) : (
-        /* STEP 2: OTP Verification Form */
         <>
           <View className="mb-6">
             <View className="flex-row items-center justify-between mb-2">
@@ -674,7 +644,6 @@ export default function SignupScreen(): JSX.Element {
             </TextField>
           </View>
 
-          {/* Resend Code Button with Timer */}
           <View className="flex-row justify-between items-center mb-8">
             <Text className="text-zinc-400 text-sm">Didn't receive code?</Text>
             <Pressable 
@@ -708,7 +677,6 @@ export default function SignupScreen(): JSX.Element {
         </>
       )}
 
-      {/* Footer link to Login */}
       <View className="flex-row justify-center items-center">
         <Text style={{ color: '#9ca3af' }}>Already have an account? </Text>
         <Link href="/(auth)/login" asChild>
@@ -718,7 +686,6 @@ export default function SignupScreen(): JSX.Element {
         </Link>
       </View>
 
-      {/* Terms & Privacy Policy In-App Bottom Sheet Modal */}
       <Modal
         visible={isTermsModalOpen}
         animationType="slide"
@@ -735,12 +702,11 @@ export default function SignupScreen(): JSX.Element {
             className="bg-background rounded-t-3xl border-t border-border px-6 pt-4 max-h-[82%] shadow-2xl"
             style={{ paddingBottom: Math.max(insets.bottom + 16, 28) }}
           >
-            {/* Grabber Handle */}
+            
             <View className="items-center mb-3">
               <View className="w-12 h-1.5 bg-muted/60 rounded-full" />
             </View>
 
-            {/* Modal Header */}
             <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-border">
               <View className="flex-1 pr-2">
                 <Text className="text-lg font-bold text-foreground">
@@ -758,7 +724,6 @@ export default function SignupScreen(): JSX.Element {
               </Pressable>
             </View>
 
-            {/* Section Tabs with Distinct High-Contrast Active Pill & Dividers */}
             <View className="flex-row bg-muted/40 p-1.5 rounded-2xl mb-4 border border-border items-center">
               <Pressable
                 onPress={() => setTermsTab("terms")}
@@ -816,7 +781,6 @@ export default function SignupScreen(): JSX.Element {
               </Pressable>
             </View>
 
-            {/* Scrollable Content */}
             <ScrollView className="mb-4 px-1 max-h-[300px]" showsVerticalScrollIndicator={true}>
               {termsTab === "terms" && (
                 <View className="gap-3">
@@ -885,7 +849,6 @@ export default function SignupScreen(): JSX.Element {
               )}
             </ScrollView>
 
-            {/* Bottom Action Bar */}
             <View className="pt-3 border-t border-border/60 gap-2">
               <Button
                 variant="primary"

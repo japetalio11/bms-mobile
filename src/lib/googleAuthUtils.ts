@@ -1,9 +1,5 @@
-import { Platform } from "react-native";
+﻿import { Platform } from "react-native";
 
-/**
- * Safely retrieves native GoogleSignin module if available.
- * Returns null in Expo Go or Web environments where native module is missing.
- */
 export function getNativeGoogleSignin() {
   if (Platform.OS === "web") return null;
   try {

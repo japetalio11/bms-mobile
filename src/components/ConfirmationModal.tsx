@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   Modal,
   View,
@@ -92,7 +92,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         <View style={styles.overlay}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.cardContainer}>
-              {/* Icon Header Badge */}
+              
               <View
                 style={[
                   styles.iconBadge,
@@ -105,11 +105,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 <Ionicons name={activeIcon} size={28} color={config.iconColor} />
               </View>
 
-              {/* Title & Message */}
               <Text style={styles.titleText}>{title}</Text>
               <Text style={styles.messageText}>{message}</Text>
 
-              {/* Action Buttons */}
               <View style={styles.buttonRow}>
                 {cancelText ? (
                   <Pressable

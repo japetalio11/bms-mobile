@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,11 +23,9 @@ export function MotherQRCodeModal({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { refreshProfile, isOnline } = useAuth();
 
-  // Formatted mother code (e.g. MTH-8F3A2190 or user_id)
   const rawId = motherRecord?.mother_id || user.user_id || "BMS-UNKNOWN";
   const displayCode = `MTH-${rawId.substring(0, 8).toUpperCase()}`;
 
-  // Structured QR payload containing IDs & verification metadata
   const qrPayload = JSON.stringify({
     type: "BMS_MOTHER_QR",
     mother_id: motherRecord?.mother_id || rawId,
@@ -64,7 +62,7 @@ export function MotherQRCodeModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View className="flex-1 bg-black/70 justify-end">
         <View className="bg-background rounded-t-3xl border-t border-white/10 px-6 pt-6 pb-10 max-h-[88%]">
-          {/* Header */}
+          
           <View className="flex-row items-center justify-between mb-4">
             <View>
               <Text className="text-foreground text-lg font-bold">My Health Card QR</Text>
@@ -79,12 +77,11 @@ export function MotherQRCodeModal({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: "center", paddingBottom: 20 }}>
-            {/* Mother Card Info */}
+            
             <View className="w-full bg-surface border border-white/10 rounded-2xl p-4 items-center mb-6">
               <Text className="text-foreground text-lg font-bold text-center">{user.name}</Text>
               <Text className="text-zinc-400 text-sm mb-3">{user.email || user.phone_number || "Self-Registered Mother"}</Text>
 
-              {/* Status Badge & Refresh */}
               <View className="flex-row items-center gap-2">
                 <View className={`flex-row items-center gap-1.5 px-3 py-1 rounded-full ${facilityName ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-amber-500/15 border border-amber-500/30"}`}>
                   <Ionicons
@@ -110,7 +107,6 @@ export function MotherQRCodeModal({
               </View>
             </View>
 
-            {/* QR Code Container */}
             <View className="bg-white p-5 rounded-2xl shadow-lg items-center justify-center mb-5 border border-gray-200">
               <QRCode
                 value={qrPayload}
@@ -121,7 +117,6 @@ export function MotherQRCodeModal({
               />
             </View>
 
-            {/* Code Badge & Copy */}
             <View className="w-full flex-row items-center justify-between bg-surface border border-white/10 rounded-xl p-3.5 mb-5">
               <View>
                 <Text className="text-zinc-400 text-sm font-medium uppercase tracking-wider">Mother QR Code</Text>
@@ -136,7 +131,6 @@ export function MotherQRCodeModal({
               </Pressable>
             </View>
 
-            {/* Instructions */}
             <View className="w-full bg-default/40 rounded-xl p-3.5 flex-row items-start gap-3">
               <Ionicons name="information-circle-outline" size={20} color="#818cf8" style={{ marginTop: 2 }} />
               <Text className="text-zinc-400 text-sm leading-5 flex-1">

@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal, RefreshControl, Linking } from "react-native";
+﻿import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal, RefreshControl, Linking } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
@@ -82,15 +82,12 @@ export default function RecordsScreen(): JSX.Element {
     setDeleteError(null);
 
     try {
-      // 1. Delete from local SQLite database
       await deleteLabScreeningLocal(targetId);
 
-      // 2. If online and token available, call backend delete
       if (isOnline && token) {
         try {
           await deleteLabScreeningApi(targetId, token);
         } catch (err: any) {
-          // Fallback for EHR facility documents
           try {
             await deleteEhrDocumentApi(targetId, token);
           } catch (innerErr) {
@@ -99,7 +96,6 @@ export default function RecordsScreen(): JSX.Element {
         }
       }
 
-      // 3. Update local state
       setLabScreenings((prev) =>
         prev.filter(
           (l) =>
@@ -107,7 +103,6 @@ export default function RecordsScreen(): JSX.Element {
         )
       );
 
-      // 4. Close preview modal if deleting currently viewed image
       if (
         selectedRecord &&
         (selectedRecord.screening_id || (selectedRecord as any).id) === targetId
@@ -135,7 +130,6 @@ export default function RecordsScreen(): JSX.Element {
       return;
     }
 
-    // 1. Read from local SQLite database first (scoped strictly to current mother)
     try {
       const [localLabs, localSupps] = await Promise.all([
         getLabScreeningsLocal(motherRecord.mother_id),
@@ -148,7 +142,6 @@ export default function RecordsScreen(): JSX.Element {
       console.warn("Local records load error:", e);
     }
 
-    // 2. Fetch fresh API data if online
     if (isOnline && token) {
       setIsLoading(true);
       Promise.all([
@@ -159,7 +152,6 @@ export default function RecordsScreen(): JSX.Element {
         .then(async ([labs, supps, ehrDocs]) => {
           let allLabs: LabScreeningRecord[] = Array.isArray(labs) ? [...labs] : [];
 
-          // Map EHR facility documents into lab screening format
           if (Array.isArray(ehrDocs) && ehrDocs.length > 0) {
             const mappedEhrDocs: LabScreeningRecord[] = ehrDocs.map((doc: any) => ({
               screening_id: doc.document_id || doc.id,
@@ -173,13 +165,11 @@ export default function RecordsScreen(): JSX.Element {
               sync_status: "synced",
             }));
 
-            // Deduplicate against existing screenings
             const existingIds = new Set(allLabs.map((l) => l.screening_id));
             const uniqueEhr = mappedEhrDocs.filter((d) => !existingIds.has(d.screening_id));
             allLabs = [...allLabs, ...uniqueEhr];
           }
 
-          // Keep local pending items that haven't synced to server yet
           const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
           const pendingLabs = currentLocal.filter(
             (l: any) => l.sync_status === "pending" && l.screening_id && l.screening_id !== "null" && l.screening_id !== "undefined"
@@ -233,7 +223,6 @@ export default function RecordsScreen(): JSX.Element {
     return supp.supplement_type.toLowerCase().includes(searchPrescription.toLowerCase());
   });
 
-
   return (
     <View className="flex-1 bg-background">
       <Header />
@@ -244,7 +233,7 @@ export default function RecordsScreen(): JSX.Element {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
-        {/* Main Tabs */}
+        
         <View className="px-5 mb-4">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
             <Tabs.List className="bg-default p-1 rounded-xl flex-row w-full h-10 items-center">
@@ -267,7 +256,6 @@ export default function RecordsScreen(): JSX.Element {
           </Tabs>
         </View>
 
-        {/* Laboratory Records Tab */}
         {activeMainTab === "lab" && (
           <View className="px-5">
             <View className="flex-row items-center justify-between mb-4">
@@ -409,7 +397,6 @@ export default function RecordsScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Prescriptions Tab */}
         {activeMainTab === "prescriptions" && (
           <View className="px-5">
             <Text className="text-foreground text-lg font-semibold mb-4">Prescriptions</Text>
@@ -474,7 +461,6 @@ export default function RecordsScreen(): JSX.Element {
         )}
       </ScrollView>
 
-      {/* Full Preview Image Modal */}
       <Modal
         visible={!!selectedImageModal}
         transparent
@@ -485,7 +471,7 @@ export default function RecordsScreen(): JSX.Element {
         }}
       >
         <View className="flex-1 bg-black/95 justify-between p-4 pt-12 pb-8">
-          {/* Top Action Bar */}
+          
           <View className="flex-row items-center justify-between px-2 pb-3 border-b border-white/10 z-20">
             <View className="flex-1 pr-3">
               <Text className="text-white font-bold text-base" numberOfLines={1}>
@@ -524,7 +510,6 @@ export default function RecordsScreen(): JSX.Element {
             </View>
           </View>
 
-          {/* Center Image */}
           <View className="flex-1 justify-center items-center my-4">
             {selectedImageModal && (
               <Image
@@ -538,7 +523,6 @@ export default function RecordsScreen(): JSX.Element {
         </View>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         visible={!!recordToDelete}
         transparent

@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+﻿import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { Card, Text } from "heroui-native";
 import { Header } from "../../components/Header";
 import { Ionicons } from "@expo/vector-icons";
@@ -71,14 +71,12 @@ export default function AppointmentDetailScreen(): JSX.Element {
       onConfirm: async () => {
         setIsCancelling(true);
         try {
-          // 1. Update local database and queue for sync if offline
           await cancelAppointmentLocal(
             appointment.appointment_id,
             isOnline,
             user?.user_id
           );
 
-          // 2. If online and token available, call backend API directly
           if (isOnline && token) {
             try {
               await cancelAppointmentApi(appointment.appointment_id, token);
@@ -148,7 +146,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
           </View>
         ) : appointment ? (
           <>
-            {/* Appointment Status Card */}
+            
             <View className="px-5 pt-3 mb-5">
               <View className="bg-surface border border-white/10 rounded-2xl p-5">
                 <View className="flex-row items-center justify-between mb-4">
@@ -163,7 +161,6 @@ export default function AppointmentDetailScreen(): JSX.Element {
                     </Text>
                   </View>
 
-                  {/* Status Badge */}
                   <View
                     className={`px-3 py-1 rounded-full ${statusCfg.bgStyle} border ${statusCfg.borderStyle}`}
                   >
@@ -175,7 +172,6 @@ export default function AppointmentDetailScreen(): JSX.Element {
                   </View>
                 </View>
 
-                {/* Details list */}
                 <DataRow label="Scheduled Date" value={formattedDate} />
                 <DataRow
                   label="Appointment Time"
@@ -200,7 +196,6 @@ export default function AppointmentDetailScreen(): JSX.Element {
               </View>
             </View>
 
-            {/* Cancel Action Button */}
             {canCancel && (
               <View className="px-5 mb-6">
                 <Pressable
@@ -220,7 +215,6 @@ export default function AppointmentDetailScreen(): JSX.Element {
               </View>
             )}
 
-            {/* Supplementary: Maternal Vitals (if recorded) */}
             <View className="px-5 mb-5">
               <Text className="text-foreground text-base font-semibold mb-1">
                 Maternal Vitals
@@ -260,7 +254,6 @@ export default function AppointmentDetailScreen(): JSX.Element {
               )}
             </View>
 
-            {/* Supplementary: Fetal Metrics */}
             <View className="px-5">
               <Text className="text-foreground text-base font-semibold mb-1">
                 Fetal & Visit Metrics

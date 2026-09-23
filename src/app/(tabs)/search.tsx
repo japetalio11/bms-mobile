@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Keyboard } from "react-native";
+﻿import { View, Text, ScrollView, Pressable, Keyboard } from "react-native";
 import type { JSX } from "react";
 import { useState, useEffect } from "react";
 import { SearchField, Card } from "heroui-native";
@@ -31,7 +31,6 @@ export default function SearchScreen(): JSX.Element {
       if (stored) {
         setRecentSearches(JSON.parse(stored));
       } else {
-        // Default initial items
         setRecentSearches(["Prenatal Checkup", "Urinalysis", "Iron Supplement", "Blood Pressure"]);
       }
     } catch (e) {
@@ -42,7 +41,7 @@ export default function SearchScreen(): JSX.Element {
   const saveSearch = async (query: string) => {
     if (!query.trim()) return;
     try {
-      const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5); // keep top 5
+      const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5);
       setRecentSearches(updated);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -54,7 +53,6 @@ export default function SearchScreen(): JSX.Element {
     if (!query.trim()) return;
     saveSearch(query);
     Keyboard.dismiss();
-    // For now, simply navigate to explore/records as search results are unified there
     router.push("/(tabs)/explore"); 
   };
 

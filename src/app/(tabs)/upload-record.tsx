@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
+﻿import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
 import type { JSX } from "react";
 import { Text, Button } from "heroui-native";
 import { Header } from "../../components/Header";
@@ -14,7 +14,7 @@ import { useNetwork } from "../../context/NetworkContext";
 import { createLabScreeningApi, uploadLabFileApi, formatFormDataFile } from "../../config/api";
 import { createLabScreeningLocal, saveLabScreeningsLocal } from "../../db/repository";
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 type SelectedFile = {
   uri: string;
@@ -60,7 +60,6 @@ export default function UploadRecordScreen(): JSX.Element {
   const handlePickDocument = async () => {
     setError(null);
     try {
-      // 1. Try DocumentPicker first
       const docRes = await DocumentPicker.getDocumentAsync({
         type: ["image/*", "application/pdf"],
         copyToCacheDirectory: true,
@@ -84,7 +83,6 @@ export default function UploadRecordScreen(): JSX.Element {
         return;
       }
 
-      // 2. Fallback to ImagePicker if document picker is cancelled or unsupported
       const imgRes = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.8,
@@ -184,7 +182,6 @@ export default function UploadRecordScreen(): JSX.Element {
           );
         }
       } else {
-        // Offline Save to SQLite & outbox queue
         const currentMotherId = motherRecord?.mother_id || user.user_id;
         await createLabScreeningLocal(
           payload,
@@ -217,7 +214,7 @@ export default function UploadRecordScreen(): JSX.Element {
     <View className="flex-1 bg-background">
       <Header showBackButton title="Upload Record" rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
-        {/* Error Alert */}
+        
         {error && (
           <View className="mx-5 mb-5 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="alert-circle-outline" size={22} color="#ef4444" />
@@ -225,7 +222,6 @@ export default function UploadRecordScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Success Alert */}
         {success && (
           <View className="mx-5 mb-5 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
@@ -235,7 +231,6 @@ export default function UploadRecordScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Record Type Dropdown Trigger */}
         <View className="px-5 mb-6 pt-2">
           <Text className="text-foreground text-base font-semibold mb-1">Record Type</Text>
           <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3">Select the type of document or test you are submitting.</Text>
@@ -257,7 +252,6 @@ export default function UploadRecordScreen(): JSX.Element {
           </Pressable>
         </View>
 
-        {/* File Selection Box */}
         <View className="px-5 mb-6">
           <Text className="text-foreground text-base font-semibold mb-1">Upload Document Attachment</Text>
           <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Upload a lab scan, image, or report document.</Text>
@@ -304,7 +298,6 @@ export default function UploadRecordScreen(): JSX.Element {
           )}
         </View>
 
-        {/* Submit Record Button */}
         <View className="px-5 mt-2 mb-6">
           <Button
             variant="primary"
@@ -326,7 +319,6 @@ export default function UploadRecordScreen(): JSX.Element {
         </View>
       </ScrollView>
 
-      {/* Record Type Dropdown Selection Modal */}
       <Modal visible={isDropdownOpen} transparent animationType="fade" onRequestClose={() => setIsDropdownOpen(false)}>
         <Pressable onPress={() => setIsDropdownOpen(false)} className="flex-1 bg-black/60 justify-center items-center p-5">
           <Pressable className="w-full max-w-sm bg-surface border border-default rounded-3xl p-5 gap-3 shadow-2xl">

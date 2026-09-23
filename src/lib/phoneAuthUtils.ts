@@ -1,4 +1,4 @@
-export function formatToE164(phone: string, defaultCountryPrefix: string = "+63"): string {
+﻿export function formatToE164(phone: string, defaultCountryPrefix: string = "+63"): string {
   if (!phone) return "";
 
   let cleaned = phone.replace(/[^0-9+]/g, "");

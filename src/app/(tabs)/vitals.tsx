@@ -1,4 +1,4 @@
-import { View, ScrollView, RefreshControl } from "react-native";
+﻿import { View, ScrollView, RefreshControl } from "react-native";
 import { Text, Card, Tabs } from "heroui-native";
 import { Header } from "../../components/Header";
 import { useState, useEffect } from "react";
@@ -82,7 +82,6 @@ export default function VitalsScreen(): JSX.Element {
         }
       >
 
-        {/* Tabs */}
         <View className="px-5 mb-5 pt-2">
           <Tabs value={activeTab} onValueChange={setActiveTab} variant="primary">
             <Tabs.List className="bg-default p-1 rounded-xl">

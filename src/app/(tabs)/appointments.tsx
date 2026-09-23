@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
+﻿import { View, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, SearchField } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,7 +52,6 @@ export default function AppointmentsScreen(): JSX.Element {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Modal & Interactive DatePicker State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState<Date>(new Date());
   const [modalCalendarMonth, setModalCalendarMonth] = useState<Date>(new Date());
@@ -65,7 +64,6 @@ export default function AppointmentsScreen(): JSX.Element {
   const loadAppointments = useCallback(async () => {
     if (!user?.user_id) return;
 
-    // 1. Always load from local SQLite first (instant UI, offline preservation)
     try {
       const cached = await getAppointmentsLocal(user.user_id);
       if (cached && cached.length > 0) {
@@ -75,7 +73,6 @@ export default function AppointmentsScreen(): JSX.Element {
       console.warn("Error reading local appointments:", e);
     }
 
-    // 2. If online and token available, fetch fresh backend data
     if (isOnline && token) {
       setIsLoading(true);
       try {
@@ -178,7 +175,6 @@ export default function AppointmentsScreen(): JSX.Element {
     return rows;
   }, [daysInMonth, firstDay]);
 
-  // Modal Mini-Calendar Computation
   const mYear = modalCalendarMonth.getFullYear();
   const mMonth = modalCalendarMonth.getMonth();
   const mMonthName = modalCalendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -305,7 +301,7 @@ export default function AppointmentsScreen(): JSX.Element {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
-        {/* Top Header Row — Above the entire calendar component */}
+        
         <View className="px-5 mb-4 mt-3 flex-row items-center justify-between">
           <Text className="text-foreground text-lg font-bold tracking-tight">Appointments</Text>
 
@@ -332,7 +328,6 @@ export default function AppointmentsScreen(): JSX.Element {
           </View>
         )}
 
-        {/* ── 1. Collapsible Calendar Grid Card ── */}
         <View className="mx-5 mb-4 bg-surface border border-white/[0.08] rounded-2xl p-4">
           <View className="flex-row items-center justify-between mb-3 px-1">
             <View className="flex-row items-center gap-2">
@@ -450,7 +445,6 @@ export default function AppointmentsScreen(): JSX.Element {
           ))}
         </View>
 
-        {/* ── 2. Unified Search Field + Filter Button ── */}
         <View className="px-5 mb-4 flex-row items-center gap-2">
           <View className="flex-1 bg-surface border border-white/[0.08] rounded-xl h-10 px-3 flex-row items-center gap-2">
             <Ionicons name="search-outline" size={15} color="#a1a1aa" />
@@ -468,7 +462,6 @@ export default function AppointmentsScreen(): JSX.Element {
             )}
           </View>
 
-          {/* Filter Button */}
           <Pressable
             onPress={() => setIsFilterModalOpen(true)}
             className={`h-10 px-3.5 rounded-xl border flex-row items-center gap-1.5 ${
@@ -485,7 +478,6 @@ export default function AppointmentsScreen(): JSX.Element {
           </Pressable>
         </View>
 
-        {/* ── 3. Appointment List ── */}
         <View className="px-5 gap-3">
           {selectedDateNum !== null && (
             <View className="flex-row items-center justify-between mb-1">
@@ -523,7 +515,7 @@ export default function AppointmentsScreen(): JSX.Element {
                     <View style={{ width: 4, height: "100%", backgroundColor: accentColor }} />
 
                     <View className="px-3.5 flex-1 flex-row items-center gap-3">
-                      {/* Date Box */}
+                      
                       <View className="items-center justify-center size-12 rounded-xl bg-default">
                         <Text className="text-zinc-400 text-[11px] font-medium leading-none">{dayStr}</Text>
                         <Text className="text-foreground text-base font-bold leading-tight mt-0.5">{dateNum}</Text>
@@ -542,7 +534,6 @@ export default function AppointmentsScreen(): JSX.Element {
                           )}
                         </View>
 
-                        {/* Standardized 12-hour Time, Inline Notes & Status */}
                         <View className="flex-row items-center justify-between mt-1">
                           <Text className="text-zinc-400 text-sm font-medium flex-1 mr-2" numberOfLines={1}>
                             {formatTime12h(item.appointment_time)}
@@ -584,14 +575,13 @@ export default function AppointmentsScreen(): JSX.Element {
         </View>
       </ScrollView>
 
-      {/* ── 5. Fully Interactive Schedule Visit Modal ── */}
       <Modal visible={isModalOpen} transparent animationType="slide" onRequestClose={() => setIsModalOpen(false)}>
         <View className="flex-1 bg-black/85 justify-end sm:justify-center items-center">
           <View 
             style={{ paddingBottom: Math.max(insets.bottom, 20) }}
             className="w-full max-w-lg bg-surface border-t sm:border border-white/[0.12] rounded-t-3xl sm:rounded-3xl p-5 max-h-[90%] flex-col"
           >
-            {/* Modal Header */}
+            
             <View className="flex-row justify-between items-center pb-3 border-b border-white/[0.08] mb-3">
               <View className="flex-row items-center gap-2.5">
                 <View className="size-9 rounded-xl bg-[#3b82f6]/15 items-center justify-center border border-[#3b82f6]/30">
@@ -621,7 +611,6 @@ export default function AppointmentsScreen(): JSX.Element {
               </View>
             )}
 
-            {/* Modal Content ScrollView (Steps 1 to 4) */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 16 }}>
               {!user?.facility_id && (
                 <View className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex-row items-center gap-2.5">
@@ -632,7 +621,6 @@ export default function AppointmentsScreen(): JSX.Element {
                 </View>
               )}
 
-              {/* 1. Visit Type Cards */}
               <View>
                 <Text className="text-foreground text-sm font-bold mb-2">1. Visit Type</Text>
                 <View className="gap-2">
@@ -669,11 +657,9 @@ export default function AppointmentsScreen(): JSX.Element {
                 </View>
               </View>
 
-              {/* 2. Compact Date Picker (Clean Date Display + Presets + 14-Day Strip) */}
               <View>
                 <Text className="text-foreground text-sm font-bold mb-2">2. Select Date</Text>
 
-                {/* Selected Date Banner — Clean format without duplicate ISO text */}
                 <View className="bg-[#3b82f6]/10 border border-[#3b82f6]/30 px-3.5 py-2.5 rounded-2xl flex-row items-center justify-between mb-2.5">
                   <View className="flex-row items-center gap-2">
                     <Ionicons name="calendar-outline" size={18} color="#3b82f6" />
@@ -688,7 +674,6 @@ export default function AppointmentsScreen(): JSX.Element {
                   </View>
                 </View>
 
-                {/* Quick Presets Chips — Fixed padding to prevent text clipping */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 10 }}>
                   {[
                     { label: "Today", days: 0 },
@@ -722,7 +707,6 @@ export default function AppointmentsScreen(): JSX.Element {
                   })}
                 </ScrollView>
 
-                {/* Compact Horizontal 14-Day Scroll Strip */}
                 <View className="bg-default border border-white/[0.08] rounded-2xl p-2.5">
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                     {Array.from({ length: 14 }).map((_, idx) => {
@@ -759,7 +743,6 @@ export default function AppointmentsScreen(): JSX.Element {
                 </View>
               </View>
 
-              {/* 3. Preferred Time Slot — Solid Filled Accent when Selected */}
               <View>
                 <Text className="text-foreground text-sm font-bold mb-2">3. Preferred Time Slot</Text>
                 <View className="flex-row flex-wrap gap-2">
@@ -788,7 +771,6 @@ export default function AppointmentsScreen(): JSX.Element {
                 </View>
               </View>
 
-              {/* 4. Reason / Notes — Improved Placeholder Contrast */}
               <View>
                 <Text className="text-foreground text-sm font-bold mb-2">4. Reason / Notes (Optional)</Text>
                 <TextInput
@@ -804,7 +786,6 @@ export default function AppointmentsScreen(): JSX.Element {
               </View>
             </ScrollView>
 
-            {/* Fixed / Sticky Modal Action Footer */}
             <View className="flex-row gap-3 pt-3.5 border-t border-white/[0.08] bg-surface">
               <Pressable
                 onPress={() => {
@@ -835,7 +816,6 @@ export default function AppointmentsScreen(): JSX.Element {
         </View>
       </Modal>
 
-      {/* ── 6. Category Filter Selection Modal ── */}
       <Modal visible={isFilterModalOpen} transparent animationType="fade" onRequestClose={() => setIsFilterModalOpen(false)}>
         <Pressable onPress={() => setIsFilterModalOpen(false)} className="flex-1 bg-black/80 justify-center items-center p-5">
           <Pressable className="w-full max-w-sm bg-surface border border-white/[0.12] rounded-3xl p-5 gap-3 shadow-2xl">

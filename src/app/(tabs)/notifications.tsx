@@ -1,4 +1,4 @@
-import {
+﻿import {
   View,
   ScrollView,
   Pressable,
@@ -37,7 +37,6 @@ export default function NotificationCenterScreen(): JSX.Element {
   const loadNotifications = useCallback(async () => {
     if (!user?.user_id) return;
 
-    // 1. Always load from local SQLite first (offline capability & instant load)
     try {
       const cached = await getNotificationsLocal(user.user_id);
       if (cached && cached.length > 0) {
@@ -47,7 +46,6 @@ export default function NotificationCenterScreen(): JSX.Element {
       console.warn("Local notifications fetch error:", e);
     }
 
-    // 2. Fetch fresh backend notifications if online
     if (isOnline && token) {
       setIsLoading(true);
       try {
@@ -82,17 +80,14 @@ export default function NotificationCenterScreen(): JSX.Element {
   const handleItemPress = async (item: NotificationRecord) => {
     if (item.is_read) return;
 
-    // Optimistically mark as read in state
     setNotificationList((prev) =>
       prev.map((n) =>
         n.notification_id === item.notification_id ? { ...n, is_read: true } : n
       )
     );
 
-    // Save to local SQLite DB
     await markNotificationReadLocal(item.notification_id);
 
-    // Sync to backend API if online
     if (isOnline && token) {
       try {
         await updateNotificationReadApi(item.notification_id, true, token);
@@ -149,7 +144,6 @@ export default function NotificationCenterScreen(): JSX.Element {
         rightIcon={null}
       />
 
-      {/* Segment Switcher Tabs */}
       <View className="px-5 pt-2 pb-4">
         <View className="flex-row bg-surface border border-default rounded-2xl p-1 shadow-xs">
           <Pressable
@@ -207,7 +201,7 @@ export default function NotificationCenterScreen(): JSX.Element {
       >
         {activeTab === "notifications" ? (
           <View className="px-5">
-            {/* Header Action Bar */}
+            
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium ml-1">
                 Recent Alerts & Notifications
@@ -246,14 +240,13 @@ export default function NotificationCenterScreen(): JSX.Element {
                           : "bg-primary/5 border-primary/30"
                       }`}
                     >
-                      {/* Category Icon Badge */}
+                      
                       <View
                         className={`size-10 rounded-xl items-center justify-center border ${catConfig.bg} ${catConfig.border}`}
                       >
                         <Ionicons name={catConfig.icon} size={20} color={catConfig.color} />
                       </View>
 
-                      {/* Content */}
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between mb-1">
                           <Text className="text-foreground text-sm font-bold flex-1 mr-2" numberOfLines={1}>
@@ -269,7 +262,6 @@ export default function NotificationCenterScreen(): JSX.Element {
                         </Text>
                       </View>
 
-                      {/* Unread Dot */}
                       {!item.is_read && (
                         <View className="size-2.5 rounded-full bg-sky-500 mt-1.5" />
                       )}
@@ -292,14 +284,14 @@ export default function NotificationCenterScreen(): JSX.Element {
             )}
           </View>
         ) : (
-          /* Preferences Tab */
+          
           <View className="px-5 gap-6 pt-2">
             <View>
               <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-2 ml-1">
                 Maternal Care Reminders
               </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
-                {/* Prenatal Visit Reminders */}
+                
                 <View className="flex-row items-center justify-between mb-4">
                   <View className="flex-1 mr-4">
                     <Text className="text-foreground text-base font-medium">
@@ -320,7 +312,6 @@ export default function NotificationCenterScreen(): JSX.Element {
 
                 <View className="h-px bg-default mb-4" />
 
-                {/* Daily Supplement & Iron Reminders */}
                 <View className="flex-row items-center justify-between mb-4">
                   <View className="flex-1 mr-4">
                     <Text className="text-foreground text-base font-medium">
@@ -341,7 +332,6 @@ export default function NotificationCenterScreen(): JSX.Element {
 
                 <View className="h-px bg-default mb-4" />
 
-                {/* Upcoming Appointment Alerts */}
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 mr-4">
                     <Text className="text-foreground text-base font-medium">

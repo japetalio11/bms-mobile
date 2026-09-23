@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { Text, Avatar, Button, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,7 +52,6 @@ export default function ProfileScreen(): JSX.Element {
     <View className="flex-1 bg-background">
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
-        {/* Profile Hero */}
         <View className="items-center px-5 pt-8 pb-6">
           <Avatar size="lg" className="mb-4">
             {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
@@ -79,7 +78,6 @@ export default function ProfileScreen(): JSX.Element {
           </Button>
         </View>
 
-        {/* Assigned Care Provider & Healthcare Team */}
         <View className="px-5 mb-4">
           <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Assigned Care Team</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-3.5">
@@ -134,7 +132,6 @@ export default function ProfileScreen(): JSX.Element {
           </Card>
         </View>
 
-        {/* Medical Sharing & Facility Connection */}
         <View className="px-5 mb-4">
           <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Clinical Sharing & Facility</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
@@ -154,7 +151,6 @@ export default function ProfileScreen(): JSX.Element {
           </Card>
         </View>
 
-        {/* Preferences */}
         <View className="px-5 mb-4">
           <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Preferences</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
@@ -174,7 +170,6 @@ export default function ProfileScreen(): JSX.Element {
           </Card>
         </View>
 
-        {/* Privacy & Security */}
         <View className="px-5 mb-4">
           <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Privacy & Security</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
@@ -194,7 +189,6 @@ export default function ProfileScreen(): JSX.Element {
           </Card>
         </View>
 
-        {/* Account */}
         <View className="px-5">
           <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Account</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
@@ -209,7 +203,6 @@ export default function ProfileScreen(): JSX.Element {
 
       </ScrollView>
 
-      {/* Mother QR Modal */}
       <MotherQRCodeModal
         visible={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
@@ -217,7 +210,6 @@ export default function ProfileScreen(): JSX.Element {
         motherRecord={motherRecord}
       />
 
-      {/* Mother Share Journey Modal */}
       <MotherShareJourneyModal
         visible={shareJourneyModalOpen}
         onClose={() => setShareJourneyModalOpen(false)}
