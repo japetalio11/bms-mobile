@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "bms-mobile",
+    "name": "Maternity Tracker",
     "slug": "bms-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#030303"
+        "backgroundColor": "#3c32fa"
       },
       "predictiveBackGestureEnabled": false,
       "allowBackup": false

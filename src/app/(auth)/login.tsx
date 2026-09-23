@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, Image } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -372,30 +372,31 @@ export default function LoginScreen(): JSX.Element {
   return (
     <ScrollView 
       className="flex-1 bg-background"
-      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 40, paddingBottom: Math.max(insets.bottom + 48, 64) }}
+      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 48, paddingBottom: Math.max(insets.bottom + 48, 64) }}
       keyboardShouldPersistTaps="handled"
     >
       {/* Logo & Header */}
-      <View className="items-center mb-6">
-        <View className="flex-row items-center justify-center mb-2">
-          <Text className="text-primary font-bold text-4xl tracking-tight">bms</Text>
-        </View>
-        <Text className="text-foreground font-medium text-center">
+      <View className="items-center mb-8">
+        <Image
+          source={require("../../../assets/images/logo.png")}
+          style={{ width: 88, height: 88, borderRadius: 20, marginBottom: 16 }}
+          resizeMode="contain"
+        />
+        <Text className="text-foreground font-semibold text-center text-base" style={{ lineHeight: 22 }}>
           {mode === "login"
-            ? "Welcome back. Let's check on your journey."
+            ? "Welcome back.\nLet's check on your journey."
             : mode === "setup_otp"
             ? "Account Verification"
             : "Create Account Password"}
         </Text>
       </View>
 
-      <Text className="text-lg font-bold text-foreground mb-6">
-        {mode === "login"
-          ? "Log in"
-          : mode === "setup_otp"
-          ? "Enter Verification Code"
-          : "Create Password"}
-      </Text>
+      {/* Section heading — only for non-login modes */}
+      {mode !== "login" && (
+        <Text className="text-lg font-bold text-foreground mb-6">
+          {mode === "setup_otp" ? "Enter Verification Code" : "Create Password"}
+        </Text>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -416,28 +417,31 @@ export default function LoginScreen(): JSX.Element {
       {mode === "login" ? (
         /* MODE 1: STANDARD LOGIN FORM */
         <>
-          <View className="gap-6 mb-8">
-            <TextField isRequired>
+          <View className="gap-5 mb-8">
+            <TextField>
               <Label>Email or Phone Number</Label>
               <View className="w-full justify-center">
                 <Input 
                   value={identifier}
                   onChangeText={setIdentifier}
                   placeholder="Enter email or phone number" 
+                  placeholderTextColor="#9ca3af"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   className="pr-12"
+                  style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                 />
                 <StyledIonicons 
                   name="person-outline" 
                   size={20} 
-                  className="absolute right-4 text-zinc-400-foreground" 
+                  color="#9ca3af"
+                  className="absolute right-4" 
                   pointerEvents="none"
                 />
               </View>
             </TextField>
 
-            <TextField isRequired>
+            <TextField>
               <View className="flex-row justify-between w-full items-center">
                 <Label>Password</Label>
                 <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
@@ -449,8 +453,10 @@ export default function LoginScreen(): JSX.Element {
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••••••" 
+                  placeholderTextColor="#9ca3af"
                   secureTextEntry={!isPasswordVisible}
                   className="pr-12"
+                  style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                 />
                 <Pressable 
                   className="absolute right-4"
@@ -459,14 +465,14 @@ export default function LoginScreen(): JSX.Element {
                   <StyledIonicons 
                     name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
-                    className="text-zinc-400-foreground" 
+                    color="#9ca3af"
                   />
                 </Pressable>
               </View>
             </TextField>
           </View>
 
-          <Button variant="primary" onPress={handleLogin} className="mb-4" isDisabled={isLoading || googleLoading}>
+          <Button variant="primary" onPress={handleLogin} className="mb-5" isDisabled={isLoading || googleLoading}>
             <View className="flex-row items-center justify-center gap-2">
               {isLoading ? (
                 <ActivityIndicator color="white" size="small" />
@@ -477,32 +483,44 @@ export default function LoginScreen(): JSX.Element {
             </View>
           </Button>
 
-          <View className="flex-row items-center my-4">
-            <View className="flex-1 h-[1px] bg-border" />
-            <Text className="mx-4 text-sm font-semibold text-zinc-400-foreground uppercase">OR</Text>
-            <View className="flex-1 h-[1px] bg-border" />
+          <View className="flex-row items-center my-5">
+            <View className="flex-1 h-[1px]" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+            <Text className="mx-4 text-sm font-semibold uppercase" style={{ color: '#6b7280' }}>OR</Text>
+            <View className="flex-1 h-[1px]" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
           </View>
 
           <Pressable
             onPress={handleGooglePress}
             disabled={googleLoading || isLoading}
-            className="flex-row items-center justify-center gap-3 bg-card border border-border rounded-xl h-13 px-4 mb-8 shadow-sm active:opacity-80"
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              height: 52,
+              paddingHorizontal: 16,
+              marginBottom: 32,
+              opacity: (googleLoading || isLoading) ? 0.5 : 1,
+            }}
+            className="active:opacity-90"
           >
             {googleLoading ? (
               <ActivityIndicator size="small" color="#4285F4" />
             ) : (
-              <StyledIonicons name="logo-google" size={20} color="#ffffff" />
+              <StyledIonicons name="logo-google" size={20} color="#4285F4" />
             )}
-            <Text className="text-foreground font-semibold text-base">
+            <Text style={{ color: '#1f1f1f', fontWeight: '600', fontSize: 15 }}>
               {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
             </Text>
           </Pressable>
 
           <View className="flex-row justify-center items-center">
-            <Text className="text-foreground">Beginning your journey? </Text>
+            <Text style={{ color: '#9ca3af' }}>Beginning your journey? </Text>
             <Link href="/(auth)/signup" asChild>
               <Pressable>
-                <Text className="text-primary font-medium underline">Sign up here</Text>
+                <Text className="text-primary font-semibold">Sign up here</Text>
               </Pressable>
             </Link>
           </View>

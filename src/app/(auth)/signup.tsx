@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button, Checkbox } from "heroui-native";
@@ -399,22 +399,25 @@ export default function SignupScreen(): JSX.Element {
   return (
     <ScrollView 
       className="flex-1 bg-background"
-      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 40, paddingBottom: Math.max(insets.bottom + 48, 64) }}
+      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 48, paddingBottom: Math.max(insets.bottom + 48, 64) }}
       keyboardShouldPersistTaps="handled"
     >
       {/* Logo & Header */}
-      <View className="items-center mb-6">
-        <View className="flex-row items-center justify-center mb-2">
-          <Text className="text-primary font-bold text-4xl tracking-tight">bms</Text>
-        </View>
-        <Text className="text-foreground font-medium text-center">
-          {step === 1 ? "Begin your maternal care journey." : "Verify your account to complete registration."}
+      <View className="items-center mb-8">
+        <Image
+          source={require("../../../assets/images/logo.png")}
+          style={{ width: 88, height: 88, borderRadius: 20, marginBottom: 16 }}
+          resizeMode="contain"
+        />
+        <Text className="text-foreground font-semibold text-center text-base" style={{ lineHeight: 22 }}>
+          {step === 1 ? "Begin your maternal care journey." : "Verify your account\nto complete registration."}
         </Text>
       </View>
 
-      <Text className="text-lg font-bold text-foreground mb-6">
-        {step === 1 ? "Create an account" : "Enter Verification Code"}
-      </Text>
+      {/* Section heading — only for step 2 */}
+      {step !== 1 && (
+        <Text className="text-lg font-bold text-foreground mb-6">Enter Verification Code</Text>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -436,68 +439,84 @@ export default function SignupScreen(): JSX.Element {
         /* STEP 1: Registration Form */
         <>
           {/* Google Sign Up Button (Top) */}
-          <Button 
-            variant="secondary" 
-            onPress={handleGooglePress} 
-            className="mb-5 bg-surface border border-border"
-            isDisabled={googleLoading || otpLoading}
+          <Pressable
+            onPress={handleGooglePress}
+            disabled={googleLoading || otpLoading}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              height: 52,
+              paddingHorizontal: 16,
+              marginBottom: 20,
+              opacity: (googleLoading || otpLoading) ? 0.5 : 1,
+            }}
+            className="active:opacity-90"
           >
-            <View className="flex-row items-center justify-center gap-2">
-              {googleLoading ? (
-                <ActivityIndicator size="small" className="text-foreground" />
-              ) : (
-                <StyledIonicons name="logo-google" size={20} className="text-white" />
-              )}
-              <Button.Label className="text-foreground font-semibold">
-                {googleLoading ? "Signing in with Google..." : "Continue with Google"}
-              </Button.Label>
-            </View>
-          </Button>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#4285F4" />
+            ) : (
+              <StyledIonicons name="logo-google" size={20} color="#4285F4" />
+            )}
+            <Text style={{ color: '#1f1f1f', fontWeight: '600', fontSize: 15 }}>
+              {googleLoading ? "Signing in with Google..." : "Continue with Google"}
+            </Text>
+          </Pressable>
 
           {/* Divider */}
           <View className="flex-row items-center mb-6">
-            <View className="flex-1 h-[1px] bg-border" />
-            <Text className="px-4 text-sm text-zinc-400-foreground uppercase font-semibold">Or register with details</Text>
-            <View className="flex-1 h-[1px] bg-border" />
+            <View className="flex-1 h-[1px]" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+            <Text className="px-4 text-sm uppercase font-semibold" style={{ color: '#6b7280' }}>Or register with details</Text>
+            <View className="flex-1 h-[1px]" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
           </View>
 
           <View className="gap-5 mb-6">
             {/* First Name */}
-            <TextField isRequired>
+            <TextField>
               <Label>First Name</Label>
               <Input 
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholder="Jane"
+                placeholderTextColor="#9ca3af"
+                style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
               />
             </TextField>
 
             {/* Last Name */}
-            <TextField isRequired>
+            <TextField>
               <Label>Last Name</Label>
               <Input 
                 value={lastName}
                 onChangeText={setLastName}
                 placeholder="Doe"
+                placeholderTextColor="#9ca3af"
+                style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
               />
             </TextField>
 
             {/* Email Address */}
-            <TextField isRequired>
+            <TextField>
               <Label>Email Address</Label>
               <View className="w-full justify-center">
                 <Input 
                   value={email}
                   onChangeText={setEmail}
                   placeholder="name@email.com" 
+                  placeholderTextColor="#9ca3af"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   className="pr-12"
+                  style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                 />
                 <StyledIonicons 
                   name="mail-outline" 
                   size={20} 
-                  className="absolute right-4 text-zinc-400-foreground" 
+                  color="#9ca3af"
+                  className="absolute right-4" 
                   pointerEvents="none"
                 />
               </View>
@@ -506,8 +525,11 @@ export default function SignupScreen(): JSX.Element {
             {/* Phone Number (Optional) */}
             <TextField>
               <Label>Phone Number (Optional)</Label>
-              <View className="w-full flex-row items-center bg-surface border border-border rounded-xl px-4 h-12">
-                <View className="flex-row items-center gap-1 border-r border-border pr-3 mr-3 h-full">
+              <View 
+                className="w-full flex-row items-center bg-surface rounded-xl px-4 h-12"
+                style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
+              >
+                <View className="flex-row items-center gap-1 pr-3 mr-3 h-full" style={{ borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.15)' }}>
                   <Text className="text-foreground">+63</Text>
                 </View>
                 <Input 
@@ -519,6 +541,7 @@ export default function SignupScreen(): JSX.Element {
                     }
                   }}
                   placeholder="9123456789"
+                  placeholderTextColor="#9ca3af"
                   keyboardType="phone-pad"
                   className="flex-1 px-0 border-0 bg-transparent h-full"
                 />
@@ -526,15 +549,17 @@ export default function SignupScreen(): JSX.Element {
             </TextField>
 
             {/* Password */}
-            <TextField isRequired>
+            <TextField>
               <Label>Password</Label>
               <View className="w-full justify-center">
                 <Input 
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••••••" 
+                  placeholderTextColor="#9ca3af"
                   secureTextEntry={!isPasswordVisible}
                   className="pr-12"
+                  style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                 />
                 <Pressable 
                   className="absolute right-4"
@@ -543,7 +568,7 @@ export default function SignupScreen(): JSX.Element {
                   <StyledIonicons 
                     name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
-                    className="text-zinc-400-foreground" 
+                    color="#9ca3af"
                   />
                 </Pressable>
               </View>
@@ -685,10 +710,10 @@ export default function SignupScreen(): JSX.Element {
 
       {/* Footer link to Login */}
       <View className="flex-row justify-center items-center">
-        <Text className="text-foreground">Already have an account? </Text>
+        <Text style={{ color: '#9ca3af' }}>Already have an account? </Text>
         <Link href="/(auth)/login" asChild>
           <Pressable>
-            <Text className="text-primary font-medium underline">Log in</Text>
+            <Text className="text-primary font-semibold">Log in</Text>
           </Pressable>
         </Link>
       </View>
