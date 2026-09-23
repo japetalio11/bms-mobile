@@ -1,7 +1,6 @@
-import { Platform } from "react-native";
+﻿import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-// Helper to determine the backend API base URL
 const getApiBaseUrl = (): string => {
   let url = process.env.EXPO_PUBLIC_API_URL || "";
 
@@ -14,7 +13,6 @@ const getApiBaseUrl = (): string => {
     return "https://bms-backend-g4gi.onrender.com";
   }
 
-  // Inside Android emulator, map localhost to 10.0.2.2 if localhost is used
   if (Platform.OS === "android" && url.includes("localhost")) {
     return url.replace("localhost", "10.0.2.2");
   }
@@ -24,10 +22,8 @@ const getApiBaseUrl = (): string => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
-// --- Auth Types & APIs ---
-
 export type LoginPayload = {
-  identifier: string; // email or phone number
+  identifier: string;
   password: string;
 };
 
@@ -343,8 +339,6 @@ export async function resetPasswordApi(payload: ResetPasswordPayload): Promise<A
   return data;
 }
 
-// --- Mother Profile APIs ---
-
 export async function getMotherProfileApi(token: string): Promise<{ result: { mother_id?: string; user?: AuthUser; pregnancies?: PregnancyRecord[] } }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/mother/profile`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -375,8 +369,6 @@ export async function updateMotherProfileApi(payload: any, token: string): Promi
 
   return data;
 }
-
-// --- Appointment APIs ---
 
 export async function getAppointmentsByUserApi(userId: string, token: string): Promise<AppointmentRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/appointment/get/user/${userId}`, {
@@ -424,8 +416,6 @@ export async function cancelAppointmentApi(appointmentId: string, token: string)
   return data;
 }
 
-// --- Supplement APIs ---
-
 export async function getSupplementsByMotherApi(motherId: string, token: string): Promise<SupplementRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/supplement/get/mother/${motherId}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -457,8 +447,6 @@ export async function updateSupplementStatusApi(payload: { supplement_id: string
 
   return data;
 }
-
-// --- Lab Screening APIs ---
 
 export async function getLabScreeningsByMotherApi(motherId: string, token: string): Promise<LabScreeningRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/get/mother/${motherId}`, {
@@ -527,7 +515,6 @@ export function getFullFileUrl(url?: string | null, localUri?: string | null): s
   if (localUri) return localUri;
   if (!url) return null;
 
-  // Preserve inline data and blob URLs
   if (url.startsWith("data:") || url.startsWith("blob:")) {
     return url;
   }
@@ -922,8 +909,6 @@ export async function updateNotificationReadApi(notificationId: string, isRead: 
   }
 }
 
-// --- Mother Pregnancy Journey QR & PIN Sharing APIs ---
-
 export type MotherShareTokenResponse = {
   share_id: string;
   share_token: string;
@@ -980,4 +965,3 @@ export async function regenerateMotherShareTokenApi(
 
   return data.data;
 }
-

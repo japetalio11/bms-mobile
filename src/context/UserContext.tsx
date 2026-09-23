@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+﻿import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -98,7 +98,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const refreshNotifications = useCallback(async () => {
     if (!user.user_id) return;
 
-    // 1. Read from local SQLite DB first (instant UI, offline fallback)
     try {
       const localCount = await getUnreadNotificationCountLocal(user.user_id);
       setUnreadCount(localCount);
@@ -106,7 +105,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       console.warn("Local unread count error:", e);
     }
 
-    // 2. If online and token available, sync with backend API
     if (token && isOnline) {
       try {
         const [freshCount, freshNotifs] = await Promise.all([
@@ -136,7 +134,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user.user_id, token, isOnline]);
 
-  // Network State Listener & Sync Engine Trigger
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       const online = Boolean(state.isConnected);
@@ -150,14 +147,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [token, user.user_id, refreshNotifications]);
 
-  // Refresh notifications whenever user_id or token changes
   useEffect(() => {
     if (user.user_id) {
       refreshNotifications();
     }
   }, [user.user_id, token, refreshNotifications]);
 
-  // Load stored state on initial mount
   useEffect(() => {
     const loadStoredAuth = async () => {
       try {
@@ -183,7 +178,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
             currentUserId = rawUser.user_id;
             setUser(formatUser(rawUser));
 
-            // Hydrate from local SQLite database first
             const sqliteData = await getMotherProfileLocal(rawUser.user_id);
             if (sqliteData?.motherRecord) {
               setMotherRecord(sqliteData.motherRecord);
@@ -203,7 +197,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setActivePregnancy((prev) => prev || parsedPreg);
           }
 
-          // Trigger outbox sync & refresh profile if connected
           if (currentUserId) {
             triggerOutboxSync(storedToken, currentUserId);
           }
@@ -252,7 +245,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
           await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_PREGNANCY, JSON.stringify(firstPregnancy));
         }
 
-        // Cache into local SQLite database
         await saveMotherProfileLocal({
           user: data.result.user!,
           mother_id: mRecord.mother_id,
@@ -290,7 +282,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     try {
       await setSecureToken(authToken);
-      await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN); // Ensure plaintext token is deleted
+      await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
       await fetchProfile(authToken, userData.user_id);
       refreshNotifications();

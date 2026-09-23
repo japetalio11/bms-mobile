@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator, Alert, Linking } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
@@ -113,7 +113,6 @@ export function MotherShareJourneyModal({
     );
   };
 
-  // Format PIN code with spacing for readability: e.g. "491 • 028"
   const rawPin = shareData?.pin_code || "••••••";
   const formattedPin = rawPin.length === 6 ? `${rawPin.slice(0, 3)}  •  ${rawPin.slice(3)}` : rawPin;
   const qrUrl = shareData?.web_url || `https://birthcare.network/shared-journey/${user.user_id || "demo"}`;
@@ -122,7 +121,7 @@ export function MotherShareJourneyModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View className="flex-1 bg-black/75 justify-end">
         <View className="bg-background rounded-t-3xl border-t border-white/10 px-6 pt-6 pb-10 max-h-[92%]">
-          {/* Header */}
+          
           <View className="flex-row items-start justify-between mb-4">
             <View className="flex-1 pr-3">
               <View className="flex-row flex-wrap items-center gap-2 mb-1">
@@ -162,7 +161,7 @@ export function MotherShareJourneyModal({
               </View>
             ) : (
               <>
-                {/* QR Code Canvas */}
+                
                 <View className="bg-white p-5 rounded-3xl shadow-xl items-center justify-center mb-5 border border-gray-100">
                   <QRCode
                     value={qrUrl}
@@ -177,13 +176,11 @@ export function MotherShareJourneyModal({
                   </View>
                 </View>
 
-                {/* PIN Code Box */}
                 <View className="w-full bg-surface border border-white/15 rounded-2xl p-4 mb-4">
                   <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider text-center mb-1">
                     Clinician Access PIN Code
                   </Text>
-                  
-                  {/* High Visibility PIN Display */}
+
                   <View className="bg-black/40 border border-white/10 rounded-xl py-3 px-4 my-2 items-center justify-center">
                     <Text className="text-indigo-400 text-3xl font-mono font-black tracking-[0.25em] text-center">
                       {formattedPin}
@@ -194,7 +191,6 @@ export function MotherShareJourneyModal({
                     Provide this 6-digit PIN to the attending health worker to unlock your full medical history.
                   </Text>
 
-                  {/* Actions Row */}
                   <View className="flex-row items-center gap-2.5">
                     <Pressable
                       onPress={handleCopyPin}
@@ -214,7 +210,6 @@ export function MotherShareJourneyModal({
                   </View>
                 </View>
 
-                {/* Additional Controls */}
                 <View className="w-full flex-row items-center gap-2.5 mb-4">
                   <Pressable
                     onPress={handlePreviewWebView}
@@ -240,7 +235,6 @@ export function MotherShareJourneyModal({
                   </Pressable>
                 </View>
 
-                {/* Explanatory Callout */}
                 <View className="w-full bg-[#27272a]/60 border border-white/5 rounded-xl p-3.5 flex-row items-start gap-3">
                   <Ionicons name="information-circle-outline" size={18} color="#818cf8" style={{ marginTop: 2 }} />
                   <Text className="text-zinc-400 text-sm leading-5 flex-1">

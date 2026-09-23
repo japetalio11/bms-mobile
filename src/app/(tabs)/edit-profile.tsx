@@ -1,4 +1,4 @@
-import {
+﻿import {
   View,
   ScrollView,
   ActivityIndicator,
@@ -48,7 +48,6 @@ export default function EditProfileScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Clear alerts/messages whenever the screen gains or loses focus
   useFocusEffect(
     useCallback(() => {
       setSuccess(false);
@@ -63,7 +62,6 @@ export default function EditProfileScreen(): JSX.Element {
     }, [])
   );
 
-  // Keep form fields synced if user context updates asynchronously
   useEffect(() => {
     if (user) {
       if (user.first_name) setFirstName(user.first_name);
@@ -131,7 +129,6 @@ export default function EditProfileScreen(): JSX.Element {
       let uploadedProfileUrl: string | undefined = undefined;
       const isLocalFile = avatarUri && (avatarUri.startsWith("file://") || avatarUri.startsWith("content://"));
 
-      // If a new local image was selected (file:// or content://)
       if (isLocalFile) {
         if (isOnline && token) {
           try {
@@ -150,7 +147,6 @@ export default function EditProfileScreen(): JSX.Element {
             setIsUploadingPhoto(false);
           }
         } else {
-          // Preserve local image URI for offline visibility
           uploadedProfileUrl = avatarUri;
         }
       } else if (avatarUri) {
@@ -166,12 +162,10 @@ export default function EditProfileScreen(): JSX.Element {
         ...(uploadedProfileUrl ? { profile_url: uploadedProfileUrl } : {}),
       };
 
-      // 1. Immediately persist to SQLite database for offline longevity
       if (user.user_id) {
         await updateUserProfileLocal(user.user_id, updatedPayload);
       }
 
-      // 2. Immediately persist to AsyncStorage for instant UI reflection
       const updatedUser = {
         ...user,
         ...updatedPayload,
@@ -179,7 +173,6 @@ export default function EditProfileScreen(): JSX.Element {
       };
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
 
-      // 3. Online sync or queue for background offline sync
       if (isOnline && token) {
         try {
           await updateMotherProfileApi(updatedPayload, token);
@@ -247,7 +240,6 @@ export default function EditProfileScreen(): JSX.Element {
           keyboardDismissMode="on-drag"
         >
 
-        {/* Avatar section */}
         <View className="px-5 items-center pt-2 mb-6">
           <Pressable onPress={() => setIsPhotoPickerOpen(true)} className="relative mb-4 active:opacity-80">
             <Avatar size="lg" className="h-24 w-24">
@@ -276,7 +268,6 @@ export default function EditProfileScreen(): JSX.Element {
           <Text className="text-zinc-400 text-sm">{user.email || user.phone_number || ""}</Text>
         </View>
 
-        {/* Error Alert */}
         {error && (
           <View className="mx-5 mb-5 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="alert-circle-outline" size={22} color="#ef4444" />
@@ -284,7 +275,6 @@ export default function EditProfileScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Success Alert */}
         {success && (
           <View className="mx-5 mb-5 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
@@ -294,7 +284,6 @@ export default function EditProfileScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Form Fields */}
         <View className="px-5 gap-5">
           <Text className="text-zinc-400 text-sm font-medium ml-1">Personal Information</Text>
 
@@ -362,7 +351,6 @@ export default function EditProfileScreen(): JSX.Element {
       </ScrollView>
       </TouchableWithoutFeedback>
 
-      {/* Photo Picker Sheet Modal */}
       <Modal visible={isPhotoPickerOpen} transparent animationType="fade" onRequestClose={() => setIsPhotoPickerOpen(false)}>
         <TouchableWithoutFeedback onPress={() => setIsPhotoPickerOpen(false)}>
           <View className="flex-1 bg-black/70 justify-end p-5">

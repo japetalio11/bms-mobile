@@ -1,4 +1,4 @@
-import { View, ScrollView, ActivityIndicator } from "react-native";
+﻿import { View, ScrollView, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
 import { Text, Card } from "heroui-native";
 import { Header } from "../../components/Header";
@@ -54,7 +54,6 @@ export default function UrinalysisScreen(): JSX.Element {
     const targetMotherId = motherRecord?.mother_id || user?.user_id;
 
     async function loadScreenings() {
-      // 1. Load from local SQLite first
       if (targetMotherId) {
         try {
           const localRecords = await getLabScreeningsLocal(targetMotherId);
@@ -69,7 +68,6 @@ export default function UrinalysisScreen(): JSX.Element {
         }
       }
 
-      // 2. If online and token available, fetch fresh from backend
       if (targetMotherId && token && isOnline) {
         setIsLoading(true);
         try {
@@ -105,7 +103,6 @@ export default function UrinalysisScreen(): JSX.Element {
       <Header showBackButton title="Urinalysis" rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
-        {/* Summary banner */}
         <View className="px-5 mb-5 pt-2">
           {isLoading ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-4" />

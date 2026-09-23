@@ -1,13 +1,10 @@
-import { Platform } from "react-native";
+﻿import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const TOKEN_KEY = "bms_secure_auth_token";
 const CIPHER_KEY = "bms_local_cipher_key";
 
-/**
- * Retrieve the JWT auth token from hardware-backed SecureStore (or AsyncStorage on Web)
- */
 export async function getSecureToken(): Promise<string | null> {
   try {
     if (Platform.OS === "web") {
@@ -20,9 +17,6 @@ export async function getSecureToken(): Promise<string | null> {
   }
 }
 
-/**
- * Persist the JWT auth token to hardware-backed SecureStore
- */
 export async function setSecureToken(token: string): Promise<void> {
   try {
     if (Platform.OS === "web") {
@@ -38,9 +32,6 @@ export async function setSecureToken(token: string): Promise<void> {
   }
 }
 
-/**
- * Delete the JWT auth token upon logout
- */
 export async function deleteSecureToken(): Promise<void> {
   try {
     if (Platform.OS === "web") {
@@ -54,9 +45,6 @@ export async function deleteSecureToken(): Promise<void> {
   }
 }
 
-/**
- * Get or generate a device-unique 256-bit AES cipher key stored in SecureStore
- */
 export async function getOrCreateMasterCipherKey(): Promise<string> {
   try {
     let key: string | null = null;

@@ -1,4 +1,4 @@
-import { View, ScrollView, Image, ActivityIndicator, Pressable, RefreshControl } from "react-native";
+﻿import { View, ScrollView, Image, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Card, Text, Checkbox } from "heroui-native";
@@ -30,7 +30,6 @@ export default function DashboardScreen(): JSX.Element {
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Calculate Gestational Age based on LMP Date
   const calculateGestationalWeeks = (): {
     weeks: number;
     progress: number;
@@ -77,7 +76,6 @@ export default function DashboardScreen(): JSX.Element {
   const gestationalData = calculateGestationalWeeks();
 
   const loadData = useCallback(async () => {
-    // 1. Read from local SQLite database first (instant UI, offline preservation)
     if (motherRecord?.mother_id) {
       try {
         const localSupps = await getSupplementsLocal(motherRecord.mother_id);
@@ -96,7 +94,6 @@ export default function DashboardScreen(): JSX.Element {
       }
     }
 
-    // 2. Fetch fresh API data if online
     if (isOnline && token) {
       if (motherRecord?.mother_id) {
         getSupplementsByMotherApi(motherRecord.mother_id, token)
@@ -137,7 +134,6 @@ export default function DashboardScreen(): JSX.Element {
   const handleToggleSupplement = async (supplementId: string, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
 
-    // Optimistic UI & Local SQLite Update
     setSupplements((prev) =>
       prev.map((item) => (item.supplement_id === supplementId ? { ...item, is_completed: nextStatus } : item))
     );
@@ -165,7 +161,7 @@ export default function DashboardScreen(): JSX.Element {
         }
       >
         <View className="px-5 pt-3">
-          {/* Week Card */}
+          
           <Card className="mb-6 p-4 bg-surface gap-3 rounded-3xl border-0">
             {gestationalData.hasPregnancy ? (
               <>
@@ -211,7 +207,6 @@ export default function DashboardScreen(): JSX.Element {
             )}
           </Card>
 
-          {/* Cascaded Vitals & Analytics Navigation Option */}
           <View className="mb-6">
             <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
 
@@ -231,7 +226,6 @@ export default function DashboardScreen(): JSX.Element {
             </Pressable>
           </View>
 
-          {/* Daily Prescriptions / Supplements */}
           <View className="mb-6">
             <Text className="text-foreground text-lg font-semibold mb-3">Daily Prescriptions</Text>
 
@@ -264,7 +258,6 @@ export default function DashboardScreen(): JSX.Element {
             )}
           </View>
 
-          {/* Upcoming Appointments */}
           <View className="mb-6">
             <Text className="text-foreground text-lg font-semibold mb-3">Upcoming Appointments</Text>
 

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable } from "react-native";
+﻿import { View, Text, ScrollView, Pressable } from "react-native";
 import { useState } from "react";
 import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,8 +23,7 @@ export default function AppAppearanceScreen() {
     <View className="flex-1 bg-background pb-24">
       <Header showBackButton title="App Appearance" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        
-        {/* Theme Visual Mockup Header */}
+
         <View className="px-5 mb-8 pt-2">
           <Card variant="secondary" className="bg-surface border-0 rounded-xl h-48 p-4">
             <View className="flex-row items-center mb-6">
@@ -84,7 +83,6 @@ export default function AppAppearanceScreen() {
 
           <Text className="text-zinc-400 text-sm font-medium mb-3 ml-1">Typography</Text>
 
-          {/* Text Size Selector Card */}
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
             <Pressable 
               onPress={() => setShowSizeSelector(!showSizeSelector)} 

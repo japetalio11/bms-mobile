@@ -1,4 +1,4 @@
-import "react-native-get-random-values";
+﻿import "react-native-get-random-values";
 import { getOrCreateMasterCipherKey } from "./secureStorage";
 
 const PREFIX = "ENC_GCM:";
@@ -59,13 +59,10 @@ async function getCryptoKey(keyHex: string): Promise<CryptoKey | null> {
   return null;
 }
 
-/**
- * Encrypt a sensitive string field at rest
- */
 export async function encryptSensitiveText(plainText: string | null | undefined): Promise<string> {
   if (!plainText) return "";
   if (typeof plainText !== "string") plainText = String(plainText);
-  if (plainText.startsWith(PREFIX)) return plainText; // Already encrypted
+  if (plainText.startsWith(PREFIX)) return plainText;
 
   try {
     const keyHex = await getOrCreateMasterCipherKey();
@@ -90,7 +87,6 @@ export async function encryptSensitiveText(plainText: string | null | undefined)
       return `${PREFIX}${bytesToHex(iv)}:${bytesToHex(cipherBytes)}`;
     }
 
-    // Portable fallback if WebCrypto is unavailable
     const keyBytes = hexToBytes(keyHex);
     const dataBytes = stringToBytes(plainText);
     const xorBytes = new Uint8Array(dataBytes.length);
@@ -104,14 +100,10 @@ export async function encryptSensitiveText(plainText: string | null | undefined)
   }
 }
 
-/**
- * Decrypt a sensitive string field when loading from local storage
- */
 export async function decryptSensitiveText(cipherText: string | null | undefined): Promise<string> {
   if (!cipherText) return "";
   if (typeof cipherText !== "string") return String(cipherText);
 
-  // If not encrypted, return as is (legacy backwards compatibility)
   if (!cipherText.startsWith(PREFIX) && !cipherText.startsWith("ENC_ALT:")) {
     return cipherText;
   }
@@ -152,17 +144,11 @@ export async function decryptSensitiveText(cipherText: string | null | undefined
   return cipherText;
 }
 
-/**
- * Transparently encrypt a JSON-serializable object
- */
 export async function encryptObject<T>(data: T): Promise<string> {
   const json = JSON.stringify(data);
   return await encryptSensitiveText(json);
 }
 
-/**
- * Transparently decrypt an encrypted JSON object
- */
 export async function decryptObject<T>(cipherText: string | null | undefined): Promise<T | null> {
   if (!cipherText) return null;
   const decrypted = await decryptSensitiveText(cipherText);

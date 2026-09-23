@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../config/api";
+﻿import { API_BASE_URL } from "../config/api";
 import { getDatabase } from "../db/db";
 import {
   getPendingSyncItems,
@@ -37,14 +37,12 @@ export async function triggerOutboxSync(
           payload = item.payload;
         }
 
-        // Handle offline image/file upload first if creating lab screening
         if (item.action_type === "CREATE_LAB_SCREENING" && payload.localFileUri && !payload.file_url) {
           console.log(`[SyncEngine] Uploading local file for screening: ${payload.localFileUri}`);
           const fileUrl = await uploadLocalFile(payload.localFileUri, authToken);
           payload.file_url = fileUrl;
         }
 
-        // Handle offline avatar upload first if updating profile
         if (item.action_type === "UPDATE_PROFILE" && payload.localAvatarUri && !payload.profile_url) {
           try {
             console.log(`[SyncEngine] Uploading local avatar for profile: ${payload.localAvatarUri}`);
@@ -55,7 +53,6 @@ export async function triggerOutboxSync(
           }
         }
 
-        // Clean out transient fields before endpoint submission
         const cleanPayload = { ...payload };
         delete cleanPayload.localFileUri;
         delete cleanPayload.localAvatarUri;

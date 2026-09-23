@@ -17,16 +17,13 @@ export default function ForgotPasswordScreen(): JSX.Element {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Phone Auth Hook
   const phoneAuth = usePhoneAuth({
     containerId: "recaptcha-container-forgot",
     cooldownDuration: 60,
   });
 
-  // Mode: "enter_identifier" | "verify_otp" | "reset_password" | "success"
   const [mode, setMode] = useState<"enter_identifier" | "verify_otp" | "reset_password" | "success">("enter_identifier");
 
-  // Form Fields
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [verifiedOtpCode, setVerifiedOtpCode] = useState("");
@@ -35,15 +32,12 @@ export default function ForgotPasswordScreen(): JSX.Element {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
-  // Timer for OTP Resend
   const [timer, setTimer] = useState(0);
 
-  // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  // Timer Countdown Effect
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (timer > 0) {
@@ -54,10 +48,8 @@ export default function ForgotPasswordScreen(): JSX.Element {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // Determine provider format
   const isEmail = identifier.includes("@");
 
-  // Step 1: Send OTP for Reset Password
   const handleRequestOtp = async () => {
     const cleanId = identifier.trim();
     if (!cleanId) {
@@ -104,7 +96,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
     }
   };
 
-  // Step 2: Proceed to Reset Password input stage
   const handleProceedToReset = async () => {
     if (!otp.trim()) {
       setError("Please enter the 6-digit OTP verification code.");
@@ -134,7 +125,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
     setMode("reset_password");
   };
 
-  // Step 3: Reset Password Submission
   const handleResetPassword = async () => {
     if (!newPassword) {
       setError("Please enter a new password.");
@@ -163,7 +153,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
       setInfoMessage("Password reset successfully!");
       setMode("success");
 
-      // Auto-login user if token and user object are provided
       if (res.user && res.token) {
         setTimeout(() => {
           login(res.user, res.token);
@@ -179,7 +168,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
 
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 48, 64) }} className="bg-background">
-      {/* Header with Back Button */}
       <View className="flex-row items-center mb-4">
         <Pressable 
           onPress={() => {
@@ -201,7 +189,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
 
       <View className="flex-1 justify-between">
         <View className="gap-4">
-          {/* Main Illustration/Icon Hero Header */}
           <View className="items-center my-2">
             <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-3">
               <StyledIonicons 
@@ -231,7 +218,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
             </Text>
           </View>
 
-          {/* Feedback Messages */}
           {error && (
             <View className="bg-destructive/15 border border-destructive/30 rounded-xl p-4 flex-row items-center gap-3">
               <StyledIonicons name="alert-circle-outline" size={20} className="text-destructive" />
@@ -246,7 +232,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
             </View>
           )}
 
-          {/* STEP 1: Enter Identifier */}
           {mode === "enter_identifier" && (
             <>
               <TextField isRequired>
@@ -274,7 +259,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
                 </View>
               </TextField>
 
-              {/* Visible reCAPTCHA Container - Web only */}
               {Platform.OS === "web" && (
                 <View className="my-1 w-full items-center justify-center overflow-visible">
                   <View 
@@ -292,7 +276,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
             </>
           )}
 
-          {/* STEP 2: Verify OTP */}
           {mode === "verify_otp" && (
             <View className="gap-4">
               <TextField isRequired>
@@ -326,7 +309,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
             </View>
           )}
 
-          {/* STEP 3: Reset Password */}
           {mode === "reset_password" && (
             <View className="gap-4">
               <TextField isRequired>
@@ -378,7 +360,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
           )}
         </View>
 
-        {/* Bottom Action Button */}
         <View className="mt-8 gap-4">
           {mode === "enter_identifier" && (
             <Button 

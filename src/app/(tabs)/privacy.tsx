@@ -1,4 +1,4 @@
-import { View, ScrollView, Share, ActivityIndicator } from "react-native";
+﻿import { View, ScrollView, Share, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, Switch, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,7 +20,6 @@ export default function PrivacyScreen(): JSX.Element {
   const [isDeleting, setIsDeleting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Handle Export / Download Data
   const handleDownloadData = async () => {
     setIsExporting(true);
     setStatusMessage(null);
@@ -61,7 +60,6 @@ export default function PrivacyScreen(): JSX.Element {
     }
   };
 
-  // Handle Delete Account
   const handleDeleteAccount = () => {
     confirm({
       title: "Delete Account",
@@ -115,8 +113,7 @@ export default function PrivacyScreen(): JSX.Element {
         <View className="px-5 mb-6 pt-2">
           <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Data Sharing</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
-            
-            {/* Share Health Data */}
+
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-1 mr-4">
                 <Text className="text-foreground text-base font-medium">Share Health Data</Text>
@@ -130,7 +127,6 @@ export default function PrivacyScreen(): JSX.Element {
 
             <View className="h-px bg-default mb-4" />
 
-            {/* Analytics */}
             <View className="flex-row items-center justify-between">
               <View className="flex-1 mr-4">
                 <Text className="text-foreground text-base font-medium">Analytics & Performance</Text>
@@ -148,8 +144,7 @@ export default function PrivacyScreen(): JSX.Element {
         <View className="px-5 mb-6">
           <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Data Management</Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4 gap-4">
-            
-            {/* Download Data */}
+
             <View>
               <Text className="text-foreground text-base font-medium mb-1">Request & Download Data</Text>
               <Text className="text-zinc-400 text-sm mb-3">Export a copy of your health records, prenatal visit history, and personal profile.</Text>
@@ -174,7 +169,6 @@ export default function PrivacyScreen(): JSX.Element {
 
             <View className="h-px bg-default" />
 
-            {/* Delete Account */}
             <View>
               <Text className="text-danger text-base font-medium mb-1">Delete Account</Text>
               <Text className="text-zinc-400 text-sm mb-3">Deactivate your account and revoke mobile access. Medical records remain securely archived at your facility.</Text>

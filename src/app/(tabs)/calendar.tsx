@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
+﻿import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { useFocusEffect } from "expo-router";
 import { useState, useCallback } from "react";
@@ -23,7 +23,6 @@ export default function CalendarScreen(): JSX.Element {
   const loadAppointments = useCallback(async () => {
     if (!user?.user_id) return;
 
-    // 1. Read from local SQLite immediately
     try {
       const local = await getAppointmentsLocal(user.user_id);
       if (local && local.length > 0) {
@@ -33,7 +32,6 @@ export default function CalendarScreen(): JSX.Element {
       console.warn("Failed reading local appointments:", e);
     }
 
-    // 2. Fetch fresh from backend if online
     if (isOnline && token) {
       setIsLoading(true);
       try {
@@ -96,7 +94,7 @@ export default function CalendarScreen(): JSX.Element {
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        {/* Month Header */}
+        
         <View className="px-5 mb-4 flex-row items-center justify-between">
           <Text className="text-primary text-lg font-semibold">{monthName}</Text>
           <View className="flex-row gap-2">
@@ -115,7 +113,6 @@ export default function CalendarScreen(): JSX.Element {
           </View>
         </View>
 
-        {/* Calendar Grid */}
         <Card variant="secondary" className="mx-5 mb-6 rounded-xl p-5 bg-surface border-0">
           <View className="flex-row justify-between mb-4">
             {DAYS.map((day) => (
@@ -173,7 +170,6 @@ export default function CalendarScreen(): JSX.Element {
           ))}
         </Card>
 
-        {/* Upcoming Events */}
         <View className="px-5">
           <Text className="text-foreground text-lg font-semibold mb-1">Upcoming Events</Text>
           <Text className="text-zinc-400 text-sm mb-4">Scheduled appointments for {monthName}.</Text>

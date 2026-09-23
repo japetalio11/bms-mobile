@@ -40,27 +40,22 @@ export default function LoginScreen(): JSX.Element {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Phone Auth Hook for Setup Password OTP
   const phoneAuth = usePhoneAuth({
     containerId: "recaptcha-container-login",
     cooldownDuration: 60,
   });
 
-  // Google OAuth Hook
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
-  // Mode: "login" -> "setup_otp" -> "setup_password"
   const [mode, setMode] = useState<"login" | "setup_otp" | "setup_password">("login");
 
-  // Form Fields
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-  // Setup Password Fields
   const [otp, setOtp] = useState("");
   const [verifiedOtpCode, setVerifiedOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -68,7 +63,6 @@ export default function LoginScreen(): JSX.Element {
   const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
   const [timer, setTimer] = useState(0);
 
-  // Feedback states
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
@@ -112,7 +106,6 @@ export default function LoginScreen(): JSX.Element {
 
     const nativeGoogleSignin = getNativeGoogleSignin();
     if (!nativeGoogleSignin) {
-      // Fallback to Expo Auth Session for Expo Go & web
       promptGoogleAsync();
       return;
     }
@@ -135,7 +128,6 @@ export default function LoginScreen(): JSX.Element {
         return;
       }
       console.error("Google Sign-In Error:", err);
-      // Fall back to promptGoogleAsync if native Google Sign-In fails
       promptGoogleAsync();
     }
   };
@@ -195,7 +187,6 @@ export default function LoginScreen(): JSX.Element {
     }
   };
 
-  // Timer countdown hook for OTP resend
   useEffect(() => {
     if (timer <= 0) return;
     const interval = setInterval(() => {
@@ -204,7 +195,6 @@ export default function LoginScreen(): JSX.Element {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // Trigger OTP generation for password setup
   const handleSendSetupOtp = async (targetIdentifier: string): Promise<boolean> => {
     const cleanId = targetIdentifier.trim();
     if (!cleanId) return false;
@@ -276,7 +266,6 @@ export default function LoginScreen(): JSX.Element {
       router.replace("/(tabs)");
     } catch (err: any) {
       if (err.requiresPasswordSetup) {
-        // Account exists (created by staff) but has no password set yet
         setMode("setup_otp");
         setInfoMessage(
           "Your account was registered by facility staff. Please enter the verification code sent to your device to set up your password."
@@ -290,7 +279,6 @@ export default function LoginScreen(): JSX.Element {
     }
   };
 
-  // Step 1: Verify OTP Code
   const handleVerifyOtpStep = async () => {
     const cleanId = identifier.trim();
     if (!otp.trim()) {
@@ -334,7 +322,6 @@ export default function LoginScreen(): JSX.Element {
     }
   };
 
-  // Step 2: Set New Password & Submit
   const handleSetupPasswordSubmit = async () => {
     const cleanId = identifier.trim();
     if (!newPassword) {
@@ -375,7 +362,6 @@ export default function LoginScreen(): JSX.Element {
       contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 48, paddingBottom: Math.max(insets.bottom + 48, 64) }}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Logo & Header */}
       <View className="items-center mb-8">
         <Image
           source={require("../../../assets/images/logo.png")}
@@ -391,14 +377,12 @@ export default function LoginScreen(): JSX.Element {
         </Text>
       </View>
 
-      {/* Section heading — only for non-login modes */}
       {mode !== "login" && (
         <Text className="text-lg font-bold text-foreground mb-6">
           {mode === "setup_otp" ? "Enter Verification Code" : "Create Password"}
         </Text>
       )}
 
-      {/* Error Alert */}
       {error && (
         <View className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
           <StyledIonicons name="alert-circle-outline" size={22} className="text-red-500" />
@@ -406,7 +390,6 @@ export default function LoginScreen(): JSX.Element {
         </View>
       )}
 
-      {/* Info Alert */}
       {infoMessage && (
         <View className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
           <StyledIonicons name="checkmark-circle-outline" size={22} className="text-green-500" />
@@ -415,7 +398,6 @@ export default function LoginScreen(): JSX.Element {
       )}
 
       {mode === "login" ? (
-        /* MODE 1: STANDARD LOGIN FORM */
         <>
           <View className="gap-5 mb-8">
             <TextField>
@@ -526,9 +508,7 @@ export default function LoginScreen(): JSX.Element {
           </View>
         </>
       ) : mode === "setup_otp" ? (
-        /* MODE 2: STEP 1 - OTP VERIFICATION FOR PASSWORD SETUP */
         <>
-          {/* Visible reCAPTCHA Container for Web only */}
           {Platform.OS === "web" && (
             <View className="my-2 w-full items-center justify-center overflow-visible">
               <View 
@@ -598,7 +578,6 @@ export default function LoginScreen(): JSX.Element {
           </Button>
         </>
       ) : (
-        /* MODE 3: STEP 2 - SET NEW PASSWORD FOR ACCOUNT */
         <>
           <View className="gap-5 mb-8">
             <Text className="text-foreground text-base">

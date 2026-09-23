@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { View, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -12,7 +12,6 @@ import { useUniwind } from 'uniwind';
 const TAB_ITEM_SIZE = 50;
 const ITEM_GAP = 4;
 
-// Routes to completely hide from the tab bar
 const HIDDEN_ROUTES = [
   'explore',
   'appointment-detail',
@@ -67,7 +66,7 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
         justifyContent: 'center',
       }}
     >
-      {/* Active / scanner background */}
+      
       {isScanner ? (
         <View
           style={{
@@ -93,7 +92,6 @@ function TabBarItem({ isFocused, isScanner, options, onPress, onLongPress }: Tab
         />
       )}
 
-      {/* Icon */}
       {options.tabBarIcon?.({
         color: iconColor,
         size: 22,
@@ -111,7 +109,6 @@ export function AnimatedTabBar({ state, descriptors, navigation }: any) {
   const currentRoute = state.routes[state.index];
   const { options: currentOptions } = descriptors[currentRoute?.key] || {};
 
-  // Hide tab bar completely when viewing sub-screens / hidden screens
   if (HIDDEN_ROUTES.includes(currentRoute?.name) || currentOptions?.href === null) {
     return null;
   }

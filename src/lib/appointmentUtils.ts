@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+﻿import { Ionicons } from "@expo/vector-icons";
 
 export type AppointmentStatusConfig = {
   label: string;
@@ -15,7 +15,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "scheduled") {
     return {
       label: "Scheduled",
-      color: "#38bdf8", // Sky Blue
+      color: "#38bdf8",
       bgStyle: "bg-sky-500/15",
       borderStyle: "border-sky-500/30",
       textStyle: "text-sky-400",
@@ -26,7 +26,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "confirmed") {
     return {
       label: "Confirmed",
-      color: "#2dd4bf", // Teal
+      color: "#2dd4bf",
       bgStyle: "bg-teal-500/15",
       borderStyle: "border-teal-500/30",
       textStyle: "text-teal-400",
@@ -37,7 +37,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "completed") {
     return {
       label: "Completed",
-      color: "#10b981", // Emerald Green
+      color: "#10b981",
       bgStyle: "bg-emerald-500/15",
       borderStyle: "border-emerald-500/30",
       textStyle: "text-emerald-400",
@@ -48,7 +48,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "cancelled" || s === "canceled") {
     return {
       label: "Cancelled",
-      color: "#ef4444", // Red
+      color: "#ef4444",
       bgStyle: "bg-blue-500/15",
       borderStyle: "border-blue-500/30",
       textStyle: "text-blue-400",
@@ -59,7 +59,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "missed") {
     return {
       label: "Missed",
-      color: "#f97316", // Orange
+      color: "#f97316",
       bgStyle: "bg-orange-500/15",
       borderStyle: "border-orange-500/30",
       textStyle: "text-orange-400",
@@ -70,7 +70,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "pending") {
     return {
       label: "Pending",
-      color: "#eab308", // Yellow / Amber
+      color: "#eab308",
       bgStyle: "bg-amber-500/15",
       borderStyle: "border-amber-500/30",
       textStyle: "text-amber-400",
@@ -81,7 +81,7 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
   if (s === "rescheduled") {
     return {
       label: "Rescheduled",
-      color: "#a78bfa", // Purple
+      color: "#a78bfa",
       bgStyle: "bg-purple-500/15",
       borderStyle: "border-purple-500/30",
       textStyle: "text-purple-400",
@@ -89,7 +89,6 @@ export function getAppointmentStatusConfig(statusStr: string): AppointmentStatus
     };
   }
 
-  // Fallback default
   return {
     label: statusStr ? statusStr.charAt(0).toUpperCase() + statusStr.slice(1) : "Scheduled",
     color: "#38bdf8",
