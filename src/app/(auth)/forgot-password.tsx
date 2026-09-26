@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -167,7 +167,16 @@ export default function ForgotPasswordScreen(): JSX.Element {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 48, 64) }} className="bg-background">
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 48, 64) }} 
+        className="bg-background"
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
       <View className="flex-row items-center mb-4">
         <Pressable 
           onPress={() => {
@@ -410,5 +419,6 @@ export default function ForgotPasswordScreen(): JSX.Element {
         </View>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

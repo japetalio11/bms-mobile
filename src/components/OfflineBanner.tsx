@@ -1,12 +1,25 @@
-﻿import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNetwork } from "../context/NetworkContext";
 
 export const OfflineBanner: React.FC = () => {
   const { isOnline } = useNetwork();
+  const [isVisible, setIsVisible] = useState(false);
 
-  if (isOnline) {
+  useEffect(() => {
+    if (!isOnline) {
+      setIsVisible(true);
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(false);
+    }
+  }, [isOnline]);
+
+  if (isOnline || !isVisible) {
     return null;
   }
 

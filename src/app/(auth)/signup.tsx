@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image, KeyboardAvoidingView } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button, Checkbox } from "heroui-native";
@@ -382,11 +382,16 @@ export default function SignupScreen(): JSX.Element {
   };
 
   return (
-    <ScrollView 
-      className="flex-1 bg-background"
-      contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 48, paddingBottom: Math.max(insets.bottom + 48, 64) }}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <ScrollView 
+        className="flex-1 bg-background"
+        contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 48, paddingBottom: Math.max(insets.bottom + 48, 64) }}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+      >
       <View className="items-center mb-8">
         <Image
           source={require("../../../assets/images/logo.png")}
@@ -871,5 +876,6 @@ export default function SignupScreen(): JSX.Element {
         </View>
       </Modal>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
