@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { Text, Avatar, Button, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,6 +7,8 @@ import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
 import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
 import { MotherShareJourneyModal } from "../../components/MotherShareJourneyModal";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function SettingRow({
   icon,
@@ -37,6 +39,7 @@ function SettingRow({
 
 export default function ProfileScreen(): JSX.Element {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, motherRecord, logout } = useAuth();
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [shareJourneyModalOpen, setShareJourneyModalOpen] = useState(false);
@@ -50,7 +53,7 @@ export default function ProfileScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }} showsVerticalScrollIndicator={false}>
 
         <View className="items-center px-5 pt-8 pb-6">
           <Avatar size="lg" className="mb-4">
