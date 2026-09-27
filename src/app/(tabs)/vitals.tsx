@@ -10,9 +10,9 @@ import { getDeliveryOutcomesLocal } from "../../db/repository";
 import type { DeliveryOutcomeRecord } from "../../config/api";
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
-  <View className="flex-row justify-between py-3.5 border-b border-separator last:border-0">
-    <Text className="text-zinc-400 text-sm">{label}</Text>
-    <Text className="text-foreground text-sm font-medium">{value}</Text>
+  <View className="flex-row items-start justify-between py-3.5 border-b border-separator last:border-0 gap-3">
+    <Text className="text-zinc-400 text-sm shrink-0 min-w-[100px] max-w-[140px]">{label}</Text>
+    <Text className="text-foreground text-sm font-medium flex-1 text-right leading-5">{value}</Text>
   </View>
 );
 
