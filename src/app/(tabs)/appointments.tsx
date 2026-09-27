@@ -35,9 +35,9 @@ const MORNING_SLOTS = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM"];
 const AFTERNOON_SLOTS = ["01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM"];
 
 const VISIT_TYPES = [
-  { id: "Prenatal Visit", label: "Prenatal Visit", icon: "medical-outline", color: "#0284c7" },
-  { id: "Postnatal Checkup", label: "Postnatal Checkup", icon: "heart-outline", color: "#10b981" },
-  { id: "Neonatal Screening", label: "Neonatal Screening", icon: "sparkles-outline", color: "#f59e0b" },
+  { id: "Prenatal Visit", label: "Prenatal Visit", icon: "woman-outline", color: "#0284c7" },
+  { id: "Postnatal Checkup", label: "Postnatal Checkup", icon: "heart-circle-outline", color: "#10b981" },
+  { id: "Neonatal Screening", label: "Neonatal Screening", icon: "happy-outline", color: "#f59e0b" },
 ];
 
 export default function AppointmentsScreen(): JSX.Element {
@@ -623,7 +623,7 @@ export default function AppointmentsScreen(): JSX.Element {
       <Modal visible={isModalOpen} transparent animationType="slide" onRequestClose={() => setIsModalOpen(false)}>
         <View className="flex-1 bg-black/70 justify-end sm:justify-center items-center">
           <View 
-            style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+            style={{ paddingBottom: Math.max(insets.bottom + 12, 28) }}
             className="w-full max-w-lg bg-surface border-t sm:border border-white/[0.12] rounded-t-[28px] sm:rounded-3xl p-5 max-h-[92%] flex-col"
           >
             {/* iOS Sheet Grabber */}
@@ -909,7 +909,7 @@ export default function AppointmentsScreen(): JSX.Element {
             </ScrollView>
 
             {/* iOS Primary Action Button */}
-            <View className="pt-3 border-t border-white/[0.08]">
+            <View className="pt-3.5 pb-2 border-t border-white/[0.08]">
               <Pressable
                 onPress={handleBookAppointment}
                 disabled={isSubmitting}
