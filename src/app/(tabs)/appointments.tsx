@@ -57,7 +57,7 @@ export default function AppointmentsScreen(): JSX.Element {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState<Date>(new Date());
-  const [datePickerMode, setDatePickerMode] = useState<"calendar" | "strip">("calendar");
+  const [isCustomDatePickerOpen, setIsCustomDatePickerOpen] = useState(false);
   const [modalMonthView, setModalMonthView] = useState<Date>(new Date());
   const [bookingTime, setBookingTime] = useState("09:00 AM");
   const [bookingType, setBookingType] = useState("Prenatal Visit");
@@ -701,178 +701,97 @@ export default function AppointmentsScreen(): JSX.Element {
 
               {/* Date Selection */}
               <View>
-                <View className="flex-row justify-between items-center mb-2.5">
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Date</Text>
-                    <View className="flex-row bg-default p-0.5 rounded-lg border border-white/[0.06]">
-                      <Pressable
-                        onPress={() => setDatePickerMode("calendar")}
-                        className={`px-2 py-0.5 rounded-md ${datePickerMode === "calendar" ? "bg-[#0284c7]" : "bg-transparent"}`}
-                      >
-                        <Text className={`text-[10px] font-semibold ${datePickerMode === "calendar" ? "text-white" : "text-zinc-400"}`}>
-                          Calendar
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setDatePickerMode("strip")}
-                        className={`px-2 py-0.5 rounded-md ${datePickerMode === "strip" ? "bg-[#0284c7]" : "bg-transparent"}`}
-                      >
-                        <Text className={`text-[10px] font-semibold ${datePickerMode === "strip" ? "text-white" : "text-zinc-400"}`}>
-                          14 Days
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-
-                  <Text className="text-[#38bdf8] font-semibold text-xs">
-                    {modalDate.toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </Text>
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Date</Text>
+                  
+                  <Pressable
+                    onPress={() => {
+                      setModalMonthView(new Date(modalDate.getFullYear(), modalDate.getMonth(), 1));
+                      setIsCustomDatePickerOpen(true);
+                    }}
+                    className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-xl bg-default border border-white/[0.06] active:bg-surface-secondary"
+                  >
+                    <Ionicons name="calendar-outline" size={13} color="#38bdf8" />
+                    <Text className="text-[#38bdf8] font-bold text-xs">
+                      {modalDate.toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={11} color="#71717a" />
+                  </Pressable>
                 </View>
 
-                {/* Quick Presets (1-tap jump to next week or future months) */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
-                  {[
-                    { label: "Today", days: 0 },
-                    { label: "+1 Wk", days: 7 },
-                    { label: "+2 Wks", days: 14 },
-                    { label: "+1 Mo", days: 30 },
-                    { label: "+2 Mo", days: 60 },
-                    { label: "+3 Mo", days: 90 },
-                  ].map((p) => (
+                {/* Horizontal Date Picker */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {/* If user picked a custom date beyond 14 days, show it at the front */}
+                  {modalDate.getTime() - new Date().setHours(0, 0, 0, 0) >= 14 * 24 * 60 * 60 * 1000 && (
                     <Pressable
-                      key={p.label}
-                      onPress={() => handlePresetDate(p.days)}
-                      className="px-2.5 py-1 rounded-xl bg-default border border-white/[0.06] active:bg-surface-secondary"
+                      onPress={() => {}}
+                      className="w-16 py-2.5 rounded-2xl items-center justify-center border bg-[#0284c7] border-[#0284c7] shadow-sm"
                     >
-                      <Text className="text-zinc-300 text-xs font-medium">{p.label}</Text>
+                      <Text className="text-[10px] font-semibold text-white/80">
+                        {modalDate.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}
+                      </Text>
+                      <Text className="text-base font-bold my-0.5 text-white">
+                        {modalDate.getDate()}
+                      </Text>
+                      <Text className="text-[10px] font-medium text-white/80">
+                        {modalDate.toLocaleDateString("en-US", { month: "short" })}
+                      </Text>
                     </Pressable>
-                  ))}
-                </ScrollView>
+                  )}
 
-                {datePickerMode === "calendar" ? (
-                  /* Full Month Calendar View with Navigation */
-                  <View className="bg-surface-secondary border border-white/[0.06] rounded-2xl p-3">
-                    {/* Month Nav Bar */}
-                    <View className="flex-row justify-between items-center mb-2.5">
+                  {Array.from({ length: 14 }).map((_, idx) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + idx);
+                    const isSelectedDate =
+                      d.getDate() === modalDate.getDate() &&
+                      d.getMonth() === modalDate.getMonth() &&
+                      d.getFullYear() === modalDate.getFullYear();
+
+                    const isToday = idx === 0;
+                    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+                    const dayNum = d.getDate();
+                    const monthName = d.toLocaleDateString("en-US", { month: "short" });
+
+                    return (
                       <Pressable
-                        onPress={handlePrevMonth}
-                        disabled={isPrevMonthDisabled}
-                        className={`size-8 rounded-xl items-center justify-center bg-default ${
-                          isPrevMonthDisabled ? "opacity-30" : "active:opacity-70"
+                        key={d.toISOString()}
+                        onPress={() => setModalDate(d)}
+                        className={`w-14 py-2.5 rounded-2xl items-center justify-center border ${
+                          isSelectedDate
+                            ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
+                            : "bg-surface-secondary border-white/[0.06] active:bg-default"
                         }`}
                       >
-                        <Ionicons name="chevron-back" size={16} color="#a1a1aa" />
-                      </Pressable>
-
-                      <Text className="text-foreground text-sm font-bold">{modalMonthName}</Text>
-
-                      <Pressable
-                        onPress={handleNextMonth}
-                        className="size-8 rounded-xl items-center justify-center bg-default active:opacity-70"
-                      >
-                        <Ionicons name="chevron-forward" size={16} color="#a1a1aa" />
-                      </Pressable>
-                    </View>
-
-                    {/* Weekday headers */}
-                    <View className="flex-row justify-between mb-1 px-0.5">
-                      {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, i) => (
-                        <Text key={i} className="flex-1 text-center text-[10px] font-semibold text-zinc-500">
-                          {d}
+                        <Text className={`text-[10px] font-semibold ${isSelectedDate ? "text-white/80" : "text-zinc-400"}`}>
+                          {isToday ? "TODAY" : dayName}
                         </Text>
-                      ))}
-                    </View>
+                        <Text className={`text-base font-bold my-0.5 ${isSelectedDate ? "text-white" : "text-foreground"}`}>
+                          {dayNum}
+                        </Text>
+                        <Text className={`text-[10px] font-medium ${isSelectedDate ? "text-white/80" : "text-zinc-500"}`}>
+                          {monthName}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
 
-                    {/* Day Cells Grid */}
-                    <View className="flex-row flex-wrap">
-                      {modalCalendarCells.map((day, idx) => {
-                        if (day === null) {
-                          return <View key={`empty-${idx}`} className="w-[14.28%] aspect-square" />;
-                        }
-
-                        const past = isDayInPast(day);
-                        const selected = isDaySelected(day);
-                        const today = isDayToday(day);
-
-                        return (
-                          <View key={`day-${day}`} className="w-[14.28%] p-0.5 aspect-square items-center justify-center">
-                            <Pressable
-                              disabled={past}
-                              onPress={() => handleSelectCalendarDay(day)}
-                              className={`w-full h-full rounded-xl items-center justify-center ${
-                                selected
-                                  ? "bg-[#0284c7] shadow-sm"
-                                  : today
-                                  ? "border border-[#0284c7]/80 bg-default"
-                                  : past
-                                  ? "opacity-20"
-                                  : "active:bg-default"
-                              }`}
-                            >
-                              <Text
-                                className={`text-xs ${
-                                  selected
-                                    ? "text-white font-bold"
-                                    : today
-                                    ? "text-[#38bdf8] font-bold"
-                                    : past
-                                    ? "text-zinc-600"
-                                    : "text-foreground font-semibold"
-                                }`}
-                              >
-                                {day}
-                              </Text>
-                            </Pressable>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ) : (
-                  /* 14-Day Strip View */
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {Array.from({ length: 14 }).map((_, idx) => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + idx);
-                      const isSelectedDate =
-                        d.getDate() === modalDate.getDate() &&
-                        d.getMonth() === modalDate.getMonth() &&
-                        d.getFullYear() === modalDate.getFullYear();
-
-                      const isToday = idx === 0;
-                      const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
-                      const dayNum = d.getDate();
-                      const monthName = d.toLocaleDateString("en-US", { month: "short" });
-
-                      return (
-                        <Pressable
-                          key={d.toISOString()}
-                          onPress={() => setModalDate(d)}
-                          className={`w-14 py-2.5 rounded-2xl items-center justify-center border ${
-                            isSelectedDate
-                              ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
-                              : "bg-surface-secondary border-white/[0.06] active:bg-default"
-                          }`}
-                        >
-                          <Text className={`text-[10px] font-semibold ${isSelectedDate ? "text-white/80" : "text-zinc-400"}`}>
-                            {isToday ? "TODAY" : dayName}
-                          </Text>
-                          <Text className={`text-base font-bold my-0.5 ${isSelectedDate ? "text-white" : "text-foreground"}`}>
-                            {dayNum}
-                          </Text>
-                          <Text className={`text-[10px] font-medium ${isSelectedDate ? "text-white/80" : "text-zinc-500"}`}>
-                            {monthName}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                )}
+                  {/* Pick other date button at the end of the strip */}
+                  <Pressable
+                    onPress={() => {
+                      setModalMonthView(new Date(modalDate.getFullYear(), modalDate.getMonth(), 1));
+                      setIsCustomDatePickerOpen(true);
+                    }}
+                    className="w-14 py-2.5 rounded-2xl items-center justify-center border border-dashed border-white/[0.15] bg-default/60 active:bg-surface-secondary"
+                  >
+                    <Ionicons name="calendar" size={16} color="#38bdf8" />
+                    <Text className="text-[10px] font-semibold text-zinc-300 mt-1">More</Text>
+                    <Text className="text-[9px] text-zinc-500">Dates...</Text>
+                  </Pressable>
+                </ScrollView>
               </View>
 
               {/* Preferred Time Selector */}
@@ -1008,6 +927,135 @@ export default function AppointmentsScreen(): JSX.Element {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Month Calendar Modal for picking dates months in advance */}
+      <Modal visible={isCustomDatePickerOpen} transparent animationType="fade" onRequestClose={() => setIsCustomDatePickerOpen(false)}>
+        <Pressable onPress={() => setIsCustomDatePickerOpen(false)} className="flex-1 bg-black/80 justify-center items-center p-5">
+          <Pressable className="w-full max-w-sm bg-surface border border-white/[0.12] rounded-3xl p-5 gap-3 shadow-2xl">
+            <View className="flex-row items-center justify-between pb-3 border-b border-white/[0.08]">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="calendar" size={18} color="#0284c7" />
+                <Text className="text-foreground font-bold text-base">Select Date</Text>
+              </View>
+              <Pressable onPress={() => setIsCustomDatePickerOpen(false)} className="size-7 items-center justify-center rounded-full bg-default active:opacity-70">
+                <Ionicons name="close" size={16} color="#a1a1aa" />
+              </Pressable>
+            </View>
+
+            {/* Quick 1-Tap Presets */}
+            <View className="flex-row flex-wrap gap-1.5 pt-1">
+              {[
+                { label: "Today", days: 0 },
+                { label: "+1 Wk", days: 7 },
+                { label: "+2 Wks", days: 14 },
+                { label: "+1 Mo", days: 30 },
+                { label: "+2 Mo", days: 60 },
+                { label: "+3 Mo", days: 90 },
+              ].map((p) => (
+                <Pressable
+                  key={p.label}
+                  onPress={() => {
+                    handlePresetDate(p.days);
+                    setIsCustomDatePickerOpen(false);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-default border border-white/[0.06] active:bg-surface-secondary"
+                >
+                  <Text className="text-zinc-300 text-xs font-medium">{p.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Month Calendar */}
+            <View className="bg-surface-secondary border border-white/[0.06] rounded-2xl p-3 mt-1">
+              {/* Month Nav Bar */}
+              <View className="flex-row justify-between items-center mb-2.5">
+                <Pressable
+                  onPress={handlePrevMonth}
+                  disabled={isPrevMonthDisabled}
+                  className={`size-8 rounded-xl items-center justify-center bg-default ${
+                    isPrevMonthDisabled ? "opacity-30" : "active:opacity-70"
+                  }`}
+                >
+                  <Ionicons name="chevron-back" size={16} color="#a1a1aa" />
+                </Pressable>
+
+                <Text className="text-foreground text-sm font-bold">{modalMonthName}</Text>
+
+                <Pressable
+                  onPress={handleNextMonth}
+                  className="size-8 rounded-xl items-center justify-center bg-default active:opacity-70"
+                >
+                  <Ionicons name="chevron-forward" size={16} color="#a1a1aa" />
+                </Pressable>
+              </View>
+
+              {/* Weekday headers */}
+              <View className="flex-row justify-between mb-1 px-0.5">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, i) => (
+                  <Text key={i} className="flex-1 text-center text-[10px] font-semibold text-zinc-500">
+                    {d}
+                  </Text>
+                ))}
+              </View>
+
+              {/* Day Cells Grid */}
+              <View className="flex-row flex-wrap">
+                {modalCalendarCells.map((day, idx) => {
+                  if (day === null) {
+                    return <View key={`empty-${idx}`} className="w-[14.28%] aspect-square" />;
+                  }
+
+                  const past = isDayInPast(day);
+                  const selected = isDaySelected(day);
+                  const today = isDayToday(day);
+
+                  return (
+                    <View key={`day-${day}`} className="w-[14.28%] p-0.5 aspect-square items-center justify-center">
+                      <Pressable
+                        disabled={past}
+                        onPress={() => {
+                          handleSelectCalendarDay(day);
+                          setIsCustomDatePickerOpen(false);
+                        }}
+                        className={`w-full h-full rounded-xl items-center justify-center ${
+                          selected
+                            ? "bg-[#0284c7] shadow-sm"
+                            : today
+                            ? "border border-[#0284c7]/80 bg-default"
+                            : past
+                            ? "opacity-20"
+                            : "active:bg-default"
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs ${
+                            selected
+                              ? "text-white font-bold"
+                              : today
+                              ? "text-[#38bdf8] font-bold"
+                              : past
+                              ? "text-zinc-600"
+                              : "text-foreground font-semibold"
+                          }`}
+                        >
+                          {day}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => setIsCustomDatePickerOpen(false)}
+              className="w-full py-3 rounded-2xl bg-[#0284c7] items-center justify-center active:bg-[#0369a1] mt-1"
+            >
+              <Text className="text-white font-bold text-sm">Done</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       <Modal visible={isFilterModalOpen} transparent animationType="fade" onRequestClose={() => setIsFilterModalOpen(false)}>
