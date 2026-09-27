@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal, RefreshControl, Linking } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal, RefreshControl, Linking } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
@@ -152,22 +152,56 @@ export default function RecordsScreen(): JSX.Element {
         .then(async ([labs, supps, ehrDocs]) => {
           let allLabs: LabScreeningRecord[] = Array.isArray(labs) ? [...labs] : [];
 
-          if (Array.isArray(ehrDocs) && ehrDocs.length > 0) {
-            const mappedEhrDocs: LabScreeningRecord[] = ehrDocs.map((doc: any) => ({
-              screening_id: doc.document_id || doc.id,
-              pregnancy_id: "",
-              visit_id: "",
-              screening_type: doc.title || doc.category || "Clinical Document",
-              result: doc.category || "Uploaded by Healthcare Staff",
-              file_url: doc.file_url || doc.fileUrl,
-              date_of_screening: doc.created_at || doc.dateUploaded || new Date().toISOString(),
-              remarks: doc.uploaded_by ? `Uploaded by: ${doc.uploaded_by}` : undefined,
-              sync_status: "synced",
-            }));
+          // Track existing IDs, URLs, and filenames to prevent any duplicate entries
+          const existingIds = new Set<string>();
+          const existingUrls = new Set<string>();
 
-            const existingIds = new Set(allLabs.map((l) => l.screening_id));
-            const uniqueEhr = mappedEhrDocs.filter((d) => !existingIds.has(d.screening_id));
-            allLabs = [...allLabs, ...uniqueEhr];
+          allLabs.forEach((l) => {
+            const sId = l.screening_id || (l as any).id;
+            if (sId) existingIds.add(String(sId));
+            if (l.file_url) {
+              const cleanUrl = l.file_url.split("?")[0].trim().toLowerCase();
+              const filename = cleanUrl.split("/").pop();
+              if (cleanUrl) existingUrls.add(cleanUrl);
+              if (filename) existingUrls.add(filename);
+            }
+          });
+
+          if (Array.isArray(ehrDocs) && ehrDocs.length > 0) {
+            const mappedEhrDocs: LabScreeningRecord[] = [];
+
+            for (const doc of ehrDocs) {
+              const docId = String(doc.document_id || doc.id || "");
+              const docUrl = doc.file_url || doc.fileUrl || "";
+              const cleanDocUrl = docUrl ? docUrl.split("?")[0].trim().toLowerCase() : "";
+              const docFilename = cleanDocUrl ? cleanDocUrl.split("/").pop() : "";
+
+              // Skip if already in allLabs by ID, file URL, or filename
+              if (docId && existingIds.has(docId)) continue;
+              if (cleanDocUrl && existingUrls.has(cleanDocUrl)) continue;
+              if (docFilename && existingUrls.has(docFilename)) continue;
+
+              const uploader = doc.uploaded_by || doc.uploadedBy;
+              const uploaderText = uploader ? `Uploaded by: ${uploader}` : undefined;
+
+              mappedEhrDocs.push({
+                screening_id: docId,
+                pregnancy_id: "",
+                visit_id: "",
+                screening_type: doc.title || doc.category || "Clinical Document",
+                result: doc.category || "Staff Document",
+                file_url: docUrl,
+                date_of_screening: doc.created_at || doc.dateUploaded || new Date().toISOString(),
+                remarks: uploaderText,
+                sync_status: "synced",
+              });
+
+              if (docId) existingIds.add(docId);
+              if (cleanDocUrl) existingUrls.add(cleanDocUrl);
+              if (docFilename) existingUrls.add(docFilename);
+            }
+
+            allLabs = [...allLabs, ...mappedEhrDocs];
           }
 
           const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
@@ -366,10 +400,33 @@ export default function RecordsScreen(): JSX.Element {
                       ) : null}
 
                       {lab.remarks ? (
-                        <Text className="text-zinc-400 text-sm mt-1" numberOfLines={2}>
-                          Remarks: {lab.remarks}
-                        </Text>
-                      ) : null}
+                        <View className="mt-2 pt-2 border-t border-default/30 flex-row items-center gap-1.5">
+                          <Ionicons
+                            name={
+                              lab.remarks.toLowerCase().includes("patient") ||
+                              lab.remarks.toLowerCase().includes("(mother)")
+                                ? "person-outline"
+                                : "medkit-outline"
+                            }
+                            size={13}
+                            color="#94a3b8"
+                          />
+                          <Text className="text-zinc-400 text-xs flex-1" numberOfLines={2}>
+                            {lab.remarks.startsWith("Uploaded by:") ? lab.remarks : `Remarks: ${lab.remarks}`}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View className="mt-2 pt-2 border-t border-default/30 flex-row items-center gap-1.5">
+                          <Ionicons
+                            name={lab.result === "Uploaded" ? "person-outline" : "medkit-outline"}
+                            size={13}
+                            color="#94a3b8"
+                          />
+                          <Text className="text-zinc-400 text-xs flex-1">
+                            {lab.result === "Uploaded" ? "Uploaded by you (Patient Upload)" : "Healthcare Record"}
+                          </Text>
+                        </View>
+                      )}
                     </Card>
                   );
                 })}
