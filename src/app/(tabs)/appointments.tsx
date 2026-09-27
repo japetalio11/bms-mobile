@@ -57,6 +57,8 @@ export default function AppointmentsScreen(): JSX.Element {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState<Date>(new Date());
+  const [datePickerMode, setDatePickerMode] = useState<"calendar" | "strip">("calendar");
+  const [modalMonthView, setModalMonthView] = useState<Date>(new Date());
   const [bookingTime, setBookingTime] = useState("09:00 AM");
   const [bookingType, setBookingType] = useState("Prenatal Visit");
   const [bookingReason, setBookingReason] = useState("");
@@ -176,6 +178,77 @@ export default function AppointmentsScreen(): JSX.Element {
     }
     return rows;
   }, [daysInMonth, firstDay]);
+
+  const modalMonthYear = modalMonthView.getFullYear();
+  const modalMonthIndex = modalMonthView.getMonth();
+  const modalMonthName = modalMonthView.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const modalFirstDay = new Date(modalMonthYear, modalMonthIndex, 1).getDay();
+  const modalDaysInMonth = new Date(modalMonthYear, modalMonthIndex + 1, 0).getDate();
+
+  const isPrevMonthDisabled = useMemo(() => {
+    const now = new Date();
+    return (
+      modalMonthYear < now.getFullYear() ||
+      (modalMonthYear === now.getFullYear() && modalMonthIndex <= now.getMonth())
+    );
+  }, [modalMonthYear, modalMonthIndex]);
+
+  const modalCalendarCells = useMemo(() => {
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < modalFirstDay; i++) {
+      cells.push(null);
+    }
+    for (let d = 1; d <= modalDaysInMonth; d++) {
+      cells.push(d);
+    }
+    return cells;
+  }, [modalFirstDay, modalDaysInMonth]);
+
+  const handlePrevMonth = () => {
+    if (isPrevMonthDisabled) return;
+    setModalMonthView(new Date(modalMonthYear, modalMonthIndex - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setModalMonthView(new Date(modalMonthYear, modalMonthIndex + 1, 1));
+  };
+
+  const handleSelectCalendarDay = (day: number) => {
+    const newDate = new Date(modalMonthYear, modalMonthIndex, day);
+    setModalDate(newDate);
+  };
+
+  const handlePresetDate = (daysAhead: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    setModalDate(d);
+    setModalMonthView(new Date(d.getFullYear(), d.getMonth(), 1));
+  };
+
+  const isDayInPast = (day: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const check = new Date(modalMonthYear, modalMonthIndex, day);
+    check.setHours(0, 0, 0, 0);
+    return check.getTime() < today.getTime();
+  };
+
+  const isDayToday = (day: number) => {
+    const today = new Date();
+    return (
+      day === today.getDate() &&
+      modalMonthIndex === today.getMonth() &&
+      modalMonthYear === today.getFullYear()
+    );
+  };
+
+  const isDaySelected = (day: number) => {
+    return (
+      day === modalDate.getDate() &&
+      modalMonthIndex === modalDate.getMonth() &&
+      modalMonthYear === modalDate.getFullYear()
+    );
+  };
 
   const handleBookAppointment = async () => {
     if (!user?.user_id) {
@@ -628,55 +701,178 @@ export default function AppointmentsScreen(): JSX.Element {
 
               {/* Date Selection */}
               <View>
-                <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Date</Text>
+                <View className="flex-row justify-between items-center mb-2.5">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Date</Text>
+                    <View className="flex-row bg-default p-0.5 rounded-lg border border-white/[0.06]">
+                      <Pressable
+                        onPress={() => setDatePickerMode("calendar")}
+                        className={`px-2 py-0.5 rounded-md ${datePickerMode === "calendar" ? "bg-[#0284c7]" : "bg-transparent"}`}
+                      >
+                        <Text className={`text-[10px] font-semibold ${datePickerMode === "calendar" ? "text-white" : "text-zinc-400"}`}>
+                          Calendar
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setDatePickerMode("strip")}
+                        className={`px-2 py-0.5 rounded-md ${datePickerMode === "strip" ? "bg-[#0284c7]" : "bg-transparent"}`}
+                      >
+                        <Text className={`text-[10px] font-semibold ${datePickerMode === "strip" ? "text-white" : "text-zinc-400"}`}>
+                          14 Days
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
                   <Text className="text-[#38bdf8] font-semibold text-xs">
                     {modalDate.toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
+                      year: "numeric",
                     })}
                   </Text>
                 </View>
 
-                {/* Horizontal Date Picker */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {Array.from({ length: 14 }).map((_, idx) => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + idx);
-                    const isSelectedDate =
-                      d.getDate() === modalDate.getDate() &&
-                      d.getMonth() === modalDate.getMonth() &&
-                      d.getFullYear() === modalDate.getFullYear();
+                {/* Quick Presets (1-tap jump to next week or future months) */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
+                  {[
+                    { label: "Today", days: 0 },
+                    { label: "+1 Wk", days: 7 },
+                    { label: "+2 Wks", days: 14 },
+                    { label: "+1 Mo", days: 30 },
+                    { label: "+2 Mo", days: 60 },
+                    { label: "+3 Mo", days: 90 },
+                  ].map((p) => (
+                    <Pressable
+                      key={p.label}
+                      onPress={() => handlePresetDate(p.days)}
+                      className="px-2.5 py-1 rounded-xl bg-default border border-white/[0.06] active:bg-surface-secondary"
+                    >
+                      <Text className="text-zinc-300 text-xs font-medium">{p.label}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
 
-                    const isToday = idx === 0;
-                    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
-                    const dayNum = d.getDate();
-                    const monthName = d.toLocaleDateString("en-US", { month: "short" });
-
-                    return (
+                {datePickerMode === "calendar" ? (
+                  /* Full Month Calendar View with Navigation */
+                  <View className="bg-surface-secondary border border-white/[0.06] rounded-2xl p-3">
+                    {/* Month Nav Bar */}
+                    <View className="flex-row justify-between items-center mb-2.5">
                       <Pressable
-                        key={d.toISOString()}
-                        onPress={() => setModalDate(d)}
-                        className={`w-14 py-2.5 rounded-2xl items-center justify-center border ${
-                          isSelectedDate
-                            ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
-                            : "bg-surface-secondary border-white/[0.06] active:bg-default"
+                        onPress={handlePrevMonth}
+                        disabled={isPrevMonthDisabled}
+                        className={`size-8 rounded-xl items-center justify-center bg-default ${
+                          isPrevMonthDisabled ? "opacity-30" : "active:opacity-70"
                         }`}
                       >
-                        <Text className={`text-[10px] font-semibold ${isSelectedDate ? "text-white/80" : "text-zinc-400"}`}>
-                          {isToday ? "TODAY" : dayName}
-                        </Text>
-                        <Text className={`text-base font-bold my-0.5 ${isSelectedDate ? "text-white" : "text-foreground"}`}>
-                          {dayNum}
-                        </Text>
-                        <Text className={`text-[10px] font-medium ${isSelectedDate ? "text-white/80" : "text-zinc-500"}`}>
-                          {monthName}
-                        </Text>
+                        <Ionicons name="chevron-back" size={16} color="#a1a1aa" />
                       </Pressable>
-                    );
-                  })}
-                </ScrollView>
+
+                      <Text className="text-foreground text-sm font-bold">{modalMonthName}</Text>
+
+                      <Pressable
+                        onPress={handleNextMonth}
+                        className="size-8 rounded-xl items-center justify-center bg-default active:opacity-70"
+                      >
+                        <Ionicons name="chevron-forward" size={16} color="#a1a1aa" />
+                      </Pressable>
+                    </View>
+
+                    {/* Weekday headers */}
+                    <View className="flex-row justify-between mb-1 px-0.5">
+                      {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, i) => (
+                        <Text key={i} className="flex-1 text-center text-[10px] font-semibold text-zinc-500">
+                          {d}
+                        </Text>
+                      ))}
+                    </View>
+
+                    {/* Day Cells Grid */}
+                    <View className="flex-row flex-wrap">
+                      {modalCalendarCells.map((day, idx) => {
+                        if (day === null) {
+                          return <View key={`empty-${idx}`} className="w-[14.28%] aspect-square" />;
+                        }
+
+                        const past = isDayInPast(day);
+                        const selected = isDaySelected(day);
+                        const today = isDayToday(day);
+
+                        return (
+                          <View key={`day-${day}`} className="w-[14.28%] p-0.5 aspect-square items-center justify-center">
+                            <Pressable
+                              disabled={past}
+                              onPress={() => handleSelectCalendarDay(day)}
+                              className={`w-full h-full rounded-xl items-center justify-center ${
+                                selected
+                                  ? "bg-[#0284c7] shadow-sm"
+                                  : today
+                                  ? "border border-[#0284c7]/80 bg-default"
+                                  : past
+                                  ? "opacity-20"
+                                  : "active:bg-default"
+                              }`}
+                            >
+                              <Text
+                                className={`text-xs ${
+                                  selected
+                                    ? "text-white font-bold"
+                                    : today
+                                    ? "text-[#38bdf8] font-bold"
+                                    : past
+                                    ? "text-zinc-600"
+                                    : "text-foreground font-semibold"
+                                }`}
+                              >
+                                {day}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : (
+                  /* 14-Day Strip View */
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {Array.from({ length: 14 }).map((_, idx) => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + idx);
+                      const isSelectedDate =
+                        d.getDate() === modalDate.getDate() &&
+                        d.getMonth() === modalDate.getMonth() &&
+                        d.getFullYear() === modalDate.getFullYear();
+
+                      const isToday = idx === 0;
+                      const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+                      const dayNum = d.getDate();
+                      const monthName = d.toLocaleDateString("en-US", { month: "short" });
+
+                      return (
+                        <Pressable
+                          key={d.toISOString()}
+                          onPress={() => setModalDate(d)}
+                          className={`w-14 py-2.5 rounded-2xl items-center justify-center border ${
+                            isSelectedDate
+                              ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
+                              : "bg-surface-secondary border-white/[0.06] active:bg-default"
+                          }`}
+                        >
+                          <Text className={`text-[10px] font-semibold ${isSelectedDate ? "text-white/80" : "text-zinc-400"}`}>
+                            {isToday ? "TODAY" : dayName}
+                          </Text>
+                          <Text className={`text-base font-bold my-0.5 ${isSelectedDate ? "text-white" : "text-foreground"}`}>
+                            {dayNum}
+                          </Text>
+                          <Text className={`text-[10px] font-medium ${isSelectedDate ? "text-white/80" : "text-zinc-500"}`}>
+                            {monthName}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
               </View>
 
               {/* Preferred Time Selector */}
