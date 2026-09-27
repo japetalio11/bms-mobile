@@ -18,9 +18,15 @@ import {
 } from "../../db/repository";
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
-  <View className="flex-row items-start justify-between py-3 border-b border-separator last:border-0 gap-3">
-    <Text className="text-zinc-400 text-sm shrink-0 min-w-[100px] max-w-[140px]">{label}</Text>
-    <Text className="text-foreground text-sm font-medium flex-1 text-right leading-5">{value}</Text>
+  <View className="flex-row items-start justify-between py-3 border-b border-separator last:border-0 gap-4 w-full">
+    <Text className="text-zinc-400 text-sm shrink-0" style={{ maxWidth: "42%" }}>
+      {label}
+    </Text>
+    <View className="flex-1 shrink items-end justify-start">
+      <Text className="text-foreground text-sm font-medium text-right leading-5" style={{ flexShrink: 1 }}>
+        {value}
+      </Text>
+    </View>
   </View>
 );
 
