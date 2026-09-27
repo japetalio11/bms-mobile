@@ -31,6 +31,9 @@ const TIME_SLOTS = [
   "04:00 PM",
 ];
 
+const MORNING_SLOTS = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM"];
+const AFTERNOON_SLOTS = ["01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM"];
+
 const VISIT_TYPES = [
   { id: "Prenatal Visit", label: "Prenatal Visit", icon: "medical-outline", color: "#0284c7" },
   { id: "Postnatal Checkup", label: "Postnatal Checkup", icon: "heart-outline", color: "#10b981" },
@@ -676,28 +679,94 @@ export default function AppointmentsScreen(): JSX.Element {
                 </ScrollView>
               </View>
 
-              {/* Time Slot Selection */}
+              {/* Preferred Time Selector */}
               <View>
-                <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-2">Preferred Time</Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {TIME_SLOTS.map((slot) => {
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Preferred Time</Text>
+                  <View className="flex-row items-center gap-1.5 bg-[#0284c7]/15 px-2.5 py-1 rounded-full border border-[#0284c7]/30">
+                    <Ionicons name="time-outline" size={13} color="#38bdf8" />
+                    <Text className="text-[#38bdf8] font-bold text-xs">{bookingTime}</Text>
+                  </View>
+                </View>
+
+                {/* Period Switcher: Morning (AM) vs Afternoon (PM) */}
+                <View className="flex-row bg-default p-1 rounded-2xl border border-white/[0.06] gap-1 mb-2.5">
+                  <Pressable
+                    onPress={() => {
+                      if (!bookingTime.includes("AM")) setBookingTime("09:00 AM");
+                    }}
+                    className={`flex-1 py-2 px-2 rounded-xl items-center justify-center flex-row gap-1.5 ${
+                      bookingTime.includes("AM") ? "bg-[#0284c7] shadow-sm" : "bg-transparent active:opacity-70"
+                    }`}
+                  >
+                    <Ionicons
+                      name="sunny-outline"
+                      size={14}
+                      color={bookingTime.includes("AM") ? "#ffffff" : "#a1a1aa"}
+                    />
+                    <Text
+                      className={`text-xs font-semibold ${
+                        bookingTime.includes("AM") ? "text-white" : "text-zinc-400"
+                      }`}
+                    >
+                      Morning
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      if (!bookingTime.includes("PM")) setBookingTime("02:00 PM");
+                    }}
+                    className={`flex-1 py-2 px-2 rounded-xl items-center justify-center flex-row gap-1.5 ${
+                      bookingTime.includes("PM") ? "bg-[#0284c7] shadow-sm" : "bg-transparent active:opacity-70"
+                    }`}
+                  >
+                    <Ionicons
+                      name="partly-sunny-outline"
+                      size={14}
+                      color={bookingTime.includes("PM") ? "#ffffff" : "#a1a1aa"}
+                    />
+                    <Text
+                      className={`text-xs font-semibold ${
+                        bookingTime.includes("PM") ? "text-white" : "text-zinc-400"
+                      }`}
+                    >
+                      Afternoon
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Time Slots Grid (4 Columns) */}
+                <View className="flex-row gap-2">
+                  {(bookingTime.includes("AM") ? MORNING_SLOTS : AFTERNOON_SLOTS).map((slot) => {
                     const isSelected = bookingTime === slot;
+                    const parts = slot.split(" ");
+                    const hour = parts[0];
+                    const meridiem = parts[1];
+
                     return (
                       <Pressable
                         key={slot}
                         onPress={() => setBookingTime(slot)}
-                        className={`flex-1 min-w-[22%] py-2.5 px-1 rounded-xl border items-center justify-center ${
+                        className={`flex-1 py-2.5 rounded-2xl items-center justify-center border ${
                           isSelected
                             ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
                             : "bg-surface-secondary border-white/[0.06] active:bg-default"
                         }`}
                       >
                         <Text
-                          className={`text-xs ${
-                            isSelected ? "text-white font-bold" : "text-zinc-300 font-medium"
+                          className={`text-xs font-bold ${
+                            isSelected ? "text-white" : "text-foreground"
                           }`}
                         >
-                          {slot}
+                          {hour}
+                        </Text>
+                        <Text
+                          className={`text-[10px] font-medium mt-0.5 ${
+                            isSelected ? "text-white/80" : "text-zinc-500"
+                          }`}
+                        >
+                          {meridiem}
                         </Text>
                       </Pressable>
                     );
@@ -706,7 +775,7 @@ export default function AppointmentsScreen(): JSX.Element {
               </View>
 
               {/* Notes / Reason */}
-              <View>
+              <View className="mt-1">
                 <View className="flex-row justify-between items-center mb-2">
                   <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Reason or Notes</Text>
                   <Text className="text-zinc-500 text-[11px]">Optional</Text>
