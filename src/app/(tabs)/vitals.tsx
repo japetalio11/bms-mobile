@@ -81,18 +81,18 @@ export default function VitalsScreen(): JSX.Element {
       >
         <View className="px-5 mb-5 pt-2">
           <Tabs value={activeTab} onValueChange={setActiveTab} variant="primary">
-            <Tabs.List className="bg-default p-1 rounded-xl">
-              <Tabs.Indicator className="bg-surface-secondary rounded-xl" />
-              <Tabs.Trigger value="maternal">
+            <Tabs.List className="bg-default p-1 rounded-xl flex-row w-full h-10 items-center">
+              <Tabs.Indicator className="bg-surface-secondary rounded-lg" />
+              <Tabs.Trigger value="maternal" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
+                  <Tabs.Label className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
                     Maternal Vitals
                   </Tabs.Label>
                 )}
               </Tabs.Trigger>
-              <Tabs.Trigger value="newborn">
+              <Tabs.Trigger value="newborn" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-medium text-sm py-2 ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
+                  <Tabs.Label className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
                     Newborn Record
                   </Tabs.Label>
                 )}
