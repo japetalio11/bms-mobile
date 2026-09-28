@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, SearchField } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,10 +31,13 @@ const TIME_SLOTS = [
   "04:00 PM",
 ];
 
+const MORNING_SLOTS = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM"];
+const AFTERNOON_SLOTS = ["01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM"];
+
 const VISIT_TYPES = [
-  { id: "Prenatal Visit", label: "Prenatal Visit", icon: "medical-outline", color: "#0284c7" },
-  { id: "Postnatal Checkup", label: "Postnatal Checkup", icon: "heart-outline", color: "#10b981" },
-  { id: "Neonatal Screening", label: "Neonatal Screening", icon: "sparkles-outline", color: "#f59e0b" },
+  { id: "Prenatal Visit", label: "Prenatal Visit", icon: "woman-outline", color: "#0284c7" },
+  { id: "Postnatal Checkup", label: "Postnatal Checkup", icon: "heart-circle-outline", color: "#10b981" },
+  { id: "Neonatal Screening", label: "Neonatal Screening", icon: "happy-outline", color: "#f59e0b" },
 ];
 
 export default function AppointmentsScreen(): JSX.Element {
@@ -54,7 +57,8 @@ export default function AppointmentsScreen(): JSX.Element {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState<Date>(new Date());
-  const [modalCalendarMonth, setModalCalendarMonth] = useState<Date>(new Date());
+  const [isCustomDatePickerOpen, setIsCustomDatePickerOpen] = useState(false);
+  const [modalMonthView, setModalMonthView] = useState<Date>(new Date());
   const [bookingTime, setBookingTime] = useState("09:00 AM");
   const [bookingType, setBookingType] = useState("Prenatal Visit");
   const [bookingReason, setBookingReason] = useState("");
@@ -175,28 +179,76 @@ export default function AppointmentsScreen(): JSX.Element {
     return rows;
   }, [daysInMonth, firstDay]);
 
-  const mYear = modalCalendarMonth.getFullYear();
-  const mMonth = modalCalendarMonth.getMonth();
-  const mMonthName = modalCalendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const mFirstDay = new Date(mYear, mMonth, 1).getDay();
-  const mDaysInMonth = new Date(mYear, mMonth + 1, 0).getDate();
+  const modalMonthYear = modalMonthView.getFullYear();
+  const modalMonthIndex = modalMonthView.getMonth();
+  const modalMonthName = modalMonthView.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const modalFirstDay = new Date(modalMonthYear, modalMonthIndex, 1).getDay();
+  const modalDaysInMonth = new Date(modalMonthYear, modalMonthIndex + 1, 0).getDate();
 
-  const modalCalendarRows: (number | null)[][] = useMemo(() => {
-    const rows: (number | null)[][] = [];
-    let dayCounter = 1;
-    while (dayCounter <= mDaysInMonth) {
-      const row: (number | null)[] = [];
-      for (let c = 0; c < 7; c++) {
-        if ((rows.length === 0 && c < mFirstDay) || dayCounter > mDaysInMonth) {
-          row.push(null);
-        } else {
-          row.push(dayCounter++);
-        }
-      }
-      rows.push(row);
+  const isPrevMonthDisabled = useMemo(() => {
+    const now = new Date();
+    return (
+      modalMonthYear < now.getFullYear() ||
+      (modalMonthYear === now.getFullYear() && modalMonthIndex <= now.getMonth())
+    );
+  }, [modalMonthYear, modalMonthIndex]);
+
+  const modalCalendarCells = useMemo(() => {
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < modalFirstDay; i++) {
+      cells.push(null);
     }
-    return rows;
-  }, [mDaysInMonth, mFirstDay]);
+    for (let d = 1; d <= modalDaysInMonth; d++) {
+      cells.push(d);
+    }
+    return cells;
+  }, [modalFirstDay, modalDaysInMonth]);
+
+  const handlePrevMonth = () => {
+    if (isPrevMonthDisabled) return;
+    setModalMonthView(new Date(modalMonthYear, modalMonthIndex - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setModalMonthView(new Date(modalMonthYear, modalMonthIndex + 1, 1));
+  };
+
+  const handleSelectCalendarDay = (day: number) => {
+    const newDate = new Date(modalMonthYear, modalMonthIndex, day);
+    setModalDate(newDate);
+  };
+
+  const handlePresetDate = (daysAhead: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    setModalDate(d);
+    setModalMonthView(new Date(d.getFullYear(), d.getMonth(), 1));
+  };
+
+  const isDayInPast = (day: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const check = new Date(modalMonthYear, modalMonthIndex, day);
+    check.setHours(0, 0, 0, 0);
+    return check.getTime() < today.getTime();
+  };
+
+  const isDayToday = (day: number) => {
+    const today = new Date();
+    return (
+      day === today.getDate() &&
+      modalMonthIndex === today.getMonth() &&
+      modalMonthYear === today.getFullYear()
+    );
+  };
+
+  const isDaySelected = (day: number) => {
+    return (
+      day === modalDate.getDate() &&
+      modalMonthIndex === modalDate.getMonth() &&
+      modalMonthYear === modalDate.getFullYear()
+    );
+  };
 
   const handleBookAppointment = async () => {
     if (!user?.user_id) {
@@ -248,13 +300,6 @@ export default function AppointmentsScreen(): JSX.Element {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const setDatePreset = (daysToAdd: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + daysToAdd);
-    setModalDate(d);
-    setModalCalendarMonth(new Date(d.getFullYear(), d.getMonth(), 1));
   };
 
   const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(false);
@@ -576,21 +621,19 @@ export default function AppointmentsScreen(): JSX.Element {
       </ScrollView>
 
       <Modal visible={isModalOpen} transparent animationType="slide" onRequestClose={() => setIsModalOpen(false)}>
-        <View className="flex-1 bg-black/85 justify-end sm:justify-center items-center">
+        <View className="flex-1 bg-black/70 justify-end sm:justify-center items-center">
           <View 
-            style={{ paddingBottom: Math.max(insets.bottom, 20) }}
-            className="w-full max-w-lg bg-surface border-t sm:border border-white/[0.12] rounded-t-3xl sm:rounded-3xl p-5 max-h-[90%] flex-col"
+            style={{ paddingBottom: Math.max(insets.bottom + 12, 28) }}
+            className="w-full max-w-lg bg-surface border-t sm:border border-white/[0.12] rounded-t-[28px] sm:rounded-3xl p-5 max-h-[92%] flex-col"
           >
-            
-            <View className="flex-row justify-between items-center pb-3 border-b border-white/[0.08] mb-3">
-              <View className="flex-row items-center gap-2.5">
-                <View className="size-9 rounded-xl bg-[#3b82f6]/15 items-center justify-center border border-[#3b82f6]/30">
-                  <Ionicons name="calendar" size={18} color="#3b82f6" />
-                </View>
-                <View>
-                  <Text className="text-foreground text-base font-bold">Schedule Appointment</Text>
-                  <Text className="text-zinc-400 text-sm">Select visit type, date, and time slot</Text>
-                </View>
+            {/* iOS Sheet Grabber */}
+            <View className="w-10 h-1 rounded-full bg-zinc-600/70 self-center mb-3" />
+
+            {/* Header */}
+            <View className="flex-row justify-between items-center pb-3 border-b border-white/[0.08] mb-3.5">
+              <View>
+                <Text className="text-foreground text-lg font-bold">Schedule Appointment</Text>
+                <Text className="text-zinc-400 text-xs mt-0.5">Select visit type, date, and preferred time</Text>
               </View>
 
               <Pressable
@@ -598,172 +641,247 @@ export default function AppointmentsScreen(): JSX.Element {
                   setIsModalOpen(false);
                   setBookingError(null);
                 }}
-                className="size-8 items-center justify-center rounded-full bg-default"
+                className="size-8 items-center justify-center rounded-full bg-default active:opacity-70"
+                accessibilityLabel="Close"
               >
                 <Ionicons name="close" size={18} color="#a1a1aa" />
               </Pressable>
             </View>
 
             {bookingError && (
-              <View className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-2">
+              <View className="mb-3 p-3 bg-red-500/10 border border-red-500/25 rounded-2xl flex-row items-center gap-2">
                 <Ionicons name="alert-circle" size={18} color="#ef4444" />
-                <Text className="text-red-400 text-sm flex-1 font-medium">{bookingError}</Text>
+                <Text className="text-red-400 text-xs flex-1 font-medium">{bookingError}</Text>
               </View>
             )}
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 16 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 8 }}>
               {!user?.facility_id && (
-                <View className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex-row items-center gap-2.5">
-                  <Ionicons name="warning-outline" size={20} color="#f59e0b" />
-                  <Text className="text-amber-300 text-sm flex-1 leading-4">
-                    Note: Your account is not currently linked to a health center. Scheduled appointments will be pending facility assignment.
+                <View className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex-row items-center gap-2.5">
+                  <Ionicons name="information-circle-outline" size={18} color="#f59e0b" />
+                  <Text className="text-amber-300 text-xs flex-1 leading-4">
+                    Your account is not linked to a facility yet. Your appointment will be submitted for pending assignment.
                   </Text>
                 </View>
               )}
 
+              {/* Visit Type - Segmented Selector */}
               <View>
-                <Text className="text-foreground text-sm font-bold mb-2">1. Visit Type</Text>
-                <View className="gap-2">
+                <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-2">Visit Type</Text>
+                <View className="flex-row bg-default p-1 rounded-2xl border border-white/[0.06] gap-1">
                   {VISIT_TYPES.map((type) => {
                     const isSelected = bookingType === type.id;
+                    const shortLabel = type.label.replace(" Visit", "").replace(" Checkup", "").replace(" Screening", "");
                     return (
                       <Pressable
                         key={type.id}
                         onPress={() => setBookingType(type.id)}
-                        className={`p-3 rounded-2xl border flex-row items-center justify-between ${
-                          isSelected
-                            ? "bg-default border-[#3b82f6]"
-                            : "bg-surface-secondary border-white/[0.08]"
+                        className={`flex-1 py-2.5 px-2 rounded-xl items-center justify-center flex-row gap-1.5 ${
+                          isSelected ? "bg-[#0284c7] shadow-sm" : "bg-transparent active:opacity-70"
                         }`}
                       >
-                        <View className="flex-row items-center gap-3">
-                          <View className="size-9 rounded-xl items-center justify-center bg-default border border-white/[0.06]">
-                            <Ionicons name={type.icon as any} size={18} color={isSelected ? "#3b82f6" : "#a1a1aa"} />
-                          </View>
-                          <Text className={`text-sm font-semibold ${isSelected ? "text-foreground" : "text-zinc-300"}`}>
-                            {type.label}
-                          </Text>
-                        </View>
-                        <View
-                          className={`size-5 rounded-full border items-center justify-center ${
-                            isSelected ? "border-[#3b82f6] bg-[#3b82f6]" : "border-zinc-600 bg-transparent"
+                        <Ionicons
+                          name={type.icon as any}
+                          size={15}
+                          color={isSelected ? "#ffffff" : "#a1a1aa"}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          className={`text-xs font-semibold ${
+                            isSelected ? "text-white" : "text-zinc-400"
                           }`}
                         >
-                          {isSelected && <Ionicons name="checkmark" size={12} color="#ffffff" />}
-                        </View>
+                          {shortLabel}
+                        </Text>
                       </Pressable>
                     );
                   })}
                 </View>
               </View>
 
+              {/* Date Selection */}
               <View>
-                <Text className="text-foreground text-sm font-bold mb-2">2. Select Date</Text>
-
-                <View className="bg-[#3b82f6]/10 border border-[#3b82f6]/30 px-3.5 py-2.5 rounded-2xl flex-row items-center justify-between mb-2.5">
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons name="calendar-outline" size={18} color="#3b82f6" />
-                    <Text className="text-foreground text-sm font-bold">
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Date</Text>
+                  
+                  <Pressable
+                    onPress={() => {
+                      setModalMonthView(new Date(modalDate.getFullYear(), modalDate.getMonth(), 1));
+                      setIsCustomDatePickerOpen(true);
+                    }}
+                    className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-xl bg-default border border-white/[0.06] active:bg-surface-secondary"
+                  >
+                    <Ionicons name="calendar-outline" size={13} color="#38bdf8" />
+                    <Text className="text-[#38bdf8] font-bold text-xs">
                       {modalDate.toLocaleDateString("en-US", {
                         weekday: "short",
                         month: "short",
                         day: "numeric",
-                        year: "numeric",
                       })}
                     </Text>
-                  </View>
+                    <Ionicons name="chevron-forward" size={11} color="#71717a" />
+                  </Pressable>
                 </View>
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 10 }}>
-                  {[
-                    { label: "Today", days: 0 },
-                    { label: "Tomorrow", days: 1 },
-                    { label: "In 3 Days", days: 3 },
-                    { label: "In 1 Wk", days: 7 },
-                    { label: "In 2 Wks", days: 14 },
-                  ].map((p) => {
-                    const target = new Date();
-                    target.setDate(target.getDate() + p.days);
-                    const isSelected =
-                      modalDate.getDate() === target.getDate() &&
-                      modalDate.getMonth() === target.getMonth() &&
-                      modalDate.getFullYear() === target.getFullYear();
+                {/* Horizontal Date Picker */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {/* If user picked a custom date beyond 14 days, show it at the front */}
+                  {modalDate.getTime() - new Date().setHours(0, 0, 0, 0) >= 14 * 24 * 60 * 60 * 1000 && (
+                    <Pressable
+                      onPress={() => {}}
+                      className="w-16 py-2.5 rounded-2xl items-center justify-center border bg-[#0284c7] border-[#0284c7] shadow-sm"
+                    >
+                      <Text className="text-[10px] font-semibold text-white/80">
+                        {modalDate.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}
+                      </Text>
+                      <Text className="text-base font-bold my-0.5 text-white">
+                        {modalDate.getDate()}
+                      </Text>
+                      <Text className="text-[10px] font-medium text-white/80">
+                        {modalDate.toLocaleDateString("en-US", { month: "short" })}
+                      </Text>
+                    </Pressable>
+                  )}
+
+                  {Array.from({ length: 14 }).map((_, idx) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + idx);
+                    const isSelectedDate =
+                      d.getDate() === modalDate.getDate() &&
+                      d.getMonth() === modalDate.getMonth() &&
+                      d.getFullYear() === modalDate.getFullYear();
+
+                    const isToday = idx === 0;
+                    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+                    const dayNum = d.getDate();
+                    const monthName = d.toLocaleDateString("en-US", { month: "short" });
 
                     return (
                       <Pressable
-                        key={p.label}
-                        onPress={() => setDatePreset(p.days)}
-                        className={`px-3.5 py-1.5 rounded-xl border shrink-0 ${
-                          isSelected
-                            ? "bg-[#3b82f6] border-[#3b82f6]"
-                            : "bg-default border-white/[0.08]"
+                        key={d.toISOString()}
+                        onPress={() => setModalDate(d)}
+                        className={`w-14 py-2.5 rounded-2xl items-center justify-center border ${
+                          isSelectedDate
+                            ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
+                            : "bg-surface-secondary border-white/[0.06] active:bg-default"
                         }`}
                       >
-                        <Text className={`text-sm ${isSelected ? "text-white font-bold" : "text-zinc-300 font-medium"}`}>
-                          {p.label}
+                        <Text className={`text-[10px] font-semibold ${isSelectedDate ? "text-white/80" : "text-zinc-400"}`}>
+                          {isToday ? "TODAY" : dayName}
+                        </Text>
+                        <Text className={`text-base font-bold my-0.5 ${isSelectedDate ? "text-white" : "text-foreground"}`}>
+                          {dayNum}
+                        </Text>
+                        <Text className={`text-[10px] font-medium ${isSelectedDate ? "text-white/80" : "text-zinc-500"}`}>
+                          {monthName}
                         </Text>
                       </Pressable>
                     );
                   })}
+
+                  {/* Pick other date button at the end of the strip */}
+                  <Pressable
+                    onPress={() => {
+                      setModalMonthView(new Date(modalDate.getFullYear(), modalDate.getMonth(), 1));
+                      setIsCustomDatePickerOpen(true);
+                    }}
+                    className="w-14 py-2.5 rounded-2xl items-center justify-center border border-dashed border-white/[0.15] bg-default/60 active:bg-surface-secondary"
+                  >
+                    <Ionicons name="calendar" size={16} color="#38bdf8" />
+                    <Text className="text-[10px] font-semibold text-zinc-300 mt-1">More</Text>
+                    <Text className="text-[9px] text-zinc-500">Dates...</Text>
+                  </Pressable>
                 </ScrollView>
-
-                <View className="bg-default border border-white/[0.08] rounded-2xl p-2.5">
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {Array.from({ length: 14 }).map((_, idx) => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + idx);
-                      const isSelectedDate =
-                        d.getDate() === modalDate.getDate() &&
-                        d.getMonth() === modalDate.getMonth() &&
-                        d.getFullYear() === modalDate.getFullYear();
-
-                      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
-                      const dayNum = d.getDate();
-
-                      return (
-                        <Pressable
-                          key={d.toISOString()}
-                          onPress={() => setModalDate(d)}
-                          className={`w-12 h-14 rounded-xl items-center justify-center border ${
-                            isSelectedDate
-                              ? "bg-[#3b82f6] border-[#3b82f6]"
-                              : "bg-surface border-white/[0.08]"
-                          }`}
-                        >
-                          <Text className={`text-[10px] font-medium ${isSelectedDate ? "text-white/90" : "text-zinc-400"}`}>
-                            {dayName}
-                          </Text>
-                          <Text className={`text-sm font-bold ${isSelectedDate ? "text-white" : "text-foreground"}`}>
-                            {dayNum}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
               </View>
 
+              {/* Preferred Time Selector */}
               <View>
-                <Text className="text-foreground text-sm font-bold mb-2">3. Preferred Time Slot</Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {TIME_SLOTS.map((slot) => {
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Preferred Time</Text>
+                  <View className="flex-row items-center gap-1.5 bg-[#0284c7]/15 px-2.5 py-1 rounded-full border border-[#0284c7]/30">
+                    <Ionicons name="time-outline" size={13} color="#38bdf8" />
+                    <Text className="text-[#38bdf8] font-bold text-xs">{bookingTime}</Text>
+                  </View>
+                </View>
+
+                {/* Period Switcher: Morning (AM) vs Afternoon (PM) */}
+                <View className="flex-row bg-default p-1 rounded-2xl border border-white/[0.06] gap-1 mb-2.5">
+                  <Pressable
+                    onPress={() => {
+                      if (!bookingTime.includes("AM")) setBookingTime("09:00 AM");
+                    }}
+                    className={`flex-1 py-2 px-2 rounded-xl items-center justify-center flex-row gap-1.5 ${
+                      bookingTime.includes("AM") ? "bg-[#0284c7] shadow-sm" : "bg-transparent active:opacity-70"
+                    }`}
+                  >
+                    <Ionicons
+                      name="sunny-outline"
+                      size={14}
+                      color={bookingTime.includes("AM") ? "#ffffff" : "#a1a1aa"}
+                    />
+                    <Text
+                      className={`text-xs font-semibold ${
+                        bookingTime.includes("AM") ? "text-white" : "text-zinc-400"
+                      }`}
+                    >
+                      Morning
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      if (!bookingTime.includes("PM")) setBookingTime("02:00 PM");
+                    }}
+                    className={`flex-1 py-2 px-2 rounded-xl items-center justify-center flex-row gap-1.5 ${
+                      bookingTime.includes("PM") ? "bg-[#0284c7] shadow-sm" : "bg-transparent active:opacity-70"
+                    }`}
+                  >
+                    <Ionicons
+                      name="partly-sunny-outline"
+                      size={14}
+                      color={bookingTime.includes("PM") ? "#ffffff" : "#a1a1aa"}
+                    />
+                    <Text
+                      className={`text-xs font-semibold ${
+                        bookingTime.includes("PM") ? "text-white" : "text-zinc-400"
+                      }`}
+                    >
+                      Afternoon
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Time Slots Grid (4 Columns) */}
+                <View className="flex-row gap-2">
+                  {(bookingTime.includes("AM") ? MORNING_SLOTS : AFTERNOON_SLOTS).map((slot) => {
                     const isSelected = bookingTime === slot;
+                    const parts = slot.split(" ");
+                    const hour = parts[0];
+                    const meridiem = parts[1];
+
                     return (
                       <Pressable
                         key={slot}
                         onPress={() => setBookingTime(slot)}
-                        className={`px-3.5 py-2 rounded-xl border ${
+                        className={`flex-1 py-2.5 rounded-2xl items-center justify-center border ${
                           isSelected
-                            ? "bg-[#3b82f6] border-[#3b82f6] shadow-sm"
-                            : "bg-default border-white/[0.08]"
+                            ? "bg-[#0284c7] border-[#0284c7] shadow-sm"
+                            : "bg-surface-secondary border-white/[0.06] active:bg-default"
                         }`}
                       >
                         <Text
-                          className={`text-sm ${
-                            isSelected ? "text-white font-bold" : "text-zinc-300 font-medium"
+                          className={`text-xs font-bold ${
+                            isSelected ? "text-white" : "text-foreground"
                           }`}
                         >
-                          {slot}
+                          {hour}
+                        </Text>
+                        <Text
+                          className={`text-[10px] font-medium mt-0.5 ${
+                            isSelected ? "text-white/80" : "text-zinc-500"
+                          }`}
+                        >
+                          {meridiem}
                         </Text>
                       </Pressable>
                     );
@@ -771,49 +889,173 @@ export default function AppointmentsScreen(): JSX.Element {
                 </View>
               </View>
 
-              <View>
-                <Text className="text-foreground text-sm font-bold mb-2">4. Reason / Notes (Optional)</Text>
+              {/* Notes / Reason */}
+              <View className="mt-1">
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Reason or Notes</Text>
+                  <Text className="text-zinc-500 text-[11px]">Optional</Text>
+                </View>
                 <TextInput
                   value={bookingReason}
                   onChangeText={setBookingReason}
                   placeholder="e.g. Regular prenatal checkup, headache, ultrasound review"
-                  placeholderTextColor="#a1a1aa"
+                  placeholderTextColor="#71717a"
                   multiline
                   numberOfLines={2}
                   style={{ textAlignVertical: "top" }}
-                  className="bg-default border border-white/[0.1] rounded-2xl p-3 text-foreground text-sm min-h-[60px]"
+                  className="bg-surface-secondary border border-white/[0.06] rounded-2xl p-3.5 text-foreground text-sm min-h-[64px]"
                 />
               </View>
             </ScrollView>
 
-            <View className="flex-row gap-3 pt-3.5 border-t border-white/[0.08] bg-surface">
-              <Pressable
-                onPress={() => {
-                  setIsModalOpen(false);
-                  setBookingError(null);
-                }}
-                className="flex-1 py-3.5 rounded-2xl bg-default items-center active:opacity-80"
-              >
-                <Text className="text-zinc-300 font-semibold text-sm">Cancel</Text>
-              </Pressable>
-
+            {/* iOS Primary Action Button */}
+            <View className="pt-3.5 pb-2 border-t border-white/[0.08]">
               <Pressable
                 onPress={handleBookAppointment}
                 disabled={isSubmitting}
-                className="flex-1 py-3.5 rounded-2xl bg-[#3b82f6] flex-row items-center justify-center gap-2 active:bg-[#2563eb] shadow-md"
+                className="w-full h-12 rounded-2xl bg-[#0284c7] flex-row items-center justify-center gap-2 active:bg-[#0369a1] shadow-md"
               >
                 {isSubmitting ? (
                   <ActivityIndicator color="white" size="small" />
                 ) : (
-                  <Ionicons name="checkmark-circle" size={18} color="white" />
+                  <>
+                    <Ionicons name="calendar-outline" size={18} color="white" />
+                    <Text className="text-white font-bold text-base">Confirm Appointment</Text>
+                  </>
                 )}
-                <Text className="text-white font-bold text-sm">
-                  {isSubmitting ? "Saving..." : "Confirm Schedule"}
-                </Text>
               </Pressable>
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Month Calendar Modal for picking dates months in advance */}
+      <Modal visible={isCustomDatePickerOpen} transparent animationType="fade" onRequestClose={() => setIsCustomDatePickerOpen(false)}>
+        <Pressable onPress={() => setIsCustomDatePickerOpen(false)} className="flex-1 bg-black/80 justify-center items-center p-5">
+          <Pressable className="w-full max-w-sm bg-surface border border-white/[0.12] rounded-3xl p-5 gap-3 shadow-2xl">
+            <View className="flex-row items-center justify-between pb-3 border-b border-white/[0.08]">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="calendar" size={18} color="#0284c7" />
+                <Text className="text-foreground font-bold text-base">Select Date</Text>
+              </View>
+              <Pressable onPress={() => setIsCustomDatePickerOpen(false)} className="size-7 items-center justify-center rounded-full bg-default active:opacity-70">
+                <Ionicons name="close" size={16} color="#a1a1aa" />
+              </Pressable>
+            </View>
+
+            {/* Quick 1-Tap Presets */}
+            <View className="flex-row flex-wrap gap-1.5 pt-1">
+              {[
+                { label: "Today", days: 0 },
+                { label: "+1 Wk", days: 7 },
+                { label: "+2 Wks", days: 14 },
+                { label: "+1 Mo", days: 30 },
+                { label: "+2 Mo", days: 60 },
+                { label: "+3 Mo", days: 90 },
+              ].map((p) => (
+                <Pressable
+                  key={p.label}
+                  onPress={() => {
+                    handlePresetDate(p.days);
+                    setIsCustomDatePickerOpen(false);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-default border border-white/[0.06] active:bg-surface-secondary"
+                >
+                  <Text className="text-zinc-300 text-xs font-medium">{p.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Month Calendar */}
+            <View className="bg-surface-secondary border border-white/[0.06] rounded-2xl p-3 mt-1">
+              {/* Month Nav Bar */}
+              <View className="flex-row justify-between items-center mb-2.5">
+                <Pressable
+                  onPress={handlePrevMonth}
+                  disabled={isPrevMonthDisabled}
+                  className={`size-8 rounded-xl items-center justify-center bg-default ${
+                    isPrevMonthDisabled ? "opacity-30" : "active:opacity-70"
+                  }`}
+                >
+                  <Ionicons name="chevron-back" size={16} color="#a1a1aa" />
+                </Pressable>
+
+                <Text className="text-foreground text-sm font-bold">{modalMonthName}</Text>
+
+                <Pressable
+                  onPress={handleNextMonth}
+                  className="size-8 rounded-xl items-center justify-center bg-default active:opacity-70"
+                >
+                  <Ionicons name="chevron-forward" size={16} color="#a1a1aa" />
+                </Pressable>
+              </View>
+
+              {/* Weekday headers */}
+              <View className="flex-row justify-between mb-1 px-0.5">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, i) => (
+                  <Text key={i} className="flex-1 text-center text-[10px] font-semibold text-zinc-500">
+                    {d}
+                  </Text>
+                ))}
+              </View>
+
+              {/* Day Cells Grid */}
+              <View className="flex-row flex-wrap">
+                {modalCalendarCells.map((day, idx) => {
+                  if (day === null) {
+                    return <View key={`empty-${idx}`} className="w-[14.28%] aspect-square" />;
+                  }
+
+                  const past = isDayInPast(day);
+                  const selected = isDaySelected(day);
+                  const today = isDayToday(day);
+
+                  return (
+                    <View key={`day-${day}`} className="w-[14.28%] p-0.5 aspect-square items-center justify-center">
+                      <Pressable
+                        disabled={past}
+                        onPress={() => {
+                          handleSelectCalendarDay(day);
+                          setIsCustomDatePickerOpen(false);
+                        }}
+                        className={`w-full h-full rounded-xl items-center justify-center ${
+                          selected
+                            ? "bg-[#0284c7] shadow-sm"
+                            : today
+                            ? "border border-[#0284c7]/80 bg-default"
+                            : past
+                            ? "opacity-20"
+                            : "active:bg-default"
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs ${
+                            selected
+                              ? "text-white font-bold"
+                              : today
+                              ? "text-[#38bdf8] font-bold"
+                              : past
+                              ? "text-zinc-600"
+                              : "text-foreground font-semibold"
+                          }`}
+                        >
+                          {day}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => setIsCustomDatePickerOpen(false)}
+              className="w-full py-3 rounded-2xl bg-[#0284c7] items-center justify-center active:bg-[#0369a1] mt-1"
+            >
+              <Text className="text-white font-bold text-sm">Done</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       <Modal visible={isFilterModalOpen} transparent animationType="fade" onRequestClose={() => setIsFilterModalOpen(false)}>

@@ -1,4 +1,4 @@
-﻿import { Platform } from "react-native";
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 const getApiBaseUrl = (): string => {
@@ -190,6 +190,7 @@ export type LabScreeningRecord = {
   file_url?: string;
   date_of_screening: string;
   remarks?: string;
+  sync_status?: string;
 };
 
 export type AuthResponse = {

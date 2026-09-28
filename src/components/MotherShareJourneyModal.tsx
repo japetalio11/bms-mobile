@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator, Alert, Linking } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
@@ -79,10 +79,21 @@ export function MotherShareJourneyModal({
   const handlePreviewWebView = async () => {
     if (!shareData?.web_url) return;
     try {
-      const urlWithPin = `${shareData.web_url}?pin=${shareData.pin_code}`;
+      let rawUrl = shareData.web_url.trim();
+      if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+        rawUrl = `https://${rawUrl}`;
+      }
+      const urlWithPin = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}pin=${shareData.pin_code}`;
       await WebBrowser.openBrowserAsync(urlWithPin);
     } catch (err) {
-      Linking.openURL(shareData.web_url).catch(() => {});
+      console.warn("Failed to open web browser, attempting device Linking fallback:", err);
+      let fallbackUrl = shareData.web_url.trim();
+      if (!fallbackUrl.startsWith("http://") && !fallbackUrl.startsWith("https://")) {
+        fallbackUrl = `https://${fallbackUrl}`;
+      }
+      Linking.openURL(fallbackUrl).catch((linkErr) => {
+        console.warn("Linking fallback also failed:", linkErr);
+      });
     }
   };
 
