@@ -26,6 +26,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
 import { useUniwind } from "uniwind";
 import { useAuth } from "../../context/UserContext";
+import { useSocket } from "../../context/SocketContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { useConfirm } from "../../context/ConfirmationContext";
 import {
@@ -63,6 +64,7 @@ export default function ChatScreen(): JSX.Element {
   const { theme } = useUniwind();
   const isDark = theme === "dark";
   const { user, token, motherRecord } = useAuth();
+  const { socket } = useSocket();
   const { isOnline } = useNetwork();
   const { confirm } = useConfirm();
 
@@ -96,6 +98,32 @@ export default function ChatScreen(): JSX.Element {
     sizeFormatted: string;
     detectedType: "image" | "file";
   } | null>(null);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleIncomingMessage = (newMsg: InAppMessage) => {
+      if (!newMsg) return;
+      setAllMessages((prev) => {
+        if (prev.some((m) => m.message_id === newMsg.message_id)) return prev;
+        const filtered = prev.filter(
+          (m) =>
+            !(
+              m.message_id.startsWith("local_") &&
+              m.sender_id === newMsg.sender_id &&
+              m.message_content === newMsg.message_content
+            )
+        );
+        return [...filtered, newMsg].sort(
+          (a, b) => new Date(a.message_date).getTime() - new Date(b.message_date).getTime()
+        );
+      });
+    };
+
+    socket.on("message:new", handleIncomingMessage);
+    return () => {
+      socket.off("message:new", handleIncomingMessage);
+    };
+  }, [socket]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -386,7 +414,7 @@ export default function ChatScreen(): JSX.Element {
       if (b.lastMessageDate) return 1;
       return (a.first_name || "").localeCompare(b.first_name || "");
     });
-  }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId, motherRecord?.assignedWorker, allMessages, user?.user_id]);
+  }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId, motherRecord, allMessages, user?.user_id]);
 
   const currentChatMessages = useMemo<MessageBubble[]>(() => {
     if (!selectedStaff) return [];

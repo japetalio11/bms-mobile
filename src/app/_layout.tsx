@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import "../global.css";
 import { UserProvider } from "../context/UserContext";
+import { SocketProvider } from "../context/SocketContext";
 import { NetworkProvider } from "../context/NetworkContext";
 import { SettingsProvider } from "../context/settingsContext";
 import { ConfirmationProvider } from "../context/ConfirmationContext";
@@ -48,17 +49,19 @@ export default function RootLayout(): JSX.Element | null {
         <SettingsProvider>
           <NetworkProvider>
             <UserProvider>
-              <ConfirmationProvider>
-                <PushNotificationSubscriber />
-                <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }} edges={["top"]}>
-                  <OfflineBanner />
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="(auth)" />
-                    <Stack.Screen name="(tabs)" />
-                  </Stack>
-                  <StatusBar style="auto" />
-                </SafeAreaView>
-              </ConfirmationProvider>
+              <SocketProvider>
+                <ConfirmationProvider>
+                  <PushNotificationSubscriber />
+                  <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }} edges={["top"]}>
+                    <OfflineBanner />
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="(auth)" />
+                      <Stack.Screen name="(tabs)" />
+                    </Stack>
+                    <StatusBar style="auto" />
+                  </SafeAreaView>
+                </ConfirmationProvider>
+              </SocketProvider>
             </UserProvider>
           </NetworkProvider>
         </SettingsProvider>
