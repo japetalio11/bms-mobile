@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, Button, TextField, Label, Input } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -68,9 +68,16 @@ export default function SecurityScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-background">
-      <Header showBackButton title="Security" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
+      <Header
+        showBackButton
+        title="Security"
+        onBack={() => router.push("/(tabs)/profile")}
+        rightIcon={null}
+      />
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
         {error && (
           <View className="mx-5 mt-4 mb-2 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="alert-circle-outline" size={22} color="#ef4444" />
@@ -81,36 +88,42 @@ export default function SecurityScreen(): JSX.Element {
         {successMessage && (
           <View className="mx-5 mt-4 mb-2 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
             <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
-            <Text className="text-green-600 dark:text-green-400 text-sm flex-1">{successMessage}</Text>
+            <Text className="text-green-600 dark:text-green-400 text-sm flex-1">
+              {successMessage}
+            </Text>
           </View>
         )}
 
         <View className="px-5 mb-6 pt-2">
-          <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Password & Credentials</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">
+            Password & Credentials
+          </Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-5 gap-5">
             <View>
               <Text className="text-foreground text-lg font-bold">Change Password</Text>
-              <Text className="text-zinc-400 text-sm mt-0.5">Update your account password to ensure your health account remains secure.</Text>
+              <Text className="text-zinc-400 text-sm mt-0.5">
+                Update your account password to ensure your health account remains secure.
+              </Text>
             </View>
 
             <TextField isRequired>
               <Label>Current Password</Label>
               <View className="w-full justify-center">
-                <Input 
+                <Input
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
-                  placeholder="Enter current password" 
+                  placeholder="Enter current password"
                   secureTextEntry={!isCurrentVisible}
                   className="pr-12"
                 />
-                <Pressable 
+                <Pressable
                   className="absolute right-4"
                   onPress={() => setIsCurrentVisible(!isCurrentVisible)}
                 >
-                  <Ionicons 
-                    name={isCurrentVisible ? "eye-outline" : "eye-off-outline"} 
-                    size={20} 
-                    color="#a1a1aa" 
+                  <Ionicons
+                    name={isCurrentVisible ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color="#a1a1aa"
                   />
                 </Pressable>
               </View>
@@ -119,21 +132,21 @@ export default function SecurityScreen(): JSX.Element {
             <TextField isRequired>
               <Label>New Password</Label>
               <View className="w-full justify-center">
-                <Input 
+                <Input
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="At least 6 characters" 
+                  placeholder="At least 6 characters"
                   secureTextEntry={!isNewVisible}
                   className="pr-12"
                 />
-                <Pressable 
+                <Pressable
                   className="absolute right-4"
                   onPress={() => setIsNewVisible(!isNewVisible)}
                 >
-                  <Ionicons 
-                    name={isNewVisible ? "eye-outline" : "eye-off-outline"} 
-                    size={20} 
-                    color="#a1a1aa" 
+                  <Ionicons
+                    name={isNewVisible ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color="#a1a1aa"
                   />
                 </Pressable>
               </View>
@@ -141,17 +154,17 @@ export default function SecurityScreen(): JSX.Element {
 
             <TextField isRequired>
               <Label>Confirm New Password</Label>
-              <Input 
+              <Input
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                placeholder="Re-enter new password" 
+                placeholder="Re-enter new password"
                 secureTextEntry={!isNewVisible}
               />
             </TextField>
 
-            <Button 
-              variant="primary" 
-              className="w-full rounded-xl mt-2" 
+            <Button
+              variant="primary"
+              className="w-full rounded-xl mt-2"
               onPress={handleUpdatePassword}
               isDisabled={isLoading}
             >
@@ -176,8 +189,20 @@ export default function SecurityScreen(): JSX.Element {
                   <Ionicons name="phone-portrait-outline" size={20} color="#a1a1aa" />
                 </View>
                 <View className="flex-1 min-w-0">
-                  <Text className="text-foreground text-base font-medium" numberOfLines={1} ellipsizeMode="tail">BMS Mobile App</Text>
-                  <Text className="text-zinc-400 text-sm mt-0.5" numberOfLines={1} ellipsizeMode="tail">{user.email || user.phone_number || "Active Session"}</Text>
+                  <Text
+                    className="text-foreground text-base font-medium"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    BMS Mobile App
+                  </Text>
+                  <Text
+                    className="text-zinc-400 text-sm mt-0.5"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {user.email || user.phone_number || "Active Session"}
+                  </Text>
                 </View>
               </View>
               <View className="px-2.5 py-1 bg-green-500/15 rounded-full flex-shrink-0">
@@ -186,7 +211,6 @@ export default function SecurityScreen(): JSX.Element {
             </View>
           </Card>
         </View>
-
       </ScrollView>
     </View>
   );

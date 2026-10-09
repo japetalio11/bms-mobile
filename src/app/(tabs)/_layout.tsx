@@ -1,25 +1,36 @@
-﻿import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs, Redirect } from "expo-router";
+import { View, ActivityIndicator } from "react-native";
 import type { ComponentProps, JSX } from "react";
 import type { ColorValue } from "react-native";
 import { withUniwind } from "uniwind";
 import { AnimatedTabBar } from "../../components/AnimatedTabBar";
+import { useAuth } from "../../context/UserContext";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 const StyledIonicons = withUniwind(Ionicons);
 
-function TabIcon({
-  name,
-  color,
-}: {
-  name: IoniconName;
-  color: ColorValue;
-}): JSX.Element {
+function TabIcon({ name, color }: { name: IoniconName; color: ColorValue }): JSX.Element {
   return <StyledIonicons name={name} size={22} color={color} />;
 }
 
 export default function TabsLayout(): JSX.Element {
+  const { isAuthenticated, isLoadingStorage } = useAuth();
+
+  if (isLoadingStorage) {
+    return (
+      <View
+        style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}
+      >
+        <ActivityIndicator size="large" color="#0284c7" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       tabBar={(props) => <AnimatedTabBar {...props} />}
@@ -29,7 +40,6 @@ export default function TabsLayout(): JSX.Element {
         tabBarStyle: { display: "none" },
       }}
     >
-      
       <Tabs.Screen
         name="index"
         options={{
@@ -65,7 +75,7 @@ export default function TabsLayout(): JSX.Element {
           tabBarIcon: ({ color }) => <TabIcon name="person-outline" color={color} />,
         }}
       />
-      
+
       <Tabs.Screen name="scanner" options={{ href: null }} />
       <Tabs.Screen name="search" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />

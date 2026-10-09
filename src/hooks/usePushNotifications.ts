@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Platform, PermissionsAndroid, Alert } from "react-native";
 import {
   getMessaging,
@@ -127,36 +127,30 @@ export function usePushNotifications({
 
     initialize();
 
-    const unsubscribeTokenRefresh = onTokenRefresh(
-      messagingInstance,
-      async (newToken: string) => {
-        console.log("[FCM] Token refreshed by Firebase:", newToken);
-        currentTokenRef.current = newToken;
-        await syncTokenWithBackend(newToken);
+    const unsubscribeTokenRefresh = onTokenRefresh(messagingInstance, async (newToken: string) => {
+      console.log("[FCM] Token refreshed by Firebase:", newToken);
+      currentTokenRef.current = newToken;
+      await syncTokenWithBackend(newToken);
+    });
+
+    const unsubscribeForeground = onMessage(messagingInstance, (remoteMessage: RemoteMessage) => {
+      console.log("[FCM] Foreground notification received:", remoteMessage);
+
+      if (onNotificationReceived) {
+        onNotificationReceived(remoteMessage);
       }
-    );
 
-    const unsubscribeForeground = onMessage(
-      messagingInstance,
-      (remoteMessage: RemoteMessage) => {
-        console.log("[FCM] Foreground notification received:", remoteMessage);
+      const title = remoteMessage.notification?.title || "Notification";
+      const body = remoteMessage.notification?.body || "";
 
-        if (onNotificationReceived) {
-          onNotificationReceived(remoteMessage);
-        }
-
-        const title = remoteMessage.notification?.title || "Notification";
-        const body = remoteMessage.notification?.body || "";
-
-        Alert.alert(title, body, [
-          { text: "Dismiss", style: "cancel" },
-          {
-            text: "View",
-            onPress: () => handleNotificationNavigation(remoteMessage),
-          },
-        ]);
-      }
-    );
+      Alert.alert(title, body, [
+        { text: "Dismiss", style: "cancel" },
+        {
+          text: "View",
+          onPress: () => handleNotificationNavigation(remoteMessage),
+        },
+      ]);
+    });
 
     const unsubscribeNotificationOpened = onNotificationOpenedApp(
       messagingInstance,

@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Uniwind, useUniwind } from "uniwind";
@@ -55,7 +55,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [textSize, setTextSizeState] = useState<TextSize>("medium");
   const [shareHealthData, setShareHealthDataState] = useState<boolean>(true);
   const [analyticsEnabled, setAnalyticsEnabledState] = useState<boolean>(true);
-  const [notifications, setNotificationsState] = useState<NotificationPreferences>(defaultNotifications);
+  const [notifications, setNotificationsState] =
+    useState<NotificationPreferences>(defaultNotifications);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -69,7 +70,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           }
           if (parsed.textSize) setTextSizeState(parsed.textSize);
           if (parsed.shareHealthData !== undefined) setShareHealthDataState(parsed.shareHealthData);
-          if (parsed.analyticsEnabled !== undefined) setAnalyticsEnabledState(parsed.analyticsEnabled);
+          if (parsed.analyticsEnabled !== undefined)
+            setAnalyticsEnabledState(parsed.analyticsEnabled);
           if (parsed.notifications) setNotificationsState(parsed.notifications);
         }
       } catch (err) {
@@ -80,13 +82,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     loadSettings();
   }, []);
 
-  const saveSettings = async (updatedSettings: Partial<{
-    theme: "light" | "dark" | "system";
-    textSize: TextSize;
-    shareHealthData: boolean;
-    analyticsEnabled: boolean;
-    notifications: NotificationPreferences;
-  }>) => {
+  const saveSettings = async (
+    updatedSettings: Partial<{
+      theme: "light" | "dark" | "system";
+      textSize: TextSize;
+      shareHealthData: boolean;
+      analyticsEnabled: boolean;
+      notifications: NotificationPreferences;
+    }>
+  ) => {
     try {
       const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
       const existing = stored ? JSON.parse(stored) : {};

@@ -1,4 +1,4 @@
-﻿export function formatToE164(phone: string, defaultCountryPrefix: string = "+63"): string {
+export function formatToE164(phone: string, defaultCountryPrefix: string = "+63"): string {
   if (!phone) return "";
 
   let cleaned = phone.replace(/[^0-9+]/g, "");
@@ -30,7 +30,7 @@ export const MOCK_TEST_NUMBERS: string[] = [
   "+639170000000",
   "+639171111111",
   "+639999999999",
-  "+16505553434"
+  "+16505553434",
 ];
 
 export function isTestPhoneNumber(phone: string): boolean {
@@ -57,7 +57,10 @@ export function getFirebaseErrorMessage(errorCodeOrMessage: string): string {
     return "🚨 SMS quota for this project has been exceeded for today. Please contact system support or try again later.";
   }
 
-  if (code.includes("auth/invalid-verification-code") || code.includes("auth/wrong-type-of-verification-code")) {
+  if (
+    code.includes("auth/invalid-verification-code") ||
+    code.includes("auth/wrong-type-of-verification-code")
+  ) {
     return "❌ Incorrect 6-digit OTP code. Please re-check the code sent to your phone and try again.";
   }
 
@@ -81,5 +84,8 @@ export function getFirebaseErrorMessage(errorCodeOrMessage: string): string {
     return "🚫 Phone authentication is not enabled in your Firebase project. Enable 'Phone' provider under Firebase Console > Authentication > Sign-in method.";
   }
 
-  return errorCodeOrMessage || "An unexpected error occurred during phone verification. Please try again.";
+  return (
+    errorCodeOrMessage ||
+    "An unexpected error occurred during phone verification. Please try again."
+  );
 }

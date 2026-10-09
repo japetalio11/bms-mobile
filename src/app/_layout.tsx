@@ -1,21 +1,21 @@
 import type { JSX } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider } from "heroui-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { 
-  useFonts, 
-  Inter_400Regular, 
-  Inter_500Medium, 
-  Inter_600SemiBold, 
-  Inter_700Bold 
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import "../global.css";
-import { UserProvider } from "../context/UserContext";
+import { UserProvider, useAuth } from "../context/UserContext";
 import { SocketProvider } from "../context/SocketContext";
 import { NetworkProvider } from "../context/NetworkContext";
 import { SettingsProvider } from "../context/settingsContext";
@@ -24,6 +24,32 @@ import { OfflineBanner } from "../components/OfflineBanner";
 import { PushNotificationSubscriber } from "../components/PushNotificationSubscriber";
 
 SplashScreen.preventAutoHideAsync();
+
+function RootNavigator(): JSX.Element {
+  const { isAuthenticated, isLoadingStorage } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoadingStorage) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace("/(auth)/login");
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace("/(tabs)");
+    }
+  }, [isAuthenticated, isLoadingStorage, segments, router]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
+  );
+}
 
 export default function RootLayout(): JSX.Element | null {
   const [loaded, error] = useFonts({
@@ -52,12 +78,13 @@ export default function RootLayout(): JSX.Element | null {
               <SocketProvider>
                 <ConfirmationProvider>
                   <PushNotificationSubscriber />
-                  <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }} edges={["top"]}>
+                  <SafeAreaView
+                    className="flex-1 bg-background"
+                    style={{ flex: 1 }}
+                    edges={["top"]}
+                  >
                     <OfflineBanner />
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="(auth)" />
-                      <Stack.Screen name="(tabs)" />
-                    </Stack>
+                    <RootNavigator />
                     <StatusBar style="auto" />
                   </SafeAreaView>
                 </ConfirmationProvider>

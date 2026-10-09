@@ -1,4 +1,4 @@
-﻿import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,10 +48,15 @@ export default function HistoryScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="px-5 mb-6">
           <Text className="text-white text-lg font-semibold mb-1">Visit History</Text>
-          <Text className="text-zinc-400 text-sm">Your past completed appointments and healthcare visits.</Text>
+          <Text className="text-zinc-400 text-sm">
+            Your past completed appointments and healthcare visits.
+          </Text>
         </View>
 
         <View className="px-5">
@@ -63,7 +68,11 @@ export default function HistoryScreen(): JSX.Element {
                 const d = new Date(item.appointment_date);
                 const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
                 const dateNum = d.getDate();
-                const formattedDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                const formattedDate = d.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                });
 
                 return (
                   <Pressable key={item.appointment_id}>
@@ -79,8 +88,12 @@ export default function HistoryScreen(): JSX.Element {
                       <View className="w-px h-full bg-separator mx-2" />
 
                       <View className="flex-1 ml-2">
-                        <Text className="text-white text-base font-medium mb-1">{item.appointment_type}</Text>
-                        <Text className="text-zinc-400 text-sm">{formattedDate} · {item.appointment_time}</Text>
+                        <Text className="text-white text-base font-medium mb-1">
+                          {item.appointment_type}
+                        </Text>
+                        <Text className="text-zinc-400 text-sm">
+                          {formattedDate} · {item.appointment_time}
+                        </Text>
                       </View>
 
                       <Ionicons name="checkmark-circle" size={20} color="#10b981" />
@@ -90,7 +103,10 @@ export default function HistoryScreen(): JSX.Element {
               })}
             </View>
           ) : (
-            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
+            <Card
+              variant="secondary"
+              className="bg-surface border-0 rounded-xl p-6 items-center py-8"
+            >
               <Ionicons name="time-outline" size={28} color="#71717a" className="mb-2" />
               <Text className="text-foreground font-semibold text-base mb-1">No Past Visits</Text>
               <Text className="text-zinc-400 text-sm text-center">

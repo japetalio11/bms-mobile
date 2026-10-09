@@ -1,4 +1,4 @@
-﻿import "react-native-get-random-values";
+import "react-native-get-random-values";
 import { getOrCreateMasterCipherKey } from "./secureStorage";
 
 const PREFIX = "ENC_GCM:";
@@ -45,13 +45,10 @@ async function getCryptoKey(keyHex: string): Promise<CryptoKey | null> {
   try {
     if (typeof crypto !== "undefined" && crypto.subtle) {
       const rawBytes = hexToBytes(keyHex);
-      return await crypto.subtle.importKey(
-        "raw",
-        rawBytes as any,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt", "decrypt"]
-      );
+      return await crypto.subtle.importKey("raw", rawBytes as any, { name: "AES-GCM" }, false, [
+        "encrypt",
+        "decrypt",
+      ]);
     }
   } catch (e) {
     console.warn("[Crypto] Failed to import key into WebCrypto:", e);

@@ -1,4 +1,4 @@
-﻿import { getDatabase } from "./db";
+import { getDatabase } from "./db";
 import type {
   AuthUser,
   MotherRecord,
@@ -216,7 +216,11 @@ export async function saveMotherProfileLocal(data: {
       }
 
       if (preg.deliveryOutcomes && preg.deliveryOutcomes.length > 0) {
-        await saveDeliveryOutcomesLocal(preg.pregnancy_id, data.mother_id || "", preg.deliveryOutcomes);
+        await saveDeliveryOutcomesLocal(
+          preg.pregnancy_id,
+          data.mother_id || "",
+          preg.deliveryOutcomes
+        );
       }
     }
   }
@@ -296,10 +300,9 @@ export async function getMotherProfileLocal(userId: string): Promise<{
   const user = await db.getFirstAsync<AuthUser>(`SELECT * FROM users WHERE user_id = ?`, [userId]);
   if (!user) return null;
 
-  const rawMRecord = await db.getFirstAsync<any>(
-    `SELECT * FROM mother_records WHERE user_id = ?`,
-    [userId]
-  );
+  const rawMRecord = await db.getFirstAsync<any>(`SELECT * FROM mother_records WHERE user_id = ?`, [
+    userId,
+  ]);
 
   let pregnancies: PregnancyRecord[] = [];
   let mRecord: MotherRecord | null = null;
@@ -321,7 +324,16 @@ export async function getMotherProfileLocal(userId: string): Promise<{
       ...rawMRecord,
       assigned_worker_id: rawMRecord.assigned_worker_id || assignedWorker?.user_id || null,
       created_by_id: rawMRecord.created_by_id || creator?.user_id || null,
-      assignedWorker: assignedWorker || (rawMRecord.assigned_worker_id ? { user_id: rawMRecord.assigned_worker_id, first_name: "Assigned", last_name: "Health Worker", role: "HealthWorker" } : null),
+      assignedWorker:
+        assignedWorker ||
+        (rawMRecord.assigned_worker_id
+          ? {
+              user_id: rawMRecord.assigned_worker_id,
+              first_name: "Assigned",
+              last_name: "Health Worker",
+              role: "HealthWorker",
+            }
+          : null),
       creator: creator,
     };
 
@@ -379,13 +391,34 @@ export async function updateUserProfileLocal(
 
   const userFields: string[] = [];
   const userParams: any[] = [];
-  if (updates.first_name !== undefined) { userFields.push("first_name = ?"); userParams.push(updates.first_name); }
-  if (updates.middle_name !== undefined) { userFields.push("middle_name = ?"); userParams.push(updates.middle_name); }
-  if (updates.last_name !== undefined) { userFields.push("last_name = ?"); userParams.push(updates.last_name); }
-  if (updates.phone_number !== undefined) { userFields.push("phone_number = ?"); userParams.push(updates.phone_number); }
-  if (updates.email !== undefined) { userFields.push("email = ?"); userParams.push(updates.email); }
-  if (updates.address !== undefined) { userFields.push("address = ?"); userParams.push(updates.address); }
-  if (updates.profile_url !== undefined) { userFields.push("profile_url = ?"); userParams.push(updates.profile_url); }
+  if (updates.first_name !== undefined) {
+    userFields.push("first_name = ?");
+    userParams.push(updates.first_name);
+  }
+  if (updates.middle_name !== undefined) {
+    userFields.push("middle_name = ?");
+    userParams.push(updates.middle_name);
+  }
+  if (updates.last_name !== undefined) {
+    userFields.push("last_name = ?");
+    userParams.push(updates.last_name);
+  }
+  if (updates.phone_number !== undefined) {
+    userFields.push("phone_number = ?");
+    userParams.push(updates.phone_number);
+  }
+  if (updates.email !== undefined) {
+    userFields.push("email = ?");
+    userParams.push(updates.email);
+  }
+  if (updates.address !== undefined) {
+    userFields.push("address = ?");
+    userParams.push(updates.address);
+  }
+  if (updates.profile_url !== undefined) {
+    userFields.push("profile_url = ?");
+    userParams.push(updates.profile_url);
+  }
 
   if (userFields.length > 0) {
     userFields.push("updated_at = ?");
@@ -396,15 +429,27 @@ export async function updateUserProfileLocal(
 
   const motherFields: string[] = [];
   const motherParams: any[] = [];
-  if (updates.birth_date !== undefined) { motherFields.push("birth_date = ?"); motherParams.push(updates.birth_date); }
-  if (updates.civil_status !== undefined) { motherFields.push("civil_status = ?"); motherParams.push(updates.civil_status); }
-  if (updates.blood_type !== undefined) { motherFields.push("blood_type = ?"); motherParams.push(updates.blood_type); }
+  if (updates.birth_date !== undefined) {
+    motherFields.push("birth_date = ?");
+    motherParams.push(updates.birth_date);
+  }
+  if (updates.civil_status !== undefined) {
+    motherFields.push("civil_status = ?");
+    motherParams.push(updates.civil_status);
+  }
+  if (updates.blood_type !== undefined) {
+    motherFields.push("blood_type = ?");
+    motherParams.push(updates.blood_type);
+  }
 
   if (motherFields.length > 0) {
     motherFields.push("updated_at = ?");
     motherParams.push(now);
     motherParams.push(userId);
-    await db.runAsync(`UPDATE mother_records SET ${motherFields.join(", ")} WHERE user_id = ?`, motherParams);
+    await db.runAsync(
+      `UPDATE mother_records SET ${motherFields.join(", ")} WHERE user_id = ?`,
+      motherParams
+    );
   }
 }
 
@@ -417,7 +462,9 @@ export async function getAppointmentsLocal(userId: string): Promise<AppointmentR
   return rows;
 }
 
-export async function getAppointmentByIdLocal(appointmentId: string): Promise<AppointmentRecord | null> {
+export async function getAppointmentByIdLocal(
+  appointmentId: string
+): Promise<AppointmentRecord | null> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<AppointmentRecord>(
     `SELECT * FROM appointments WHERE appointment_id = ?`,
@@ -454,7 +501,10 @@ export async function saveAppointmentsLocal(
   }
 }
 
-export async function createAppointmentLocal(payload: any, isOnline: boolean): Promise<AppointmentRecord> {
+export async function createAppointmentLocal(
+  payload: any,
+  isOnline: boolean
+): Promise<AppointmentRecord> {
   const db = await getDatabase();
   const appointmentId = payload.appointment_id || `appt_local_${Date.now()}`;
   const now = new Date().toISOString();
@@ -512,12 +562,7 @@ export async function cancelAppointmentLocal(
   );
 
   if (existing) {
-    await saveRecordHistory(
-      "appointment",
-      appointmentId,
-      (existing as any).version || 1,
-      existing
-    );
+    await saveRecordHistory("appointment", appointmentId, (existing as any).version || 1, existing);
 
     const nextVersion = ((existing as any).version || 1) + 1;
     const now = new Date().toISOString();
@@ -555,10 +600,7 @@ export async function getSupplementsLocal(motherId: string): Promise<SupplementR
   }));
 }
 
-export async function saveSupplementsLocal(
-  supplements: SupplementRecord[],
-  isFromBackend = true
-) {
+export async function saveSupplementsLocal(supplements: SupplementRecord[], isFromBackend = true) {
   const db = await getDatabase();
   const now = new Date().toISOString();
 
@@ -624,7 +666,11 @@ export async function updateSupplementStatusLocal(
 export async function getLabScreeningsLocal(motherId: string): Promise<LabScreeningRecord[]> {
   if (!motherId) return [];
   const db = await getDatabase();
-  await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`).catch(() => {});
+  await db
+    .runAsync(
+      `DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`
+    )
+    .catch(() => {});
 
   const rows = await db.getAllAsync<LabScreeningRecord>(
     `SELECT ls.* FROM lab_screenings ls
@@ -638,7 +684,9 @@ export async function getLabScreeningsLocal(motherId: string): Promise<LabScreen
     r.result = await decryptSensitiveText(r.result);
     r.remarks = await decryptSensitiveText(r.remarks);
   }
-  return rows.filter((r) => Boolean(r.screening_id && r.screening_id !== "null" && r.screening_id !== "undefined"));
+  return rows.filter((r) =>
+    Boolean(r.screening_id && r.screening_id !== "null" && r.screening_id !== "undefined")
+  );
 }
 
 export async function saveLabScreeningsLocal(
@@ -650,10 +698,18 @@ export async function saveLabScreeningsLocal(
   const db = await getDatabase();
   const now = new Date().toISOString();
 
-  await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`).catch(() => {});
+  await db
+    .runAsync(
+      `DELETE FROM lab_screenings WHERE screening_id IS NULL OR screening_id = 'null' OR screening_id = 'undefined'`
+    )
+    .catch(() => {});
 
   if (isFromBackend && motherId && isFullSync) {
-    const validIds = new Set(screenings.map((s) => s.screening_id || (s as any).data?.screening_id).filter((id): id is string => Boolean(id && id !== "null" && id !== "undefined")));
+    const validIds = new Set(
+      screenings
+        .map((s) => s.screening_id || (s as any).data?.screening_id)
+        .filter((id): id is string => Boolean(id && id !== "null" && id !== "undefined"))
+    );
     const currentRecords = await getLabScreeningsLocal(motherId);
 
     for (const item of currentRecords) {
@@ -698,7 +754,9 @@ export async function saveLabScreeningsLocal(
 export async function deleteLabScreeningLocal(screeningId: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id = ?`, [screeningId]);
-  await db.runAsync(`DELETE FROM sync_outbox WHERE payload LIKE ?`, [`%${screeningId}%`]).catch(() => {});
+  await db
+    .runAsync(`DELETE FROM sync_outbox WHERE payload LIKE ?`, [`%${screeningId}%`])
+    .catch(() => {});
 }
 
 export async function createLabScreeningLocal(
@@ -772,7 +830,10 @@ export async function createLabScreeningLocal(
   return record;
 }
 
-export async function getMessagesLocal(userId: string, contactId?: string): Promise<InAppMessage[]> {
+export async function getMessagesLocal(
+  userId: string,
+  contactId?: string
+): Promise<InAppMessage[]> {
   const db = await getDatabase();
   let query = `SELECT * FROM messages WHERE (sender_id = ? OR receiver_id = ?)`;
   const params: any[] = [userId, userId];
@@ -824,14 +885,16 @@ export async function saveMessagesLocal(messages: InAppMessage[]) {
     );
 
     if (!m.message_id.startsWith("local_")) {
-      await db.runAsync(
-        `DELETE FROM messages 
+      await db
+        .runAsync(
+          `DELETE FROM messages 
          WHERE message_id LIKE 'local_%' 
            AND sender_id = ? 
            AND receiver_id = ? 
            AND sync_status = 'synced'`,
-        [m.sender_id, m.receiver_id]
-      ).catch(() => {});
+          [m.sender_id, m.receiver_id]
+        )
+        .catch(() => {});
     }
   }
 }
@@ -903,7 +966,9 @@ export async function getChatContactsLocal(facilityId?: string): Promise<ChatCon
     role: r.role,
     facility_id: r.facility_id,
     profile_url: r.profile_url,
-    facility: r.facility_name ? { facility_id: r.facility_id, facility_name: r.facility_name } : undefined,
+    facility: r.facility_name
+      ? { facility_id: r.facility_id, facility_name: r.facility_name }
+      : undefined,
   }));
 }
 
@@ -1002,5 +1067,7 @@ export async function markAllNotificationsReadLocal(userId: string) {
 export async function markNotificationReadLocal(notificationId: string) {
   if (!notificationId) return;
   const db = await getDatabase();
-  await db.runAsync(`UPDATE notifications SET is_read = 1 WHERE notification_id = ?`, [notificationId]);
+  await db.runAsync(`UPDATE notifications SET is_read = 1 WHERE notification_id = ?`, [
+    notificationId,
+  ]);
 }

@@ -1,10 +1,6 @@
-﻿import { API_BASE_URL } from "../config/api";
+import { API_BASE_URL } from "../config/api";
 import { getDatabase } from "../db/db";
-import {
-  getPendingSyncItems,
-  markSyncItemSuccess,
-  markSyncItemFailed,
-} from "../db/repository";
+import { getPendingSyncItems, markSyncItemSuccess, markSyncItemFailed } from "../db/repository";
 
 let isSyncing = false;
 
@@ -37,15 +33,25 @@ export async function triggerOutboxSync(
           payload = item.payload;
         }
 
-        if (item.action_type === "CREATE_LAB_SCREENING" && payload.localFileUri && !payload.file_url) {
+        if (
+          item.action_type === "CREATE_LAB_SCREENING" &&
+          payload.localFileUri &&
+          !payload.file_url
+        ) {
           console.log(`[SyncEngine] Uploading local file for screening: ${payload.localFileUri}`);
           const fileUrl = await uploadLocalFile(payload.localFileUri, authToken);
           payload.file_url = fileUrl;
         }
 
-        if (item.action_type === "UPDATE_PROFILE" && payload.localAvatarUri && !payload.profile_url) {
+        if (
+          item.action_type === "UPDATE_PROFILE" &&
+          payload.localAvatarUri &&
+          !payload.profile_url
+        ) {
           try {
-            console.log(`[SyncEngine] Uploading local avatar for profile: ${payload.localAvatarUri}`);
+            console.log(
+              `[SyncEngine] Uploading local avatar for profile: ${payload.localAvatarUri}`
+            );
             const fileUrl = await uploadLocalFile(payload.localAvatarUri, authToken);
             payload.profile_url = fileUrl;
           } catch (uploadErr) {
@@ -76,7 +82,9 @@ export async function triggerOutboxSync(
           console.log(`[SyncEngine] Successfully synced item ${item.id} (${item.action_type})`);
         } else {
           const errText = await response.text();
-          console.warn(`[SyncEngine] Item ${item.id} returned status ${response.status}: ${errText}`);
+          console.warn(
+            `[SyncEngine] Item ${item.id} returned status ${response.status}: ${errText}`
+          );
           await markSyncItemFailed(item.id, `HTTP ${response.status}: ${errText}`);
         }
       } catch (err: any) {
@@ -127,7 +135,10 @@ async function updateLocalRecordSynced(
   const now = new Date().toISOString();
 
   if (actionType === "CREATE_APPOINTMENT") {
-    const serverApptId = responseData?.appointment_id || responseData?.result?.appointment_id || responseData?.data?.appointment_id;
+    const serverApptId =
+      responseData?.appointment_id ||
+      responseData?.result?.appointment_id ||
+      responseData?.data?.appointment_id;
     if (serverApptId && payload.appointment_id) {
       await db.runAsync(
         `UPDATE appointments SET appointment_id = ?, sync_status = 'synced', updated_at = ? WHERE appointment_id = ?`,
@@ -145,7 +156,10 @@ async function updateLocalRecordSynced(
       [now, payload.supplement_id]
     );
   } else if (actionType === "CREATE_LAB_SCREENING") {
-    const serverScreeningId = responseData?.screening_id || responseData?.result?.screening_id || responseData?.data?.screening_id;
+    const serverScreeningId =
+      responseData?.screening_id ||
+      responseData?.result?.screening_id ||
+      responseData?.data?.screening_id;
     await db.runAsync(
       `UPDATE lab_screenings SET screening_id = ?, file_url = ?, upload_status = 'synced', sync_status = 'synced', updated_at = ? WHERE screening_id = ?`,
       [

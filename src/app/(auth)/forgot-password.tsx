@@ -1,4 +1,11 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from "react-native";
+import {
+  View,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
+} from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import { Text, TextField, Label, Input, Button } from "heroui-native";
@@ -22,7 +29,9 @@ export default function ForgotPasswordScreen(): JSX.Element {
     cooldownDuration: 60,
   });
 
-  const [mode, setMode] = useState<"enter_identifier" | "verify_otp" | "reset_password" | "success">("enter_identifier");
+  const [mode, setMode] = useState<
+    "enter_identifier" | "verify_otp" | "reset_password" | "success"
+  >("enter_identifier");
 
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
@@ -167,258 +176,285 @@ export default function ForgotPasswordScreen(): JSX.Element {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView 
-        contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 48, 64) }} 
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          padding: 24,
+          paddingTop: 24,
+          paddingBottom: Math.max(insets.bottom + 48, 64),
+        }}
         className="bg-background"
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}
       >
-      <View className="flex-row items-center mb-4">
-        <Pressable 
-          onPress={() => {
-            if (mode === "verify_otp") setMode("enter_identifier");
-            else if (mode === "reset_password") setMode("verify_otp");
-            else router.back();
-          }}
-          className="p-2 -ml-2 rounded-full active:bg-muted/30"
-        >
-          <StyledIonicons name="arrow-back" size={24} className="text-foreground" />
-        </Pressable>
-        <Text className="text-lg font-bold text-foreground ml-2">
-          {mode === "enter_identifier" && "Forgot Password"}
-          {mode === "verify_otp" && "Verify OTP"}
-          {mode === "reset_password" && "Reset Password"}
-          {mode === "success" && "Password Reset Successful"}
-        </Text>
-      </View>
+        <View className="flex-row items-center mb-4">
+          <Pressable
+            onPress={() => {
+              if (mode === "verify_otp") setMode("enter_identifier");
+              else if (mode === "reset_password") setMode("verify_otp");
+              else router.back();
+            }}
+            className="p-2 -ml-2 rounded-full active:bg-muted/30"
+          >
+            <StyledIonicons name="arrow-back" size={24} className="text-foreground" />
+          </Pressable>
+          <Text className="text-lg font-bold text-foreground ml-2">
+            {mode === "enter_identifier" && "Forgot Password"}
+            {mode === "verify_otp" && "Verify OTP"}
+            {mode === "reset_password" && "Reset Password"}
+            {mode === "success" && "Password Reset Successful"}
+          </Text>
+        </View>
 
-      <View className="flex-1 justify-between">
-        <View className="gap-4">
-          <View className="items-center my-2">
-            <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-3">
-              <StyledIonicons 
-                name={
-                  mode === "enter_identifier" ? "lock-open-outline" :
-                  mode === "verify_otp" ? "key-outline" :
-                  mode === "reset_password" ? "shield-checkmark-outline" :
-                  "checkmark-circle-outline"
-                } 
-                size={40} 
-                className="text-primary" 
-              />
+        <View className="flex-1 justify-between">
+          <View className="gap-4">
+            <View className="items-center my-2">
+              <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-3">
+                <StyledIonicons
+                  name={
+                    mode === "enter_identifier"
+                      ? "lock-open-outline"
+                      : mode === "verify_otp"
+                        ? "key-outline"
+                        : mode === "reset_password"
+                          ? "shield-checkmark-outline"
+                          : "checkmark-circle-outline"
+                  }
+                  size={40}
+                  className="text-primary"
+                />
+              </View>
+
+              <Text className="text-lg font-bold text-foreground text-center">
+                {mode === "enter_identifier" && "Reset Your Password"}
+                {mode === "verify_otp" && "Enter Verification Code"}
+                {mode === "reset_password" && "Create New Password"}
+                {mode === "success" && "All Set!"}
+              </Text>
+
+              <Text className="text-sm text-zinc-400-foreground text-center mt-2 px-4">
+                {mode === "enter_identifier" &&
+                  "Enter the email address or phone number associated with your Mother account to receive an OTP code."}
+                {mode === "verify_otp" && `Enter the 6-digit code sent to ${identifier}.`}
+                {mode === "reset_password" &&
+                  "Your new password must be at least 6 characters long."}
+                {mode === "success" &&
+                  "Your password has been successfully updated. Redirecting you..."}
+              </Text>
             </View>
 
-            <Text className="text-lg font-bold text-foreground text-center">
-              {mode === "enter_identifier" && "Reset Your Password"}
-              {mode === "verify_otp" && "Enter Verification Code"}
-              {mode === "reset_password" && "Create New Password"}
-              {mode === "success" && "All Set!"}
-            </Text>
+            {error && (
+              <View className="bg-destructive/15 border border-destructive/30 rounded-xl p-4 flex-row items-center gap-3">
+                <StyledIonicons
+                  name="alert-circle-outline"
+                  size={20}
+                  className="text-destructive"
+                />
+                <Text className="text-destructive font-medium text-sm flex-1">{error}</Text>
+              </View>
+            )}
 
-            <Text className="text-sm text-zinc-400-foreground text-center mt-2 px-4">
-              {mode === "enter_identifier" && "Enter the email address or phone number associated with your Mother account to receive an OTP code."}
-              {mode === "verify_otp" && `Enter the 6-digit code sent to ${identifier}.`}
-              {mode === "reset_password" && "Your new password must be at least 6 characters long."}
-              {mode === "success" && "Your password has been successfully updated. Redirecting you..."}
-            </Text>
+            {infoMessage && (
+              <View className="bg-primary/15 border border-primary/30 rounded-xl p-4 flex-row items-center gap-3">
+                <StyledIonicons
+                  name="information-circle-outline"
+                  size={20}
+                  className="text-primary"
+                />
+                <Text className="text-primary font-medium text-sm flex-1">{infoMessage}</Text>
+              </View>
+            )}
+
+            {mode === "enter_identifier" && (
+              <>
+                <TextField isRequired>
+                  <Label>Email or Phone Number</Label>
+                  <View className="w-full justify-center">
+                    <Input
+                      value={identifier}
+                      onChangeText={(val) => {
+                        setIdentifier(val);
+                        if (!val.includes("@") && val.trim().length >= 10) {
+                          phoneAuth.initRecaptcha();
+                        }
+                      }}
+                      placeholder="Enter email or phone number"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      className="pr-12"
+                    />
+                    <StyledIonicons
+                      name={isEmail ? "mail-outline" : "call-outline"}
+                      size={20}
+                      className="absolute right-4 text-zinc-400-foreground"
+                      pointerEvents="none"
+                    />
+                  </View>
+                </TextField>
+
+                {Platform.OS === "web" && (
+                  <View className="my-1 w-full items-center justify-center overflow-visible">
+                    <View
+                      id="recaptcha-container-forgot"
+                      nativeID="recaptcha-container-forgot"
+                      style={{
+                        minHeight: 78,
+                        minWidth: 304,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    />
+                  </View>
+                )}
+              </>
+            )}
+
+            {mode === "verify_otp" && (
+              <View className="gap-4">
+                <TextField isRequired>
+                  <Label>6-Digit Verification Code</Label>
+                  <View className="w-full justify-center">
+                    <Input
+                      value={otp}
+                      onChangeText={setOtp}
+                      placeholder="123456"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      className="tracking-widest text-center text-lg font-bold"
+                    />
+                  </View>
+                </TextField>
+
+                <View className="flex-row justify-between items-center px-1">
+                  <Pressable onPress={() => setMode("enter_identifier")}>
+                    <Text className="text-sm text-zinc-400-foreground underline">
+                      Change Identifier
+                    </Text>
+                  </Pressable>
+
+                  <Pressable onPress={handleRequestOtp} disabled={isLoading || timer > 0}>
+                    <Text
+                      className={`text-sm font-medium ${timer > 0 || isLoading ? "text-zinc-400-foreground" : "text-primary underline"}`}
+                    >
+                      {isLoading ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {mode === "reset_password" && (
+              <View className="gap-4">
+                <TextField isRequired>
+                  <Label>New Password</Label>
+                  <View className="w-full justify-center">
+                    <Input
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      placeholder="••••••••••••"
+                      secureTextEntry={!isPasswordVisible}
+                      className="pr-12"
+                    />
+                    <Pressable
+                      className="absolute right-4"
+                      onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                    >
+                      <StyledIonicons
+                        name={isPasswordVisible ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        className="text-zinc-400-foreground"
+                      />
+                    </Pressable>
+                  </View>
+                </TextField>
+
+                <TextField isRequired>
+                  <Label>Confirm New Password</Label>
+                  <View className="w-full justify-center">
+                    <Input
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="••••••••••••"
+                      secureTextEntry={!isConfirmPasswordVisible}
+                      className="pr-12"
+                    />
+                    <Pressable
+                      className="absolute right-4"
+                      onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                    >
+                      <StyledIonicons
+                        name={isConfirmPasswordVisible ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        className="text-zinc-400-foreground"
+                      />
+                    </Pressable>
+                  </View>
+                </TextField>
+              </View>
+            )}
           </View>
 
-          {error && (
-            <View className="bg-destructive/15 border border-destructive/30 rounded-xl p-4 flex-row items-center gap-3">
-              <StyledIonicons name="alert-circle-outline" size={20} className="text-destructive" />
-              <Text className="text-destructive font-medium text-sm flex-1">{error}</Text>
-            </View>
-          )}
-
-          {infoMessage && (
-            <View className="bg-primary/15 border border-primary/30 rounded-xl p-4 flex-row items-center gap-3">
-              <StyledIonicons name="information-circle-outline" size={20} className="text-primary" />
-              <Text className="text-primary font-medium text-sm flex-1">{infoMessage}</Text>
-            </View>
-          )}
-
-          {mode === "enter_identifier" && (
-            <>
-              <TextField isRequired>
-                <Label>Email or Phone Number</Label>
-                <View className="w-full justify-center">
-                  <Input 
-                    value={identifier}
-                    onChangeText={(val) => {
-                      setIdentifier(val);
-                      if (!val.includes("@") && val.trim().length >= 10) {
-                        phoneAuth.initRecaptcha();
-                      }
-                    }}
-                    placeholder="Enter email or phone number" 
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    className="pr-12"
-                  />
-                  <StyledIonicons 
-                    name={isEmail ? "mail-outline" : "call-outline"} 
-                    size={20} 
-                    className="absolute right-4 text-zinc-400-foreground" 
-                    pointerEvents="none"
-                  />
-                </View>
-              </TextField>
-
-              {Platform.OS === "web" && (
-                <View className="my-1 w-full items-center justify-center overflow-visible">
-                  <View 
-                    id="recaptcha-container-forgot"
-                    nativeID="recaptcha-container-forgot"
-                    style={{
-                      minHeight: 78,
-                      minWidth: 304,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  />
-                </View>
-              )}
-            </>
-          )}
-
-          {mode === "verify_otp" && (
-            <View className="gap-4">
-              <TextField isRequired>
-                <Label>6-Digit Verification Code</Label>
-                <View className="w-full justify-center">
-                  <Input 
-                    value={otp}
-                    onChangeText={setOtp}
-                    placeholder="123456" 
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    className="tracking-widest text-center text-lg font-bold"
-                  />
-                </View>
-              </TextField>
-
-              <View className="flex-row justify-between items-center px-1">
-                <Pressable onPress={() => setMode("enter_identifier")}>
-                  <Text className="text-sm text-zinc-400-foreground underline">Change Identifier</Text>
-                </Pressable>
-
-                <Pressable 
-                  onPress={handleRequestOtp} 
-                  disabled={isLoading || timer > 0}
-                >
-                  <Text className={`text-sm font-medium ${timer > 0 || isLoading ? "text-zinc-400-foreground" : "text-primary underline"}`}>
-                    {isLoading ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
+          <View className="mt-8 gap-4">
+            {mode === "enter_identifier" && (
+              <Button
+                onPress={handleRequestOtp}
+                isDisabled={isLoading || !identifier.trim()}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text className="font-semibold text-primary-foreground">
+                    Send Verification Code
                   </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
+                )}
+              </Button>
+            )}
 
-          {mode === "reset_password" && (
-            <View className="gap-4">
-              <TextField isRequired>
-                <Label>New Password</Label>
-                <View className="w-full justify-center">
-                  <Input 
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="••••••••••••" 
-                    secureTextEntry={!isPasswordVisible}
-                    className="pr-12"
-                  />
-                  <Pressable 
-                    className="absolute right-4"
-                    onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-                  >
-                    <StyledIonicons 
-                      name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} 
-                      size={20} 
-                      className="text-zinc-400-foreground" 
-                    />
-                  </Pressable>
-                </View>
-              </TextField>
+            {mode === "verify_otp" && (
+              <Button onPress={handleProceedToReset} isDisabled={otp.length < 6} className="w-full">
+                <Text className="font-semibold text-primary-foreground">Verify & Continue</Text>
+              </Button>
+            )}
 
-              <TextField isRequired>
-                <Label>Confirm New Password</Label>
-                <View className="w-full justify-center">
-                  <Input 
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="••••••••••••" 
-                    secureTextEntry={!isConfirmPasswordVisible}
-                    className="pr-12"
-                  />
-                  <Pressable 
-                    className="absolute right-4"
-                    onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
-                  >
-                    <StyledIonicons 
-                      name={isConfirmPasswordVisible ? "eye-outline" : "eye-off-outline"} 
-                      size={20} 
-                      className="text-zinc-400-foreground" 
-                    />
-                  </Pressable>
-                </View>
-              </TextField>
-            </View>
-          )}
+            {mode === "reset_password" && (
+              <Button
+                onPress={handleResetPassword}
+                isDisabled={isLoading || !newPassword || newPassword.length < 6}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text className="font-semibold text-primary-foreground">Reset Password</Text>
+                )}
+              </Button>
+            )}
+
+            {mode === "success" && (
+              <Button onPress={() => router.replace("/(auth)/login")} className="w-full">
+                <Text className="font-semibold text-primary-foreground">Return to Login</Text>
+              </Button>
+            )}
+
+            {mode !== "success" && (
+              <Pressable
+                onPress={() => router.replace("/(auth)/login")}
+                className="items-center py-2"
+              >
+                <Text className="text-sm text-zinc-400-foreground">
+                  Remember your password?{" "}
+                  <Text className="text-primary font-medium underline">Log In</Text>
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-
-        <View className="mt-8 gap-4">
-          {mode === "enter_identifier" && (
-            <Button 
-              onPress={handleRequestOtp} 
-              isDisabled={isLoading || !identifier.trim()}
-              className="w-full"
-            >
-              {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text className="font-semibold text-primary-foreground">Send Verification Code</Text>}
-            </Button>
-          )}
-
-          {mode === "verify_otp" && (
-            <Button 
-              onPress={handleProceedToReset} 
-              isDisabled={otp.length < 6}
-              className="w-full"
-            >
-              <Text className="font-semibold text-primary-foreground">Verify & Continue</Text>
-            </Button>
-          )}
-
-          {mode === "reset_password" && (
-            <Button 
-              onPress={handleResetPassword} 
-              isDisabled={isLoading || !newPassword || newPassword.length < 6}
-              className="w-full"
-            >
-              {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text className="font-semibold text-primary-foreground">Reset Password</Text>}
-            </Button>
-          )}
-
-          {mode === "success" && (
-            <Button 
-              onPress={() => router.replace("/(auth)/login")} 
-              className="w-full"
-            >
-              <Text className="font-semibold text-primary-foreground">Return to Login</Text>
-            </Button>
-          )}
-
-          {mode !== "success" && (
-            <Pressable onPress={() => router.replace("/(auth)/login")} className="items-center py-2">
-              <Text className="text-sm text-zinc-400-foreground">
-                Remember your password? <Text className="text-primary font-medium underline">Log In</Text>
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

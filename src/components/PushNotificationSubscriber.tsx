@@ -1,4 +1,4 @@
-﻿import { useAuth } from "../context/UserContext";
+import { useAuth } from "../context/UserContext";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 
 export function PushNotificationSubscriber() {

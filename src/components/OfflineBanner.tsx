@@ -32,7 +32,8 @@ export const OfflineBanner: React.FC = () => {
         <View style={styles.textContainer}>
           <Text style={styles.title}>Working Offline</Text>
           <Text style={styles.subtitle}>
-            Your health records and actions are saved locally and will sync automatically once reconnected.
+            Your health records and actions are saved locally and will sync automatically once
+            reconnected.
           </Text>
         </View>
       </View>

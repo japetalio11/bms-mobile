@@ -85,10 +85,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === "active"
-      ) {
+      if (appState.current.match(/inactive|background/) && nextAppState === "active") {
         if (socketRef.current && !socketRef.current.connected) {
           socketRef.current.connect();
         }
@@ -109,8 +106,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [isAuthenticated, token, user?.user_id, refreshNotifications]);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
-      {children}
-    </SocketContext.Provider>
+    <SocketContext.Provider value={{ socket, isConnected }}>{children}</SocketContext.Provider>
   );
 };

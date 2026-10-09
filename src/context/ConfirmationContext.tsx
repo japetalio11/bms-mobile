@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { ConfirmationModal, ConfirmationVariant } from "../components/ConfirmationModal";
 
@@ -58,12 +58,12 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setIsLoading(false);
       }
     }
-    
+
     if (asyncResolver) {
       asyncResolver(true);
       setAsyncResolver(null);
     }
-    
+
     setVisible(false);
   };
 

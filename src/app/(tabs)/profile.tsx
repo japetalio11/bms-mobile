@@ -44,21 +44,35 @@ export default function ProfileScreen(): JSX.Element {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [shareJourneyModalOpen, setShareJourneyModalOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    router.replace("/(auth)/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.warn("Logout error:", err);
+    } finally {
+      router.replace("/(auth)/login");
+    }
   };
 
   const facilityName = user.facility_name || user.facility?.facility_name;
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="items-center px-5 pt-8 pb-6">
           <Avatar size="lg" className="mb-4">
             {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
-              <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
+              <Avatar.Image
+                source={{
+                  uri:
+                    user.profile_url ||
+                    (user as any).profile_picture_url ||
+                    (user as any).avatar_url,
+                }}
+              />
             ) : (
               <Avatar.Fallback delayMs={0}>
                 <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
@@ -70,7 +84,9 @@ export default function ProfileScreen(): JSX.Element {
             )}
           </Avatar>
           <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
-          <Text className="text-zinc-400 text-sm mb-4">{user.email || user.phone_number || ""}</Text>
+          <Text className="text-zinc-400 text-sm mb-4">
+            {user.email || user.phone_number || ""}
+          </Text>
 
           <Button
             variant="secondary"
@@ -92,7 +108,8 @@ export default function ProfileScreen(): JSX.Element {
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text className="text-foreground text-base font-bold">
-                      {motherRecord.assignedWorker.first_name} {motherRecord.assignedWorker.last_name}
+                      {motherRecord.assignedWorker.first_name}{" "}
+                      {motherRecord.assignedWorker.last_name}
                     </Text>
                     <View className="bg-blue-500/15 px-2 py-0.5 rounded-full">
                       <Text className="text-[#3b82f6] text-xs font-semibold">
@@ -136,7 +153,9 @@ export default function ProfileScreen(): JSX.Element {
         </View>
 
         <View className="px-5 mb-4">
-          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Clinical Sharing & Facility</Text>
+          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">
+            Clinical Sharing & Facility
+          </Text>
           <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
             <SettingRow
               icon="share-social-outline"
@@ -203,7 +222,6 @@ export default function ProfileScreen(): JSX.Element {
             />
           </Card>
         </View>
-
       </ScrollView>
 
       <MotherQRCodeModal

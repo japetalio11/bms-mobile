@@ -1,4 +1,4 @@
-﻿import { Platform } from "react-native";
+import { Platform } from "react-native";
 import * as SQLite from "expo-sqlite";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -300,7 +300,11 @@ function createWebFallbackDatabase() {
       "newborn_records",
       "sync_queue",
     ]) {
-      if (s.includes(`from ${table}`) || s.includes(`into ${table}`) || s.includes(`update ${table}`)) {
+      if (
+        s.includes(`from ${table}`) ||
+        s.includes(`into ${table}`) ||
+        s.includes(`update ${table}`)
+      ) {
         return table;
       }
     }
@@ -432,7 +436,9 @@ function createWebFallbackDatabase() {
         await saveTable(table, rows);
       } else if (s.startsWith("DELETE")) {
         const pk = params[0];
-        const newRows = rows.filter((r) => r.id !== pk && r.appointment_id !== pk && r.supplement_id !== pk);
+        const newRows = rows.filter(
+          (r) => r.id !== pk && r.appointment_id !== pk && r.supplement_id !== pk
+        );
         await saveTable(table, newRows);
       } else if (s.startsWith("UPDATE")) {
         const pk = params[params.length - 1];
@@ -444,7 +450,8 @@ function createWebFallbackDatabase() {
             } else if (table === "supplements") {
               if (sql.includes("is_completed = ?")) rows[i].is_completed = params[0];
             } else if (table === "sync_queue") {
-              if (sql.includes("retry_count = retry_count + 1")) rows[i].retry_count = (rows[i].retry_count || 0) + 1;
+              if (sql.includes("retry_count = retry_count + 1"))
+                rows[i].retry_count = (rows[i].retry_count || 0) + 1;
             }
           }
         }
@@ -497,6 +504,7 @@ export async function clearAllTablesLocal(userId?: string): Promise<void> {
       "pregnancies",
       "prenatal_visits",
       "appointments",
+      "notifications",
       "supplements",
       "lab_screenings",
       "record_history",
@@ -508,7 +516,11 @@ export async function clearAllTablesLocal(userId?: string): Promise<void> {
     ];
 
     if (Platform.OS !== "web") {
-      const deleteSql = tables.map((t) => `DELETE FROM ${t};`).join("\n");
+      const deleteSql = `
+        PRAGMA foreign_keys = OFF;
+        ${tables.map((t) => `DELETE FROM ${t};`).join("\n")}
+        PRAGMA foreign_keys = ON;
+      `;
       await db.execAsync(deleteSql);
     } else {
       for (const table of tables) {

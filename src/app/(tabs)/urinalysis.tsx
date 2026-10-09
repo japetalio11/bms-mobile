@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, ActivityIndicator } from "react-native";
+import { View, ScrollView, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
 import { Text, Card } from "heroui-native";
 import { Header } from "../../components/Header";
@@ -73,9 +73,7 @@ export default function UrinalysisScreen(): JSX.Element {
         try {
           const fresh = await getLabScreeningsByMotherApi(targetMotherId, token);
           if (isMounted && Array.isArray(fresh)) {
-            const u = fresh.find((r) =>
-              r.screening_type.toLowerCase().includes("urinalysis")
-            );
+            const u = fresh.find((r) => r.screening_type.toLowerCase().includes("urinalysis"));
             if (u) setRecord(u);
             await saveLabScreeningsLocal(fresh, true, targetMotherId, true);
           }
@@ -95,14 +93,20 @@ export default function UrinalysisScreen(): JSX.Element {
   }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
 
   const dateStr = record?.date_of_screening
-    ? new Date(record.date_of_screening).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    ? new Date(record.date_of_screening).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
     : "";
 
   return (
     <View className="flex-1 bg-background">
       <Header showBackButton title="Urinalysis" rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="px-5 mb-5 pt-2">
           {isLoading ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-4" />
@@ -119,7 +123,9 @@ export default function UrinalysisScreen(): JSX.Element {
           ) : (
             <Card className="p-6 bg-surface rounded-xl border-0 items-center py-6">
               <Ionicons name="document-text-outline" size={28} color="#71717a" className="mb-2" />
-              <Text className="text-foreground font-semibold text-base mb-1">No Urinalysis Record</Text>
+              <Text className="text-foreground font-semibold text-base mb-1">
+                No Urinalysis Record
+              </Text>
               <Text className="text-zinc-400 text-sm text-center">
                 No urinalysis lab screening record has been submitted yet.
               </Text>
@@ -130,8 +136,12 @@ export default function UrinalysisScreen(): JSX.Element {
         {record && (
           <>
             <View className="px-5 mb-5">
-              <Text className="text-foreground text-lg font-semibold mb-1">Physical Examination</Text>
-              <Text className="text-zinc-400 text-sm mb-4">Color, clarity, and specific gravity.</Text>
+              <Text className="text-foreground text-lg font-semibold mb-1">
+                Physical Examination
+              </Text>
+              <Text className="text-zinc-400 text-sm mb-4">
+                Color, clarity, and specific gravity.
+              </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
                 <Result label="Color" value="Yellow" unit="Visual" status="normal" />
                 <Result label="Clarity" value="Clear" unit="Visual" status="normal" />
@@ -140,8 +150,12 @@ export default function UrinalysisScreen(): JSX.Element {
             </View>
 
             <View className="px-5">
-              <Text className="text-foreground text-lg font-semibold mb-1">Chemical Examination</Text>
-              <Text className="text-zinc-400 text-sm mb-4">Protein, glucose, and other markers.</Text>
+              <Text className="text-foreground text-lg font-semibold mb-1">
+                Chemical Examination
+              </Text>
+              <Text className="text-zinc-400 text-sm mb-4">
+                Protein, glucose, and other markers.
+              </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
                 <Result label="Protein" value="None" unit="Qualitative" status="normal" />
                 <Result label="Glucose" value="None" unit="Qualitative" status="normal" />

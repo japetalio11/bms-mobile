@@ -219,10 +219,16 @@ export default function ChatScreen(): JSX.Element {
       const remoteMessages = messagesRes.data || [];
       let remoteStaff = staffRes || [];
 
-      if (messagesRes.contact && !remoteStaff.some((s) => s.user_id === messagesRes.contact?.user_id)) {
+      if (
+        messagesRes.contact &&
+        !remoteStaff.some((s) => s.user_id === messagesRes.contact?.user_id)
+      ) {
         remoteStaff = [messagesRes.contact, ...remoteStaff];
       }
-      if (motherRecord?.assignedWorker && !remoteStaff.some((s) => s.user_id === motherRecord.assignedWorker?.user_id)) {
+      if (
+        motherRecord?.assignedWorker &&
+        !remoteStaff.some((s) => s.user_id === motherRecord.assignedWorker?.user_id)
+      ) {
         remoteStaff = [motherRecord.assignedWorker as any, ...remoteStaff];
       }
 
@@ -239,7 +245,8 @@ export default function ChatScreen(): JSX.Element {
               rm.sender_id === m.sender_id &&
               rm.receiver_id === m.receiver_id &&
               rm.message_content === m.message_content &&
-              Math.abs(new Date(rm.message_date).getTime() - new Date(m.message_date).getTime()) < 120000
+              Math.abs(new Date(rm.message_date).getTime() - new Date(m.message_date).getTime()) <
+                120000
           );
 
           if (!matchingRemote) {
@@ -303,9 +310,7 @@ export default function ChatScreen(): JSX.Element {
 
   const staffWithMeta = useMemo(() => {
     return staffList.map((staff) => {
-      const isAssigned = Boolean(
-        assignedWorkerId && staff.user_id === assignedWorkerId
-      );
+      const isAssigned = Boolean(assignedWorkerId && staff.user_id === assignedWorkerId);
 
       const threadMessages = allMessages.filter(
         (m) =>
@@ -319,7 +324,9 @@ export default function ChatScreen(): JSX.Element {
         (m) => m.sender_id === staff.user_id && !m.is_read
       ).length;
 
-      let previewText = isAssigned ? "Your assigned care provider · Tap to message" : "Tap to start conversation";
+      let previewText = isAssigned
+        ? "Your assigned care provider · Tap to message"
+        : "Tap to start conversation";
       if (lastMsg) {
         const isImg =
           lastMsg.message_type === "image" ||
@@ -331,9 +338,11 @@ export default function ChatScreen(): JSX.Element {
           /\.(pdf|docx?|xlsx?|txt|csv|zip)$/i.test(lastMsg.message_content);
 
         if (isImg) {
-          previewText = lastMsg.sender_id === user?.user_id ? "You sent a photo" : "📷 Photo attached";
+          previewText =
+            lastMsg.sender_id === user?.user_id ? "You sent a photo" : "📷 Photo attached";
         } else if (isDoc) {
-          previewText = lastMsg.sender_id === user?.user_id ? "You sent a document" : "📄 Document attached";
+          previewText =
+            lastMsg.sender_id === user?.user_id ? "You sent a document" : "📄 Document attached";
         } else {
           const prefix = lastMsg.sender_id === user?.user_id ? "You: " : "";
           previewText = `${prefix}${lastMsg.message_content}`;
@@ -390,7 +399,8 @@ export default function ChatScreen(): JSX.Element {
         if (roleFilter === "Doctor") return r.includes("doctor");
         if (roleFilter === "Midwife") return r.includes("midwife");
         if (roleFilter === "Nurse") return r.includes("nurse");
-        if (roleFilter === "HealthWorker") return r.includes("healthworker") || r.includes("worker") || r.includes("staff");
+        if (roleFilter === "HealthWorker")
+          return r.includes("healthworker") || r.includes("worker") || r.includes("staff");
         return true;
       });
     }
@@ -414,7 +424,15 @@ export default function ChatScreen(): JSX.Element {
       if (b.lastMessageDate) return 1;
       return (a.first_name || "").localeCompare(b.first_name || "");
     });
-  }, [staffWithMeta, searchQuery, roleFilter, assignedWorkerId, motherRecord, allMessages, user?.user_id]);
+  }, [
+    staffWithMeta,
+    searchQuery,
+    roleFilter,
+    assignedWorkerId,
+    motherRecord,
+    allMessages,
+    user?.user_id,
+  ]);
 
   const currentChatMessages = useMemo<MessageBubble[]>(() => {
     if (!selectedStaff) return [];
@@ -452,14 +470,17 @@ export default function ChatScreen(): JSX.Element {
         id: msg.message_id,
         text: msg.message_content,
         mine: msg.sender_id === user?.user_id,
-        time: new Date(msg.message_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        time: new Date(msg.message_date).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
         type: isImg ? "image" : isDoc ? "file" : "text",
         dateRaw: msg.message_date,
         status: sendingMessageIds.has(msg.message_id)
           ? "sending"
           : msg.message_id.startsWith("local_")
-          ? "queued"
-          : "sent",
+            ? "queued"
+            : "sent",
       };
     });
   }, [allMessages, selectedStaff, user?.user_id, sendingMessageIds]);
@@ -535,7 +556,8 @@ export default function ChatScreen(): JSX.Element {
     if (!isOnline) {
       confirm({
         title: "Offline Mode",
-        message: "Attachment uploads require an active internet connection. Please reconnect to send photos or files.",
+        message:
+          "Attachment uploads require an active internet connection. Please reconnect to send photos or files.",
         confirmText: "OK",
         cancelText: "",
         variant: "warning",
@@ -584,10 +606,7 @@ export default function ChatScreen(): JSX.Element {
         await deleteLocalMessage(localId);
         await saveMessagesLocal([sentMsg]);
       } else {
-        await saveOutgoingMessageLocal(
-          { ...localMessage, message_content: serverUrl },
-          true
-        );
+        await saveOutgoingMessageLocal({ ...localMessage, message_content: serverUrl }, true);
       }
     } catch (err: any) {
       console.error("Attachment upload error:", err);
@@ -618,7 +637,8 @@ export default function ChatScreen(): JSX.Element {
         if (status !== "granted") {
           confirm({
             title: "Camera Permission Required",
-            message: "Camera access is needed to capture photos. Please enable permissions in your device settings.",
+            message:
+              "Camera access is needed to capture photos. Please enable permissions in your device settings.",
             confirmText: "OK",
             cancelText: "",
             variant: "warning",
@@ -675,7 +695,8 @@ export default function ChatScreen(): JSX.Element {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const isImg = asset.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif)$/i.test(asset.name);
+        const isImg =
+          asset.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif)$/i.test(asset.name);
         const sizeFormatted = asset.size
           ? asset.size < 1024 * 1024
             ? `${(asset.size / 1024).toFixed(1)} KB`
@@ -757,15 +778,31 @@ export default function ChatScreen(): JSX.Element {
   const getRoleBadgeStyle = (role: string) => {
     const r = (role || "").toLowerCase();
     if (r.includes("doctor")) {
-      return { bg: "bg-blue-500/10", border: "border-blue-500/25", text: "text-blue-600 dark:text-blue-400" };
+      return {
+        bg: "bg-blue-500/10",
+        border: "border-blue-500/25",
+        text: "text-blue-600 dark:text-blue-400",
+      };
     }
     if (r.includes("midwife")) {
-      return { bg: "bg-purple-500/10", border: "border-purple-500/25", text: "text-purple-600 dark:text-purple-400" };
+      return {
+        bg: "bg-purple-500/10",
+        border: "border-purple-500/25",
+        text: "text-purple-600 dark:text-purple-400",
+      };
     }
     if (r.includes("nurse")) {
-      return { bg: "bg-emerald-500/10", border: "border-emerald-500/25", text: "text-emerald-600 dark:text-emerald-400" };
+      return {
+        bg: "bg-emerald-500/10",
+        border: "border-emerald-500/25",
+        text: "text-emerald-600 dark:text-emerald-400",
+      };
     }
-    return { bg: "bg-amber-500/10", border: "border-amber-500/25", text: "text-amber-600 dark:text-amber-400" };
+    return {
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/25",
+      text: "text-amber-600 dark:text-amber-400",
+    };
   };
 
   if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
@@ -795,7 +832,8 @@ export default function ChatScreen(): JSX.Element {
             Not Affiliated with any Facility
           </Text>
           <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-sm leading-6 mb-6">
-            You are currently not affiliated with any healthcare facility. Direct messaging is only available once your account is linked to a health center.
+            You are currently not affiliated with any healthcare facility. Direct messaging is only
+            available once your account is linked to a health center.
           </Text>
 
           <Pressable
@@ -827,508 +865,585 @@ export default function ChatScreen(): JSX.Element {
           className="flex-1 bg-background"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-        <View
-          style={{ paddingTop: Math.max(insets.top, 16) }}
-          className="px-4 pb-3 bg-surface border-b border-default flex-row items-center justify-between"
-        >
-          <View className="flex-row items-center gap-3 flex-1">
-            <Pressable
-              onPress={() => setSelectedStaff(null)}
-              className="size-9 rounded-full bg-default items-center justify-center"
-            >
-              <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
-            </Pressable>
+          <View
+            style={{ paddingTop: Math.max(insets.top, 16) }}
+            className="px-4 pb-3 bg-surface border-b border-default flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center gap-3 flex-1">
+              <Pressable
+                onPress={() => setSelectedStaff(null)}
+                className="size-9 rounded-full bg-default items-center justify-center"
+              >
+                <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
+              </Pressable>
 
-            <View className="relative">
-              <Avatar size="sm">
-                {selectedStaff.profile_url ? (
-                  <Avatar.Image source={{ uri: selectedStaff.profile_url }} />
-                ) : (
-                  <Avatar.Fallback delayMs={0}>
-                    <View className="w-full h-full bg-primary/20 items-center justify-center">
-                      <Text className="text-primary text-sm font-bold">
-                        {selectedStaff.first_name ? selectedStaff.first_name.charAt(0).toUpperCase() : "S"}
+              <View className="relative">
+                <Avatar size="sm">
+                  {selectedStaff.profile_url ? (
+                    <Avatar.Image source={{ uri: selectedStaff.profile_url }} />
+                  ) : (
+                    <Avatar.Fallback delayMs={0}>
+                      <View className="w-full h-full bg-primary/20 items-center justify-center">
+                        <Text className="text-primary text-sm font-bold">
+                          {selectedStaff.first_name
+                            ? selectedStaff.first_name.charAt(0).toUpperCase()
+                            : "S"}
+                        </Text>
+                      </View>
+                    </Avatar.Fallback>
+                  )}
+                </Avatar>
+                <View
+                  style={{
+                    position: "absolute",
+                    bottom: -1,
+                    right: -1,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: isOnline ? "#10b981" : "#f59e0b",
+                    borderWidth: 1.5,
+                    borderColor: isDark ? "#18181b" : "#ffffff",
+                  }}
+                />
+              </View>
+
+              <View className="flex-1 min-w-0">
+                <Text className="text-foreground font-bold text-base" numberOfLines={1}>
+                  {staffDisplayName}
+                </Text>
+                <View className="flex-row items-center gap-1.5 mt-0.5">
+                  <View
+                    className={`px-1.5 py-0.2 rounded border ${staffBadge.bg} ${staffBadge.border}`}
+                  >
+                    <Text className={`text-[10px] font-semibold ${staffBadge.text}`}>
+                      {selectedStaff.role}
+                    </Text>
+                  </View>
+                  {selectedStaff.user_id === assignedWorkerId && (
+                    <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
+                      <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
+                      <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                        Assigned Provider
                       </Text>
                     </View>
-                  </Avatar.Fallback>
-                )}
-              </Avatar>
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: -1,
-                  right: -1,
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor: isOnline ? "#10b981" : "#f59e0b",
-                  borderWidth: 1.5,
-                  borderColor: isDark ? "#18181b" : "#ffffff",
-                }}
-              />
-            </View>
-
-            <View className="flex-1 min-w-0">
-              <Text className="text-foreground font-bold text-base" numberOfLines={1}>
-                {staffDisplayName}
-              </Text>
-              <View className="flex-row items-center gap-1.5 mt-0.5">
-                <View className={`px-1.5 py-0.2 rounded border ${staffBadge.bg} ${staffBadge.border}`}>
-                  <Text className={`text-[10px] font-semibold ${staffBadge.text}`}>
-                    {selectedStaff.role}
-                  </Text>
-                </View>
-                {selectedStaff.user_id === assignedWorkerId && (
-                  <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
-                    <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
-                    <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">Assigned Provider</Text>
-                  </View>
-                )}
-                {selectedStaff.facility?.facility_name && (
-                  <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate flex-1" numberOfLines={1}>
-                    • {selectedStaff.facility.facility_name}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {currentChatMessages.length > 0 ? (
-          <FlatList
-            ref={flatListRef}
-            data={currentChatMessages}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
-            }
-            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14 }}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-            renderItem={({ item }) => (
-              <View
-                className={`mb-3 max-w-[82%] ${
-                  item.mine ? "self-end items-end" : "self-start items-start"
-                }`}
-              >
-                <View
-                  style={
-                    item.mine
-                      ? {
-                          backgroundColor: "#2563eb",
-                          borderTopLeftRadius: 18,
-                          borderTopRightRadius: 18,
-                          borderBottomLeftRadius: 18,
-                          borderBottomRightRadius: 4,
-                          padding: 12,
-                          shadowColor: "#2563eb",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.25,
-                          shadowRadius: 4,
-                          elevation: 3,
-                        }
-                      : {
-                          backgroundColor: isDark ? "#202025" : "#ffffff",
-                          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
-                          borderWidth: 1,
-                          borderTopLeftRadius: 18,
-                          borderTopRightRadius: 18,
-                          borderBottomLeftRadius: 4,
-                          borderBottomRightRadius: 18,
-                          padding: 12,
-                          shadowColor: "#000",
-                          shadowOffset: { width: 0, height: 1 },
-                          shadowOpacity: isDark ? 0.2 : 0.05,
-                          shadowRadius: 3,
-                          elevation: 1,
-                        }
-                  }
-                >
-                  {item.type === "image" ? (
-                    <Pressable onPress={() => setPreviewImage(item.text)} className="active:opacity-90 relative">
-                      <Image
-                        source={{ uri: getFullFileUrl(item.text) || item.text }}
-                        className="w-56 h-48 rounded-xl bg-default/40 mb-1"
-                        resizeMode="cover"
-                      />
-                      {item.status === "sending" && (
-                        <View className="absolute inset-0 bg-black/40 rounded-xl items-center justify-center">
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        </View>
-                      )}
-                    </Pressable>
-                  ) : item.type === "file" ? (
-                    <Pressable
-                      onPress={() => handleOpenDocument(item.text)}
-                      style={
-                        item.mine
-                          ? {
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 12,
-                              padding: 10,
-                              borderRadius: 12,
-                              backgroundColor: "rgba(255, 255, 255, 0.15)",
-                              borderWidth: 1,
-                              borderColor: "rgba(255, 255, 255, 0.25)",
-                            }
-                          : {
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 12,
-                              padding: 10,
-                              borderRadius: 12,
-                              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                              borderWidth: 1,
-                              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
-                            }
-                      }
-                    >
-                      <View
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 10,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: item.mine ? "rgba(255, 255, 255, 0.2)" : "rgba(37, 99, 235, 0.1)",
-                          borderWidth: item.mine ? 0 : 1,
-                          borderColor: "rgba(37, 99, 235, 0.2)",
-                        }}
-                      >
-                        {item.status === "sending" ? (
-                          <ActivityIndicator size="small" color={item.mine ? "#ffffff" : "#2563eb"} />
-                        ) : (
-                          <Ionicons
-                            name={
-                              item.text.toLowerCase().includes(".pdf")
-                                ? "document-text"
-                                : item.text.toLowerCase().match(/\.(docx?|doc)$/)
-                                ? "document-attach"
-                                : "document"
-                            }
-                            size={22}
-                            color={item.mine ? "#ffffff" : "#2563eb"}
-                          />
-                        )}
-                      </View>
-                      <View className="flex-1 min-w-0">
-                        <Text
-                          style={{
-                            fontSize: 14,
-                            fontWeight: "600",
-                            color: item.mine ? "#ffffff" : isDark ? "#f4f4f5" : "#18181b",
-                          }}
-                          numberOfLines={1}
-                        >
-                          {item.text.startsWith("data:")
-                            ? "Document Attachment"
-                            : item.text.split("/").pop()?.split("?")[0] || "Document Attachment"}
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            marginTop: 2,
-                            color: item.mine ? "rgba(255, 255, 255, 0.75)" : isDark ? "#a1a1aa" : "#71717a",
-                          }}
-                        >
-                          {item.status === "sending" ? "Uploading & sending..." : "Tap to open / download"}
-                        </Text>
-                      </View>
-                      {item.status === "sending" ? (
-                        <ActivityIndicator size="small" color={item.mine ? "#ffffff" : "#2563eb"} />
-                      ) : (
-                        <Ionicons name="open-outline" size={18} color={item.mine ? "#ffffff" : isDark ? "#a1a1aa" : "#71717a"} />
-                      )}
-                    </Pressable>
-                  ) : (
+                  )}
+                  {selectedStaff.facility?.facility_name && (
                     <Text
-                      style={{
-                        fontSize: 15,
-                        lineHeight: 21,
-                        fontWeight: item.mine ? "500" : "400",
-                        color: item.mine ? "#ffffff" : isDark ? "#fafafa" : "#111827",
-                      }}
+                      className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate flex-1"
+                      numberOfLines={1}
                     >
-                      {item.text}
+                      • {selectedStaff.facility.facility_name}
                     </Text>
                   )}
-
-                  <View className="flex-row items-center gap-1.5 justify-end mt-1.5">
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        color: item.mine ? "rgba(255, 255, 255, 0.75)" : isDark ? "#a1a1aa" : "#71717a",
-                      }}
-                    >
-                      {item.time}
-                    </Text>
-                    {item.mine && item.status === "sending" ? (
-                      <ActivityIndicator size={10} color="rgba(255,255,255,0.85)" />
-                    ) : item.mine && item.id.startsWith("local_") ? (
-                      <Ionicons name="checkmark-outline" size={12} color="rgba(255,255,255,0.7)" />
-                    ) : null}
-                  </View>
                 </View>
               </View>
-            )}
-          />
-        ) : (
-          <View className="flex-1 items-center justify-center p-6">
-            <View className="size-16 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-xs">
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#3b82f6" />
             </View>
-            <Text className="text-foreground font-bold text-lg mb-1">Personalized 1-to-1 Chat</Text>
-            <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs leading-5">
-              Send a direct message or share health records with {staffDisplayName}.
-            </Text>
           </View>
-        )}
 
-        <View
-          style={{
-            paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom + 16, 32),
-          }}
-          className="px-4 pt-3 bg-surface border-t border-default flex-row items-center gap-3"
-        >
-          <Pressable
-            onPress={() => setIsAttachmentSheetVisible(true)}
-            disabled={isSending}
-            className="size-10 bg-default rounded-full items-center justify-center active:scale-95"
-          >
-            <Ionicons name="add" size={22} color={isDark ? "#a1a1aa" : "#52525b"} />
-          </Pressable>
+          {currentChatMessages.length > 0 ? (
+            <FlatList
+              ref={flatListRef}
+              data={currentChatMessages}
+              keyExtractor={(item) => item.id}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#3b82f6"
+                />
+              }
+              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14 }}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              renderItem={({ item }) => (
+                <View
+                  className={`mb-3 max-w-[82%] ${
+                    item.mine ? "self-end items-end" : "self-start items-start"
+                  }`}
+                >
+                  <View
+                    style={
+                      item.mine
+                        ? {
+                            backgroundColor: "#2563eb",
+                            borderTopLeftRadius: 18,
+                            borderTopRightRadius: 18,
+                            borderBottomLeftRadius: 18,
+                            borderBottomRightRadius: 4,
+                            padding: 12,
+                            shadowColor: "#2563eb",
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.25,
+                            shadowRadius: 4,
+                            elevation: 3,
+                          }
+                        : {
+                            backgroundColor: isDark ? "#202025" : "#ffffff",
+                            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
+                            borderWidth: 1,
+                            borderTopLeftRadius: 18,
+                            borderTopRightRadius: 18,
+                            borderBottomLeftRadius: 4,
+                            borderBottomRightRadius: 18,
+                            padding: 12,
+                            shadowColor: "#000",
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: isDark ? 0.2 : 0.05,
+                            shadowRadius: 3,
+                            elevation: 1,
+                          }
+                    }
+                  >
+                    {item.type === "image" ? (
+                      <Pressable
+                        onPress={() => setPreviewImage(item.text)}
+                        className="active:opacity-90 relative"
+                      >
+                        <Image
+                          source={{ uri: getFullFileUrl(item.text) || item.text }}
+                          className="w-56 h-48 rounded-xl bg-default/40 mb-1"
+                          resizeMode="cover"
+                        />
+                        {item.status === "sending" && (
+                          <View className="absolute inset-0 bg-black/40 rounded-xl items-center justify-center">
+                            <ActivityIndicator size="small" color="#ffffff" />
+                          </View>
+                        )}
+                      </Pressable>
+                    ) : item.type === "file" ? (
+                      <Pressable
+                        onPress={() => handleOpenDocument(item.text)}
+                        style={
+                          item.mine
+                            ? {
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 12,
+                                padding: 10,
+                                borderRadius: 12,
+                                backgroundColor: "rgba(255, 255, 255, 0.15)",
+                                borderWidth: 1,
+                                borderColor: "rgba(255, 255, 255, 0.25)",
+                              }
+                            : {
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 12,
+                                padding: 10,
+                                borderRadius: 12,
+                                backgroundColor: isDark
+                                  ? "rgba(255,255,255,0.05)"
+                                  : "rgba(0,0,0,0.03)",
+                                borderWidth: 1,
+                                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                              }
+                        }
+                      >
+                        <View
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 10,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: item.mine
+                              ? "rgba(255, 255, 255, 0.2)"
+                              : "rgba(37, 99, 235, 0.1)",
+                            borderWidth: item.mine ? 0 : 1,
+                            borderColor: "rgba(37, 99, 235, 0.2)",
+                          }}
+                        >
+                          {item.status === "sending" ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={item.mine ? "#ffffff" : "#2563eb"}
+                            />
+                          ) : (
+                            <Ionicons
+                              name={
+                                item.text.toLowerCase().includes(".pdf")
+                                  ? "document-text"
+                                  : item.text.toLowerCase().match(/\.(docx?|doc)$/)
+                                    ? "document-attach"
+                                    : "document"
+                              }
+                              size={22}
+                              color={item.mine ? "#ffffff" : "#2563eb"}
+                            />
+                          )}
+                        </View>
+                        <View className="flex-1 min-w-0">
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              fontWeight: "600",
+                              color: item.mine ? "#ffffff" : isDark ? "#f4f4f5" : "#18181b",
+                            }}
+                            numberOfLines={1}
+                          >
+                            {item.text.startsWith("data:")
+                              ? "Document Attachment"
+                              : item.text.split("/").pop()?.split("?")[0] || "Document Attachment"}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              marginTop: 2,
+                              color: item.mine
+                                ? "rgba(255, 255, 255, 0.75)"
+                                : isDark
+                                  ? "#a1a1aa"
+                                  : "#71717a",
+                            }}
+                          >
+                            {item.status === "sending"
+                              ? "Uploading & sending..."
+                              : "Tap to open / download"}
+                          </Text>
+                        </View>
+                        {item.status === "sending" ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={item.mine ? "#ffffff" : "#2563eb"}
+                          />
+                        ) : (
+                          <Ionicons
+                            name="open-outline"
+                            size={18}
+                            color={item.mine ? "#ffffff" : isDark ? "#a1a1aa" : "#71717a"}
+                          />
+                        )}
+                      </Pressable>
+                    ) : (
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          lineHeight: 21,
+                          fontWeight: item.mine ? "500" : "400",
+                          color: item.mine ? "#ffffff" : isDark ? "#fafafa" : "#111827",
+                        }}
+                      >
+                        {item.text}
+                      </Text>
+                    )}
 
-          <View className="flex-1 bg-default rounded-2xl px-4 py-2 flex-row items-center min-h-[44px]">
-            <TextInput
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder={isSending ? "Sending attachment..." : "Type your message..."}
-              placeholderTextColor={isDark ? "#71717a" : "#94a3b8"}
-              multiline
-              editable={!isSending}
-              className="flex-1 text-foreground text-base max-h-24 p-0"
+                    <View className="flex-row items-center gap-1.5 justify-end mt-1.5">
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          color: item.mine
+                            ? "rgba(255, 255, 255, 0.75)"
+                            : isDark
+                              ? "#a1a1aa"
+                              : "#71717a",
+                        }}
+                      >
+                        {item.time}
+                      </Text>
+                      {item.mine && item.status === "sending" ? (
+                        <ActivityIndicator size={10} color="rgba(255,255,255,0.85)" />
+                      ) : item.mine && item.id.startsWith("local_") ? (
+                        <Ionicons
+                          name="checkmark-outline"
+                          size={12}
+                          color="rgba(255,255,255,0.7)"
+                        />
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+              )}
             />
-          </View>
-
-          <Pressable
-            onPress={handleSendText}
-            disabled={!inputText.trim()}
-            className={`size-10 rounded-full items-center justify-center ${
-              inputText.trim() ? "bg-primary active:scale-95 shadow-xs" : "bg-default opacity-50"
-            }`}
-          >
-            <Ionicons name="send" size={16} color={inputText.trim() ? "white" : isDark ? "#71717a" : "#94a3b8"} style={{ marginLeft: 2 }} />
-          </Pressable>
-        </View>
-
-        <Modal
-          visible={!!previewImage}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setPreviewImage(null)}
-        >
-          <View className="flex-1 bg-black/95 justify-center items-center p-4">
-            <Pressable
-              onPress={() => setPreviewImage(null)}
-              className="absolute top-12 right-6 size-10 rounded-full bg-white/20 items-center justify-center z-10"
-            >
-              <Ionicons name="close" size={24} color="white" />
-            </Pressable>
-            {previewImage && (
-              <Image
-                source={{ uri: getFullFileUrl(previewImage) || previewImage }}
-                className="w-full h-4/5 rounded-xl"
-                resizeMode="contain"
-              />
-            )}
-          </View>
-        </Modal>
-
-        <Modal
-          visible={isAttachmentSheetVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setIsAttachmentSheetVisible(false)}
-        >
-          <Pressable
-            onPress={() => setIsAttachmentSheetVisible(false)}
-            className="flex-1 bg-black/60 justify-end"
-          >
-            <Pressable
-              onPress={(e) => e.stopPropagation()}
-              style={{
-                paddingBottom: Math.max(insets.bottom + 20, 32),
-              }}
-              className="bg-surface rounded-t-3xl border-t border-default p-6 shadow-2xl"
-            >
-              <View className="w-12 h-1 bg-default rounded-full self-center mb-4" />
-
-              <Text className="text-foreground font-bold text-lg mb-1">Add Attachment</Text>
-              <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-5">
-                Share photos or medical documents directly with your healthcare provider.
-              </Text>
-
-              <View className="gap-3 mb-4">
-                <Pressable
-                  onPress={() => handlePickImage(true)}
-                  className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
-                >
-                  <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
-                    <Ionicons name="camera-outline" size={22} color="#3b82f6" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-foreground font-semibold text-base">Take Photo</Text>
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Use camera to capture a new photo</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
-                </Pressable>
-
-                <Pressable
-                  onPress={() => handlePickImage(false)}
-                  className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
-                >
-                  <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
-                    <Ionicons name="images-outline" size={22} color="#3b82f6" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-foreground font-semibold text-base">Photo Library</Text>
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Select photos from your device gallery</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
-                </Pressable>
-
-                <Pressable
-                  onPress={() => handlePickDocument()}
-                  className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
-                >
-                  <View className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
-                    <Ionicons name="document-text-outline" size={22} color="#10b981" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-foreground font-semibold text-base">Document / Health Record</Text>
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Upload PDF, Word files, or lab reports</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={isDark ? "#71717a" : "#94a3b8"} />
-                </Pressable>
+          ) : (
+            <View className="flex-1 items-center justify-center p-6">
+              <View className="size-16 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-xs">
+                <Ionicons name="chatbubble-ellipses-outline" size={28} color="#3b82f6" />
               </View>
+              <Text className="text-foreground font-bold text-lg mb-1">
+                Personalized 1-to-1 Chat
+              </Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs leading-5">
+                Send a direct message or share health records with {staffDisplayName}.
+              </Text>
+            </View>
+          )}
 
-              <Pressable
-                onPress={() => setIsAttachmentSheetVisible(false)}
-                className="bg-default py-3.5 rounded-2xl items-center active:opacity-90 mt-1"
-              >
-                <Text className="text-foreground font-semibold text-sm">Cancel</Text>
-              </Pressable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
-        <Modal
-          visible={!!pendingAttachment}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setPendingAttachment(null)}
-        >
           <View
             style={{
-              paddingBottom: Math.max(insets.bottom + 24, 40),
+              paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom + 16, 32),
             }}
-            className="flex-1 bg-black/80 justify-end sm:justify-center p-4"
+            className="px-4 pt-3 bg-surface border-t border-default flex-row items-center gap-3"
           >
-            {pendingAttachment && (
-              <View className="bg-surface rounded-3xl p-5 border border-default shadow-2xl">
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons
-                      name={pendingAttachment.detectedType === "image" ? "image-outline" : "document-text-outline"}
-                      size={20}
-                      color="#3b82f6"
-                    />
-                    <Text className="text-foreground font-bold text-lg">Confirm Attachment</Text>
-                  </View>
+            <Pressable
+              onPress={() => setIsAttachmentSheetVisible(true)}
+              disabled={isSending}
+              className="size-10 bg-default rounded-full items-center justify-center active:scale-95"
+            >
+              <Ionicons name="add" size={22} color={isDark ? "#a1a1aa" : "#52525b"} />
+            </Pressable>
+
+            <View className="flex-1 bg-default rounded-2xl px-4 py-2 flex-row items-center min-h-[44px]">
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder={isSending ? "Sending attachment..." : "Type your message..."}
+                placeholderTextColor={isDark ? "#71717a" : "#94a3b8"}
+                multiline
+                editable={!isSending}
+                className="flex-1 text-foreground text-base max-h-24 p-0"
+              />
+            </View>
+
+            <Pressable
+              onPress={handleSendText}
+              disabled={!inputText.trim()}
+              className={`size-10 rounded-full items-center justify-center ${
+                inputText.trim() ? "bg-primary active:scale-95 shadow-xs" : "bg-default opacity-50"
+              }`}
+            >
+              <Ionicons
+                name="send"
+                size={16}
+                color={inputText.trim() ? "white" : isDark ? "#71717a" : "#94a3b8"}
+                style={{ marginLeft: 2 }}
+              />
+            </Pressable>
+          </View>
+
+          <Modal
+            visible={!!previewImage}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setPreviewImage(null)}
+          >
+            <View className="flex-1 bg-black/95 justify-center items-center p-4">
+              <Pressable
+                onPress={() => setPreviewImage(null)}
+                className="absolute top-12 right-6 size-10 rounded-full bg-white/20 items-center justify-center z-10"
+              >
+                <Ionicons name="close" size={24} color="white" />
+              </Pressable>
+              {previewImage && (
+                <Image
+                  source={{ uri: getFullFileUrl(previewImage) || previewImage }}
+                  className="w-full h-4/5 rounded-xl"
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </Modal>
+
+          <Modal
+            visible={isAttachmentSheetVisible}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setIsAttachmentSheetVisible(false)}
+          >
+            <Pressable
+              onPress={() => setIsAttachmentSheetVisible(false)}
+              className="flex-1 bg-black/60 justify-end"
+            >
+              <Pressable
+                onPress={(e) => e.stopPropagation()}
+                style={{
+                  paddingBottom: Math.max(insets.bottom + 20, 32),
+                }}
+                className="bg-surface rounded-t-3xl border-t border-default p-6 shadow-2xl"
+              >
+                <View className="w-12 h-1 bg-default rounded-full self-center mb-4" />
+
+                <Text className="text-foreground font-bold text-lg mb-1">Add Attachment</Text>
+                <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-5">
+                  Share photos or medical documents directly with your healthcare provider.
+                </Text>
+
+                <View className="gap-3 mb-4">
                   <Pressable
-                    onPress={() => setPendingAttachment(null)}
-                    className="size-8 rounded-full bg-default items-center justify-center"
+                    onPress={() => handlePickImage(true)}
+                    className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
                   >
-                    <Ionicons name="close" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
+                    <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
+                      <Ionicons name="camera-outline" size={22} color="#3b82f6" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-foreground font-semibold text-base">Take Photo</Text>
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
+                        Use camera to capture a new photo
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={isDark ? "#71717a" : "#94a3b8"}
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => handlePickImage(false)}
+                    className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
+                  >
+                    <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
+                      <Ionicons name="images-outline" size={22} color="#3b82f6" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-foreground font-semibold text-base">Photo Library</Text>
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
+                        Select photos from your device gallery
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={isDark ? "#71717a" : "#94a3b8"}
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => handlePickDocument()}
+                    className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
+                  >
+                    <View className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
+                      <Ionicons name="document-text-outline" size={22} color="#10b981" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-foreground font-semibold text-base">
+                        Document / Health Record
+                      </Text>
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
+                        Upload PDF, Word files, or lab reports
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={isDark ? "#71717a" : "#94a3b8"}
+                    />
                   </Pressable>
                 </View>
 
-                {pendingAttachment.detectedType === "image" ? (
-                  <Image
-                    source={{ uri: pendingAttachment.uri }}
-                    className="w-full h-48 rounded-2xl bg-default/40 mb-4"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View className="bg-default/40 rounded-2xl p-4 flex-row items-center gap-3.5 mb-4 border border-default">
-                    <View className="size-12 rounded-xl bg-primary/10 border border-primary/20 items-center justify-center">
+                <Pressable
+                  onPress={() => setIsAttachmentSheetVisible(false)}
+                  className="bg-default py-3.5 rounded-2xl items-center active:opacity-90 mt-1"
+                >
+                  <Text className="text-foreground font-semibold text-sm">Cancel</Text>
+                </Pressable>
+              </Pressable>
+            </Pressable>
+          </Modal>
+
+          <Modal
+            visible={!!pendingAttachment}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setPendingAttachment(null)}
+          >
+            <View
+              style={{
+                paddingBottom: Math.max(insets.bottom + 24, 40),
+              }}
+              className="flex-1 bg-black/80 justify-end sm:justify-center p-4"
+            >
+              {pendingAttachment && (
+                <View className="bg-surface rounded-3xl p-5 border border-default shadow-2xl">
+                  <View className="flex-row items-center justify-between mb-4">
+                    <View className="flex-row items-center gap-2">
                       <Ionicons
                         name={
-                          pendingAttachment.name.toLowerCase().endsWith(".pdf")
-                            ? "document-text"
-                            : "document-attach"
+                          pendingAttachment.detectedType === "image"
+                            ? "image-outline"
+                            : "document-text-outline"
                         }
-                        size={26}
+                        size={20}
                         color="#3b82f6"
                       />
+                      <Text className="text-foreground font-bold text-lg">Confirm Attachment</Text>
                     </View>
-                    <View className="flex-1 min-w-0">
-                      <Text className="text-foreground font-bold text-sm" numberOfLines={1}>
-                        {pendingAttachment.name}
-                      </Text>
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
-                        {pendingAttachment.sizeFormatted} • {pendingAttachment.name.split(".").pop()?.toUpperCase() || "FILE"}
-                      </Text>
-                    </View>
+                    <Pressable
+                      onPress={() => setPendingAttachment(null)}
+                      className="size-8 rounded-full bg-default items-center justify-center"
+                    >
+                      <Ionicons name="close" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
+                    </Pressable>
                   </View>
-                )}
 
-                <View className="flex-row items-center gap-3 mt-1">
-                  <Pressable
-                    onPress={() => setPendingAttachment(null)}
-                    disabled={isSending}
-                    className="bg-default px-5 py-3.5 rounded-xl active:scale-95 items-center"
-                  >
-                    <Text className="text-foreground font-semibold text-sm">Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={async () => {
-                      if (!pendingAttachment) return;
-                      const fileToUpload = { ...pendingAttachment };
-                      setPendingAttachment(null);
-                      await uploadAndSendAttachment(
-                        {
-                          uri: fileToUpload.uri,
-                          name: fileToUpload.name,
-                          type: fileToUpload.type,
-                        },
-                        fileToUpload.detectedType
-                      );
-                    }}
-                    disabled={isSending}
-                    className="flex-1 bg-primary py-3.5 rounded-xl flex-row items-center justify-center gap-2 active:scale-95 shadow-sm shadow-primary/30"
-                  >
-                    {isSending ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <>
-                        <Ionicons name="send" size={16} color="white" />
-                        <Text className="text-white font-semibold text-sm">Send Attachment</Text>
-                      </>
-                    )}
-                  </Pressable>
+                  {pendingAttachment.detectedType === "image" ? (
+                    <Image
+                      source={{ uri: pendingAttachment.uri }}
+                      className="w-full h-48 rounded-2xl bg-default/40 mb-4"
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View className="bg-default/40 rounded-2xl p-4 flex-row items-center gap-3.5 mb-4 border border-default">
+                      <View className="size-12 rounded-xl bg-primary/10 border border-primary/20 items-center justify-center">
+                        <Ionicons
+                          name={
+                            pendingAttachment.name.toLowerCase().endsWith(".pdf")
+                              ? "document-text"
+                              : "document-attach"
+                          }
+                          size={26}
+                          color="#3b82f6"
+                        />
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text className="text-foreground font-bold text-sm" numberOfLines={1}>
+                          {pendingAttachment.name}
+                        </Text>
+                        <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
+                          {pendingAttachment.sizeFormatted} •{" "}
+                          {pendingAttachment.name.split(".").pop()?.toUpperCase() || "FILE"}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View className="flex-row items-center gap-3 mt-1">
+                    <Pressable
+                      onPress={() => setPendingAttachment(null)}
+                      disabled={isSending}
+                      className="bg-default px-5 py-3.5 rounded-xl active:scale-95 items-center"
+                    >
+                      <Text className="text-foreground font-semibold text-sm">Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        if (!pendingAttachment) return;
+                        const fileToUpload = { ...pendingAttachment };
+                        setPendingAttachment(null);
+                        await uploadAndSendAttachment(
+                          {
+                            uri: fileToUpload.uri,
+                            name: fileToUpload.name,
+                            type: fileToUpload.type,
+                          },
+                          fileToUpload.detectedType
+                        );
+                      }}
+                      disabled={isSending}
+                      className="flex-1 bg-primary py-3.5 rounded-xl flex-row items-center justify-center gap-2 active:scale-95 shadow-sm shadow-primary/30"
+                    >
+                      {isSending ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Ionicons name="send" size={16} color="white" />
+                          <Text className="text-white font-semibold text-sm">Send Attachment</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-            )}
-          </View>
-        </Modal>
+              )}
+            </View>
+          </Modal>
         </KeyboardAvoidingView>
       </Modal>
     );
   }
 
-  const facilityTitle = user?.facility_name || user?.facility?.facility_name || "Facility Healthcare Team";
+  const facilityTitle =
+    user?.facility_name || user?.facility?.facility_name || "Facility Healthcare Team";
 
   return (
     <View className="flex-1 bg-background">
@@ -1349,7 +1464,10 @@ export default function ChatScreen(): JSX.Element {
             </Pressable>
             <View>
               <Text className="text-foreground font-bold text-lg">Messages</Text>
-              <Text className="text-zinc-500 dark:text-zinc-400 text-sm truncate max-w-[240px]" numberOfLines={1}>
+              <Text
+                className="text-zinc-500 dark:text-zinc-400 text-sm truncate max-w-[240px]"
+                numberOfLines={1}
+              >
                 {facilityTitle}
               </Text>
             </View>
@@ -1361,7 +1479,12 @@ export default function ChatScreen(): JSX.Element {
         </View>
 
         <View className="flex-row items-center bg-default rounded-xl px-3 py-2">
-          <Ionicons name="search-outline" size={18} color={isDark ? "#71717a" : "#64748b"} className="mr-2" />
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color={isDark ? "#71717a" : "#64748b"}
+            className="mr-2"
+          />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -1421,7 +1544,9 @@ export default function ChatScreen(): JSX.Element {
             </View>
             <Text className="text-foreground font-semibold text-base mb-1">No Staff Found</Text>
             <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs">
-              {searchQuery ? "No staff matches your search query." : "No healthcare staff members are listed for your facility."}
+              {searchQuery
+                ? "No staff matches your search query."
+                : "No healthcare staff members are listed for your facility."}
             </Text>
           </View>
         }
@@ -1485,18 +1610,21 @@ export default function ChatScreen(): JSX.Element {
 
                 <View className="flex-row items-center gap-1.5 mb-1 flex-wrap">
                   <View className={`px-1.5 py-0.2 rounded border ${badge.bg} ${badge.border}`}>
-                    <Text className={`text-[10px] font-semibold ${badge.text}`}>
-                      {item.role}
-                    </Text>
+                    <Text className={`text-[10px] font-semibold ${badge.text}`}>{item.role}</Text>
                   </View>
                   {item.isAssigned && (
                     <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
                       <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
-                      <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">Assigned Provider</Text>
+                      <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                        Assigned Provider
+                      </Text>
                     </View>
                   )}
                   {item.facility?.facility_name && (
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate" numberOfLines={1}>
+                    <Text
+                      className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate"
+                      numberOfLines={1}
+                    >
                       • {item.facility.facility_name}
                     </Text>
                   )}
@@ -1505,7 +1633,9 @@ export default function ChatScreen(): JSX.Element {
                 <View className="flex-row items-center justify-between">
                   <Text
                     className={`text-sm truncate flex-1 mr-2 ${
-                      item.unreadCount > 0 ? "text-foreground font-semibold" : "text-zinc-500 dark:text-zinc-400"
+                      item.unreadCount > 0
+                        ? "text-foreground font-semibold"
+                        : "text-zinc-500 dark:text-zinc-400"
                     }`}
                     numberOfLines={1}
                   >
@@ -1514,9 +1644,7 @@ export default function ChatScreen(): JSX.Element {
 
                   {item.unreadCount > 0 && (
                     <View className="size-5 rounded-full bg-primary items-center justify-center shrink-0">
-                      <Text className="text-white text-[10px] font-bold">
-                        {item.unreadCount}
-                      </Text>
+                      <Text className="text-white text-[10px] font-bold">{item.unreadCount}</Text>
                     </View>
                   )}
                 </View>
