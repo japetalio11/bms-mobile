@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -42,7 +42,7 @@ export type UserContextType = {
   isOnline: boolean;
   unreadCount: number;
   login: (userData: AuthUser, token: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -78,7 +78,7 @@ const defaultContext: UserContextType = {
   isOnline: true,
   unreadCount: 0,
   login: () => {},
-  logout: () => {},
+  logout: async () => {},
   refreshProfile: async () => {},
   refreshNotifications: async () => {},
   markAllNotificationsRead: async () => {},
@@ -147,72 +147,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [token, user.user_id, refreshNotifications]);
 
-  useEffect(() => {
-    if (user.user_id) {
-      refreshNotifications();
-    }
-  }, [user.user_id, token, refreshNotifications]);
-
-  useEffect(() => {
-    const loadStoredAuth = async () => {
-      try {
-        let storedToken = await getSecureToken();
-        if (!storedToken) {
-          storedToken = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
-          if (storedToken) {
-            await setSecureToken(storedToken);
-            await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
-          }
-        }
-
-        const storedUserJson = await AsyncStorage.getItem(STORAGE_KEYS.USER);
-        const storedMotherJson = await AsyncStorage.getItem(STORAGE_KEYS.MOTHER_RECORD);
-        const storedPregnancyJson = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_PREGNANCY);
-
-        if (storedToken) {
-          setToken(storedToken);
-          let currentUserId = "";
-
-          if (storedUserJson) {
-            const rawUser = JSON.parse(storedUserJson);
-            currentUserId = rawUser.user_id;
-            setUser(formatUser(rawUser));
-
-            const sqliteData = await getMotherProfileLocal(rawUser.user_id);
-            if (sqliteData?.motherRecord) {
-              setMotherRecord(sqliteData.motherRecord);
-              if (sqliteData.motherRecord.pregnancies?.length) {
-                setActivePregnancy(sqliteData.motherRecord.pregnancies[0]);
-              }
-            }
-          }
-
-          if (storedMotherJson) {
-            const parsedMother = JSON.parse(storedMotherJson);
-            setMotherRecord((prev) => prev || parsedMother);
-          }
-
-          if (storedPregnancyJson) {
-            const parsedPreg = JSON.parse(storedPregnancyJson);
-            setActivePregnancy((prev) => prev || parsedPreg);
-          }
-
-          if (currentUserId) {
-            triggerOutboxSync(storedToken, currentUserId);
-          }
-          fetchProfile(storedToken, currentUserId);
-        }
-      } catch (err) {
-        console.error("Failed to load stored authentication:", err);
-      } finally {
-        setIsLoadingStorage(false);
-      }
-    };
-
-    loadStoredAuth();
-  }, []);
-
-  const fetchProfile = async (authToken: string, explicitUserId?: string) => {
+  const fetchProfile = useCallback(async (authToken: string, explicitUserId?: string) => {
     try {
       const data = await getMotherProfileApi(authToken);
       if (data.result) {
@@ -273,7 +208,67 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  };
+  }, [user.user_id]);
+
+  useEffect(() => {
+    const loadStoredAuth = async () => {
+      try {
+        let storedToken = await getSecureToken();
+        if (!storedToken) {
+          storedToken = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+          if (storedToken) {
+            await setSecureToken(storedToken);
+            await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
+          }
+        }
+
+        const storedUserJson = await AsyncStorage.getItem(STORAGE_KEYS.USER);
+        const storedMotherJson = await AsyncStorage.getItem(STORAGE_KEYS.MOTHER_RECORD);
+        const storedPregnancyJson = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_PREGNANCY);
+
+        if (storedToken) {
+          setToken(storedToken);
+          let currentUserId = "";
+
+          if (storedUserJson) {
+            const rawUser = JSON.parse(storedUserJson);
+            currentUserId = rawUser.user_id;
+            setUser(formatUser(rawUser));
+
+            const sqliteData = await getMotherProfileLocal(rawUser.user_id);
+            if (sqliteData?.motherRecord) {
+              setMotherRecord(sqliteData.motherRecord);
+              if (sqliteData.motherRecord.pregnancies?.length) {
+                setActivePregnancy(sqliteData.motherRecord.pregnancies[0]);
+              }
+            }
+          }
+
+          if (storedMotherJson) {
+            const parsedMother = JSON.parse(storedMotherJson);
+            setMotherRecord((prev) => prev || parsedMother);
+          }
+
+          if (storedPregnancyJson) {
+            const parsedPreg = JSON.parse(storedPregnancyJson);
+            setActivePregnancy((prev) => prev || parsedPreg);
+          }
+
+          if (currentUserId) {
+            triggerOutboxSync(storedToken, currentUserId);
+          }
+          await fetchProfile(storedToken, currentUserId);
+          refreshNotifications();
+        }
+      } catch (err) {
+        console.error("Failed to load stored authentication:", err);
+      } finally {
+        setIsLoadingStorage(false);
+      }
+    };
+
+    loadStoredAuth();
+  }, [fetchProfile, refreshNotifications]);
 
   const login = async (userData: AuthUser, authToken: string) => {
     const formatted = formatUser(userData);

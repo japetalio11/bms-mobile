@@ -44,9 +44,14 @@ export default function ProfileScreen(): JSX.Element {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [shareJourneyModalOpen, setShareJourneyModalOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    router.replace("/(auth)/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.warn("Logout error:", err);
+    } finally {
+      router.replace("/(auth)/login");
+    }
   };
 
   const facilityName = user.facility_name || user.facility?.facility_name;

@@ -1,4 +1,4 @@
-﻿import { Platform } from "react-native";
+import { Platform } from "react-native";
 import * as SQLite from "expo-sqlite";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -497,6 +497,7 @@ export async function clearAllTablesLocal(userId?: string): Promise<void> {
       "pregnancies",
       "prenatal_visits",
       "appointments",
+      "notifications",
       "supplements",
       "lab_screenings",
       "record_history",
@@ -508,7 +509,11 @@ export async function clearAllTablesLocal(userId?: string): Promise<void> {
     ];
 
     if (Platform.OS !== "web") {
-      const deleteSql = tables.map((t) => `DELETE FROM ${t};`).join("\n");
+      const deleteSql = `
+        PRAGMA foreign_keys = OFF;
+        ${tables.map((t) => `DELETE FROM ${t};`).join("\n")}
+        PRAGMA foreign_keys = ON;
+      `;
       await db.execAsync(deleteSql);
     } else {
       for (const table of tables) {

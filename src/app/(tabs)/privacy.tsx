@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, Share, ActivityIndicator } from "react-native";
+import { View, ScrollView, Share, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { Card, Text, Switch, Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -81,7 +81,7 @@ export default function PrivacyScreen(): JSX.Element {
             variant: "success",
             icon: "checkmark-circle-outline",
           });
-          logout();
+          await logout();
           router.replace("/(auth)/login");
         } catch (err: any) {
           confirm({

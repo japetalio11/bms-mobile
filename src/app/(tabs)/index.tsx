@@ -1,4 +1,4 @@
-﻿import { View, ScrollView, Image, ActivityIndicator, Pressable, RefreshControl } from "react-native";
+import { View, ScrollView, Image, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Card, Text, Checkbox } from "heroui-native";
@@ -207,57 +207,7 @@ export default function DashboardScreen(): JSX.Element {
             )}
           </Card>
 
-          <View className="mb-6">
-            <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
-
-            <Pressable onPress={() => router.push("/(tabs)/vitals")}>
-              <Card className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
-                <View className="size-12 rounded-full bg-blue-500/15 items-center justify-center">
-                  <Ionicons name="pulse" size={22} color="#3b82f6" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-foreground font-semibold text-base">Blood pressure, heart rate, weight</Text>
-                  <Text className="text-zinc-400 text-sm mt-0.5">Mother & newborn health tracking</Text>
-                </View>
-                <View className="size-8 rounded-full bg-default items-center justify-center">
-                  <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />
-                </View>
-              </Card>
-            </Pressable>
-          </View>
-
-          <View className="mb-6">
-            <Text className="text-foreground text-lg font-semibold mb-3">Daily Prescriptions</Text>
-
-            {supplements.length > 0 ? (
-              <View className="gap-3">
-                {supplements.map((item) => (
-                  <Card key={item.supplement_id} className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
-                    <Checkbox
-                      isSelected={item.is_completed}
-                      onSelectedChange={() => handleToggleSupplement(item.supplement_id, item.is_completed)}
-                      className="border-2 border-zinc-400 dark:border-zinc-500"
-                    />
-                    <View className="flex-1">
-                      <Text className="text-foreground font-semibold text-base">{item.supplement_type}</Text>
-                      <Text className="text-zinc-400 text-sm">{item.tablets_given_count} tablets prescribed</Text>
-                    </View>
-                    <View className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}>
-                      <Text className={`text-sm font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}>
-                        {item.is_completed ? "Done" : "Pending"}
-                      </Text>
-                    </View>
-                  </Card>
-                ))}
-              </View>
-            ) : (
-              <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
-                <Ionicons name="leaf-outline" size={24} color="#71717a" className="mb-2" />
-                <Text className="text-zinc-400 text-sm">No active daily prescriptions logged.</Text>
-              </Card>
-            )}
-          </View>
-
+          {/* 1. Upcoming Appointments */}
           <View className="mb-6">
             <Text className="text-foreground text-lg font-semibold mb-3">Upcoming Appointments</Text>
 
@@ -291,6 +241,59 @@ export default function DashboardScreen(): JSX.Element {
                 <Text className="text-zinc-400 text-sm">No upcoming appointments scheduled.</Text>
               </Card>
             )}
+          </View>
+
+          {/* 2. Daily Prescriptions */}
+          <View className="mb-6">
+            <Text className="text-foreground text-lg font-semibold mb-3">Daily Prescriptions</Text>
+
+            {supplements.length > 0 ? (
+              <View className="gap-3">
+                {supplements.map((item) => (
+                  <Card key={item.supplement_id} className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
+                    <Checkbox
+                      isSelected={item.is_completed}
+                      onSelectedChange={() => handleToggleSupplement(item.supplement_id, item.is_completed)}
+                      className="border-2 border-zinc-400 dark:border-zinc-500"
+                    />
+                    <View className="flex-1">
+                      <Text className="text-foreground font-semibold text-base">{item.supplement_type}</Text>
+                      <Text className="text-zinc-400 text-sm">{item.tablets_given_count} tablets prescribed</Text>
+                    </View>
+                    <View className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}>
+                      <Text className={`text-sm font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}>
+                        {item.is_completed ? "Done" : "Pending"}
+                      </Text>
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            ) : (
+              <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
+                <Ionicons name="leaf-outline" size={24} color="#71717a" className="mb-2" />
+                <Text className="text-zinc-400 text-sm">No active daily prescriptions logged.</Text>
+              </Card>
+            )}
+          </View>
+
+          {/* 3. Vitals & Analytics */}
+          <View className="mb-6">
+            <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
+
+            <Pressable onPress={() => router.push("/(tabs)/vitals")}>
+              <Card className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
+                <View className="size-12 rounded-full bg-blue-500/15 items-center justify-center">
+                  <Ionicons name="pulse" size={22} color="#3b82f6" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-foreground font-semibold text-base">Blood pressure, heart rate, weight</Text>
+                  <Text className="text-zinc-400 text-sm mt-0.5">Mother & newborn health tracking</Text>
+                </View>
+                <View className="size-8 rounded-full bg-default items-center justify-center">
+                  <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />
+                </View>
+              </Card>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
