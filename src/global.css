@@ -24,7 +24,7 @@
     --foreground: oklch(0.16 0.035 258);
 
     /* Primary */
-    --primary: oklch(0.60 0.20 250);
+    --primary: oklch(0.6 0.2 250);
     --primary-foreground: oklch(1 0 0);
 
     /* Surfaces */
@@ -74,15 +74,10 @@
 
     /* Shadows — more visible in light mode */
     --surface-shadow:
-      0 1px 3px 0 rgba(0, 0, 0, 0.06),
-      0 2px 8px 0 rgba(0, 0, 0, 0.05),
+      0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 2px 8px 0 rgba(0, 0, 0, 0.05),
       0 0 1px 0 rgba(0, 0, 0, 0.04);
-    --overlay-shadow:
-      0 4px 16px 0 rgba(0, 0, 0, 0.08),
-      0 1px 4px 0 rgba(0, 0, 0, 0.06);
-    --field-shadow:
-      0 1px 3px 0 rgba(0, 0, 0, 0.06),
-      0 0 1px 0 rgba(0, 0, 0, 0.04);
+    --overlay-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.08), 0 1px 4px 0 rgba(0, 0, 0, 0.06);
+    --field-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 0 1px 0 rgba(0, 0, 0, 0.04);
   }
 
   @variant dark {
@@ -91,13 +86,13 @@
     --foreground: oklch(0.98 0 0);
 
     /* Primary */
-    --primary: oklch(0.60 0.20 250);
+    --primary: oklch(0.6 0.2 250);
     --primary-foreground: oklch(1 0 0);
 
     /* Surfaces - Dark Gray */
     --surface: oklch(0.15 0 0);
     --surface-foreground: oklch(0.98 0 0);
-    --surface-secondary: oklch(0.20 0 0);
+    --surface-secondary: oklch(0.2 0 0);
     --surface-secondary-foreground: oklch(0.98 0 0);
     --surface-tertiary: oklch(0.24 0 0);
     --surface-tertiary-foreground: oklch(0.98 0 0);
@@ -112,7 +107,7 @@
     --muted-foreground: oklch(0.65 0 0);
 
     /* Default */
-    --default: oklch(0.20 0 0);
+    --default: oklch(0.2 0 0);
     --default-foreground: oklch(0.98 0 0);
 
     /* Accent */
@@ -123,7 +118,7 @@
     --field-background: oklch(0.19 0 0);
     --field-foreground: oklch(0.98 0 0);
     --field-placeholder: oklch(0.55 0 0);
-    --field-border: oklch(0.30 0 0);
+    --field-border: oklch(0.3 0 0);
 
     /* Status */
     --success: oklch(0.68 0.18 148);
@@ -136,7 +131,7 @@
     /* Misc */
     --border: oklch(0.24 0 0);
     --separator: oklch(0.24 0 0);
-    --segment: oklch(0.20 0 0);
+    --segment: oklch(0.2 0 0);
     --segment-foreground: oklch(0.98 0 0);
 
     /* Shadows */
@@ -195,5 +190,3 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
   z-index: 99999 !important;
 }
-
-

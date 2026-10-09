@@ -1,4 +1,4 @@
-﻿import { Platform } from "react-native";
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -27,7 +27,10 @@ export async function setSecureToken(token: string): Promise<void> {
       keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
     });
   } catch (err) {
-    console.warn("[SecureStorage] Failed to write secure token, falling back to AsyncStorage:", err);
+    console.warn(
+      "[SecureStorage] Failed to write secure token, falling back to AsyncStorage:",
+      err
+    );
     await AsyncStorage.setItem(TOKEN_KEY, token);
   }
 }

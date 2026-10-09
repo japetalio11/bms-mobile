@@ -147,68 +147,81 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [token, user.user_id, refreshNotifications]);
 
-  const fetchProfile = useCallback(async (authToken: string, explicitUserId?: string) => {
-    try {
-      const data = await getMotherProfileApi(authToken);
-      if (data.result) {
-        if (data.result.user) {
-          const formatted = formatUser(data.result.user);
-          setUser(formatted);
-          await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.result.user));
+  const fetchProfile = useCallback(
+    async (authToken: string, explicitUserId?: string) => {
+      try {
+        const data = await getMotherProfileApi(authToken);
+        if (data.result) {
+          if (data.result.user) {
+            const formatted = formatUser(data.result.user);
+            setUser(formatted);
+            await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.result.user));
+          }
+
+          const mRecord: MotherRecord = {
+            mother_id: data.result.mother_id || (data.result as any).mother_id,
+            user_id: data.result.user?.user_id || "",
+            family_serial_no: (data.result as any).family_serial_no,
+            birth_date: (data.result as any).birth_date,
+            age: (data.result as any).age,
+            civil_status: (data.result as any).civil_status,
+            blood_type: (data.result as any).blood_type,
+            assigned_worker_id:
+              (data.result as any).assigned_worker_id ||
+              (data.result as any).assignedWorker?.user_id ||
+              null,
+            created_by_id:
+              (data.result as any).created_by_id || (data.result as any).creator?.user_id || null,
+            assignedWorker: (data.result as any).assignedWorker || null,
+            creator: (data.result as any).creator || null,
+            pregnancies: data.result.pregnancies,
+          };
+          setMotherRecord(mRecord);
+          await AsyncStorage.setItem(STORAGE_KEYS.MOTHER_RECORD, JSON.stringify(mRecord));
+
+          if (data.result.pregnancies && data.result.pregnancies.length > 0) {
+            const firstPregnancy = data.result.pregnancies[0];
+            setActivePregnancy(firstPregnancy);
+            await AsyncStorage.setItem(
+              STORAGE_KEYS.ACTIVE_PREGNANCY,
+              JSON.stringify(firstPregnancy)
+            );
+          }
+
+          await saveMotherProfileLocal({
+            user: data.result.user!,
+            mother_id: mRecord.mother_id,
+            family_serial_no: mRecord.family_serial_no,
+            birth_date: mRecord.birth_date,
+            age: mRecord.age,
+            civil_status: mRecord.civil_status,
+            blood_type: mRecord.blood_type,
+            assigned_worker_id: mRecord.assigned_worker_id,
+            created_by_id: mRecord.created_by_id,
+            assignedWorker: mRecord.assignedWorker,
+            creator: mRecord.creator,
+            pregnancies: mRecord.pregnancies,
+          });
         }
-
-        const mRecord: MotherRecord = {
-          mother_id: data.result.mother_id || (data.result as any).mother_id,
-          user_id: data.result.user?.user_id || "",
-          family_serial_no: (data.result as any).family_serial_no,
-          birth_date: (data.result as any).birth_date,
-          age: (data.result as any).age,
-          civil_status: (data.result as any).civil_status,
-          blood_type: (data.result as any).blood_type,
-          assigned_worker_id: (data.result as any).assigned_worker_id || (data.result as any).assignedWorker?.user_id || null,
-          created_by_id: (data.result as any).created_by_id || (data.result as any).creator?.user_id || null,
-          assignedWorker: (data.result as any).assignedWorker || null,
-          creator: (data.result as any).creator || null,
-          pregnancies: data.result.pregnancies,
-        };
-        setMotherRecord(mRecord);
-        await AsyncStorage.setItem(STORAGE_KEYS.MOTHER_RECORD, JSON.stringify(mRecord));
-
-        if (data.result.pregnancies && data.result.pregnancies.length > 0) {
-          const firstPregnancy = data.result.pregnancies[0];
-          setActivePregnancy(firstPregnancy);
-          await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_PREGNANCY, JSON.stringify(firstPregnancy));
-        }
-
-        await saveMotherProfileLocal({
-          user: data.result.user!,
-          mother_id: mRecord.mother_id,
-          family_serial_no: mRecord.family_serial_no,
-          birth_date: mRecord.birth_date,
-          age: mRecord.age,
-          civil_status: mRecord.civil_status,
-          blood_type: mRecord.blood_type,
-          assigned_worker_id: mRecord.assigned_worker_id,
-          created_by_id: mRecord.created_by_id,
-          assignedWorker: mRecord.assignedWorker,
-          creator: mRecord.creator,
-          pregnancies: mRecord.pregnancies,
-        });
-      }
-    } catch (err) {
-      console.log("Network offline or fetch profile failed. Falling back to local SQLite DB:", err);
-      const targetUserId = explicitUserId || user.user_id;
-      if (targetUserId) {
-        const sqliteData = await getMotherProfileLocal(targetUserId);
-        if (sqliteData?.motherRecord) {
-          setMotherRecord(sqliteData.motherRecord);
-          if (sqliteData.motherRecord.pregnancies?.length) {
-            setActivePregnancy(sqliteData.motherRecord.pregnancies[0]);
+      } catch (err) {
+        console.log(
+          "Network offline or fetch profile failed. Falling back to local SQLite DB:",
+          err
+        );
+        const targetUserId = explicitUserId || user.user_id;
+        if (targetUserId) {
+          const sqliteData = await getMotherProfileLocal(targetUserId);
+          if (sqliteData?.motherRecord) {
+            setMotherRecord(sqliteData.motherRecord);
+            if (sqliteData.motherRecord.pregnancies?.length) {
+              setActivePregnancy(sqliteData.motherRecord.pregnancies[0]);
+            }
           }
         }
       }
-    }
-  }, [user.user_id]);
+    },
+    [user.user_id]
+  );
 
   useEffect(() => {
     const loadStoredAuth = async () => {

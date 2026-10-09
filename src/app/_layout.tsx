@@ -3,12 +3,12 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider } from "heroui-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { 
-  useFonts, 
-  Inter_400Regular, 
-  Inter_500Medium, 
-  Inter_600SemiBold, 
-  Inter_700Bold 
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
@@ -78,7 +78,11 @@ export default function RootLayout(): JSX.Element | null {
               <SocketProvider>
                 <ConfirmationProvider>
                   <PushNotificationSubscriber />
-                  <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }} edges={["top"]}>
+                  <SafeAreaView
+                    className="flex-1 bg-background"
+                    style={{ flex: 1 }}
+                    edges={["top"]}
+                  >
                     <OfflineBanner />
                     <RootNavigator />
                     <StatusBar style="auto" />

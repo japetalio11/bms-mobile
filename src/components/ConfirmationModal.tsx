@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import {
   Modal,
   View,
@@ -92,7 +92,6 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         <View style={styles.overlay}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.cardContainer}>
-              
               <View
                 style={[
                   styles.iconBadge,

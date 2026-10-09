@@ -50,24 +50,18 @@ const InsetRow = ({
       isLast ? "" : "border-b border-separator/30 dark:border-zinc-800/80"
     } gap-3`}
   >
-    <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-normal shrink-0">
-      {label}
-    </Text>
+    <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-normal shrink-0">{label}</Text>
     <View className="flex-1 items-end justify-center">
       {badge ? (
         <View className="flex-row items-center gap-2">
           {badge}
           {value !== undefined && value !== null && (
-            <Text className="text-foreground text-sm font-semibold text-right">
-              {value}
-            </Text>
+            <Text className="text-foreground text-sm font-semibold text-right">{value}</Text>
           )}
         </View>
       ) : (
         <View className="items-end">
-          <Text className="text-foreground text-sm font-semibold text-right">
-            {value ?? "—"}
-          </Text>
+          <Text className="text-foreground text-sm font-semibold text-right">{value ?? "—"}</Text>
           {subvalue ? (
             <Text className="text-zinc-400 dark:text-zinc-500 text-xs text-right mt-0.5">
               {subvalue}
@@ -153,9 +147,7 @@ export default function VitalsScreen(): JSX.Element {
         }
       }
     }
-    return list.sort(
-      (a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
-    );
+    return list.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   }, [activePregnancy, motherRecord]);
 
   const latestVisit = allVisits[0] || null;
@@ -269,7 +261,12 @@ export default function VitalsScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-background">
-      <Header showBackButton title="Vitals & Analytics" onBack={() => router.back()} rightIcon={null} />
+      <Header
+        showBackButton
+        title="Vitals & Analytics"
+        onBack={() => router.back()}
+        rightIcon={null}
+      />
       <ScrollView
         contentContainerStyle={{ paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
@@ -364,7 +361,10 @@ export default function VitalsScreen(): JSX.Element {
                 </View>
 
                 {/* Inset Grouped Card */}
-                <Card variant="secondary" className="bg-surface border-0 rounded-2xl overflow-hidden p-0">
+                <Card
+                  variant="secondary"
+                  className="bg-surface border-0 rounded-2xl overflow-hidden p-0"
+                >
                   <InsetRow
                     label="Blood Pressure"
                     value={`${latestVisit.bp_systolic}/${latestVisit.bp_diastolic}`}
@@ -379,15 +379,9 @@ export default function VitalsScreen(): JSX.Element {
                     label="Body Temperature"
                     value={`${latestVisit.temperature_celsius} °C`}
                   />
-                  <InsetRow
-                    label="Maternal Weight"
-                    value={`${latestVisit.weight_kg} kg`}
-                  />
+                  <InsetRow label="Maternal Weight" value={`${latestVisit.weight_kg} kg`} />
                   {latestVisit.fundic_height_cm ? (
-                    <InsetRow
-                      label="Fundic Height"
-                      value={`${latestVisit.fundic_height_cm} cm`}
-                    />
+                    <InsetRow label="Fundic Height" value={`${latestVisit.fundic_height_cm} cm`} />
                   ) : null}
                   {latestVisit.fetal_heart_tone_bpm ? (
                     <InsetRow
@@ -430,7 +424,10 @@ export default function VitalsScreen(): JSX.Element {
                 </Card>
               </View>
             ) : (
-              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-8 items-center py-12">
+              <Card
+                variant="secondary"
+                className="bg-surface border-0 rounded-2xl p-8 items-center py-12"
+              >
                 <View className="size-14 rounded-2xl bg-zinc-500/10 items-center justify-center mb-3">
                   <Ionicons name="pulse" size={26} color="#71717a" />
                 </View>
@@ -456,27 +453,31 @@ export default function VitalsScreen(): JSX.Element {
             </View>
 
             {allNewborns.length === 0 ? (
-              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-8 items-center py-12">
+              <Card
+                variant="secondary"
+                className="bg-surface border-0 rounded-2xl p-8 items-center py-12"
+              >
                 <View className="size-16 rounded-full bg-primary/10 items-center justify-center mb-3">
                   <Ionicons name="heart-outline" size={28} color="#0284c7" />
                 </View>
-                <Text className="text-foreground font-bold text-base mb-1">Expectant Care Mode</Text>
+                <Text className="text-foreground font-bold text-base mb-1">
+                  Expectant Care Mode
+                </Text>
                 <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center leading-5 max-w-xs">
-                  Infant birth and delivery records will be logged automatically by your healthcare provider upon delivery.
+                  Infant birth and delivery records will be logged automatically by your healthcare
+                  provider upon delivery.
                 </Text>
               </Card>
             ) : (
               <View className="gap-4">
                 {/* Secondary Compact Selector if Multiple Newborns */}
-                {allNewborns.length > 1 && (
-                  allNewborns.length <= 3 ? (
+                {allNewborns.length > 1 &&
+                  (allNewborns.length <= 3 ? (
                     <View className="flex-row bg-default/70 dark:bg-zinc-800/70 p-1 rounded-xl gap-1">
                       <Pressable
                         onPress={() => setSelectedNewbornId("all")}
                         className={`flex-1 py-1.5 px-2 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                          selectedNewbornId === "all"
-                            ? "bg-surface shadow-xs"
-                            : "bg-transparent"
+                          selectedNewbornId === "all" ? "bg-surface shadow-xs" : "bg-transparent"
                         }`}
                       >
                         <Ionicons
@@ -504,21 +505,13 @@ export default function VitalsScreen(): JSX.Element {
                             key={nb.id}
                             onPress={() => setSelectedNewbornId(nb.id)}
                             className={`flex-1 py-1.5 px-2 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                              isSelected
-                                ? "bg-surface shadow-xs"
-                                : "bg-transparent"
+                              isSelected ? "bg-surface shadow-xs" : "bg-transparent"
                             }`}
                           >
                             <Ionicons
                               name={isMale ? "male" : "female"}
                               size={13}
-                              color={
-                                isSelected
-                                  ? isMale
-                                    ? "#3b82f6"
-                                    : "#ec4899"
-                                  : "#a1a1aa"
-                              }
+                              color={isSelected ? (isMale ? "#3b82f6" : "#ec4899") : "#a1a1aa"}
                             />
                             <Text
                               numberOfLines={1}
@@ -596,8 +589,7 @@ export default function VitalsScreen(): JSX.Element {
                         );
                       })}
                     </ScrollView>
-                  )
-                )}
+                  ))}
 
                 {/* List of Newborn Cards */}
                 {filteredNewborns.map((nb, index) => {
@@ -671,8 +663,8 @@ export default function VitalsScreen(): JSX.Element {
                             Number(nb.birth_weight_kg) < 2.5
                               ? "Low birth weight"
                               : Number(nb.birth_weight_kg) > 4.0
-                              ? "High birth weight"
-                              : "Healthy birth range"
+                                ? "High birth weight"
+                                : "Healthy birth range"
                           }
                         />
                         <InsetRow
@@ -686,21 +678,12 @@ export default function VitalsScreen(): JSX.Element {
                             </View>
                           }
                         />
-                        <InsetRow
-                          label="Status at Birth"
-                          value={nb.status_at_birth}
-                        />
+                        <InsetRow label="Status at Birth" value={nb.status_at_birth} />
                         {nb.mode_of_delivery && (
-                          <InsetRow
-                            label="Mode of Delivery"
-                            value={nb.mode_of_delivery}
-                          />
+                          <InsetRow label="Mode of Delivery" value={nb.mode_of_delivery} />
                         )}
                         {nb.place_of_delivery && (
-                          <InsetRow
-                            label="Facility / Place"
-                            value={nb.place_of_delivery}
-                          />
+                          <InsetRow label="Facility / Place" value={nb.place_of_delivery} />
                         )}
                         {nb.duration_of_labor_hours ? (
                           <InsetRow
@@ -733,4 +716,3 @@ export default function VitalsScreen(): JSX.Element {
     </View>
   );
 }
-

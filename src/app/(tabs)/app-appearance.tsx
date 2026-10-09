@@ -1,4 +1,4 @@
-﻿import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable } from "react-native";
 import { useState } from "react";
 import { Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,9 +21,16 @@ export default function AppAppearanceScreen() {
 
   return (
     <View className="flex-1 bg-background pb-24">
-      <Header showBackButton title="App Appearance" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-
+      <Header
+        showBackButton
+        title="App Appearance"
+        onBack={() => router.push("/(tabs)/profile")}
+        rightIcon={null}
+      />
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="px-5 mb-8 pt-2">
           <Card variant="secondary" className="bg-surface border-0 rounded-xl h-48 p-4">
             <View className="flex-row items-center mb-6">
@@ -56,8 +63,17 @@ export default function AppAppearanceScreen() {
                 theme === "light" ? "bg-default" : ""
               }`}
             >
-              <Ionicons name="sunny-outline" size={22} color={theme === "light" ? "#3b82f6" : "#a1a1aa"} className="mb-1.5" />
-              <Text className={`font-medium text-sm ${theme === "light" ? "text-foreground font-semibold" : "text-zinc-400"}`}>Light</Text>
+              <Ionicons
+                name="sunny-outline"
+                size={22}
+                color={theme === "light" ? "#3b82f6" : "#a1a1aa"}
+                className="mb-1.5"
+              />
+              <Text
+                className={`font-medium text-sm ${theme === "light" ? "text-foreground font-semibold" : "text-zinc-400"}`}
+              >
+                Light
+              </Text>
             </Pressable>
 
             <Pressable
@@ -66,8 +82,17 @@ export default function AppAppearanceScreen() {
                 theme === "dark" ? "bg-default" : ""
               }`}
             >
-              <Ionicons name="moon-outline" size={22} color={theme === "dark" ? "#3b82f6" : "#a1a1aa"} className="mb-1.5" />
-              <Text className={`font-medium text-sm ${theme === "dark" ? "text-foreground font-semibold" : "text-zinc-400"}`}>Dark</Text>
+              <Ionicons
+                name="moon-outline"
+                size={22}
+                color={theme === "dark" ? "#3b82f6" : "#a1a1aa"}
+                className="mb-1.5"
+              />
+              <Text
+                className={`font-medium text-sm ${theme === "dark" ? "text-foreground font-semibold" : "text-zinc-400"}`}
+              >
+                Dark
+              </Text>
             </Pressable>
 
             <Pressable
@@ -76,16 +101,25 @@ export default function AppAppearanceScreen() {
                 theme === "system" ? "bg-default" : ""
               }`}
             >
-              <Ionicons name="phone-portrait-outline" size={22} color={theme === "system" ? "#3b82f6" : "#a1a1aa"} className="mb-1.5" />
-              <Text className={`font-medium text-sm ${theme === "system" ? "text-foreground font-semibold" : "text-zinc-400"}`}>System</Text>
+              <Ionicons
+                name="phone-portrait-outline"
+                size={22}
+                color={theme === "system" ? "#3b82f6" : "#a1a1aa"}
+                className="mb-1.5"
+              />
+              <Text
+                className={`font-medium text-sm ${theme === "system" ? "text-foreground font-semibold" : "text-zinc-400"}`}
+              >
+                System
+              </Text>
             </Pressable>
           </Card>
 
           <Text className="text-zinc-400 text-sm font-medium mb-3 ml-1">Typography</Text>
 
           <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
-            <Pressable 
-              onPress={() => setShowSizeSelector(!showSizeSelector)} 
+            <Pressable
+              onPress={() => setShowSizeSelector(!showSizeSelector)}
               className="flex-row items-center justify-between"
             >
               <View className="flex-row items-center gap-3">
@@ -97,7 +131,11 @@ export default function AppAppearanceScreen() {
                   <Text className="text-zinc-400 text-sm mt-0.5">{textSizeLabels[textSize]}</Text>
                 </View>
               </View>
-              <Ionicons name={showSizeSelector ? "chevron-up" : "chevron-down"} size={18} color="#a1a1aa" />
+              <Ionicons
+                name={showSizeSelector ? "chevron-up" : "chevron-down"}
+                size={18}
+                color="#a1a1aa"
+              />
             </Pressable>
 
             {showSizeSelector && (
@@ -113,16 +151,19 @@ export default function AppAppearanceScreen() {
                       textSize === size ? "bg-default/40" : ""
                     }`}
                   >
-                    <Text className={`text-base ${textSize === size ? "text-primary font-bold" : "text-foreground"}`}>
+                    <Text
+                      className={`text-base ${textSize === size ? "text-primary font-bold" : "text-foreground"}`}
+                    >
                       {textSizeLabels[size]}
                     </Text>
-                    {textSize === size && <Ionicons name="checkmark" size={18} className="text-primary" />}
+                    {textSize === size && (
+                      <Ionicons name="checkmark" size={18} className="text-primary" />
+                    )}
                   </Pressable>
                 ))}
               </View>
             )}
           </Card>
-
         </View>
       </ScrollView>
     </View>

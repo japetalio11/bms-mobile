@@ -223,7 +223,9 @@ export async function googleAuthApi(payload: GoogleAuthPayload): Promise<AuthRes
   }
 
   if (data.user && data.user.role && data.user.role.trim().toLowerCase() !== "mother") {
-    throw new Error(`Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`);
+    throw new Error(
+      `Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`
+    );
   }
 
   return data;
@@ -245,7 +247,9 @@ export async function loginApi(payload: LoginPayload): Promise<AuthResponse> {
   }
 
   if (data.user && data.user.role && data.user.role.trim().toLowerCase() !== "mother") {
-    throw new Error(`Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`);
+    throw new Error(
+      `Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`
+    );
   }
 
   return data;
@@ -340,7 +344,9 @@ export async function resetPasswordApi(payload: ResetPasswordPayload): Promise<A
   return data;
 }
 
-export async function getMotherProfileApi(token: string): Promise<{ result: { mother_id?: string; user?: AuthUser; pregnancies?: PregnancyRecord[] } }> {
+export async function getMotherProfileApi(
+  token: string
+): Promise<{ result: { mother_id?: string; user?: AuthUser; pregnancies?: PregnancyRecord[] } }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/mother/profile`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -353,7 +359,10 @@ export async function getMotherProfileApi(token: string): Promise<{ result: { mo
   return data;
 }
 
-export async function updateMotherProfileApi(payload: any, token: string): Promise<{ message: string }> {
+export async function updateMotherProfileApi(
+  payload: any,
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/mother/profile/update`, {
     method: "PUT",
     headers: {
@@ -371,7 +380,10 @@ export async function updateMotherProfileApi(payload: any, token: string): Promi
   return data;
 }
 
-export async function getAppointmentsByUserApi(userId: string, token: string): Promise<AppointmentRecord[]> {
+export async function getAppointmentsByUserApi(
+  userId: string,
+  token: string
+): Promise<AppointmentRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/appointment/get/user/${userId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -385,7 +397,10 @@ export async function getAppointmentsByUserApi(userId: string, token: string): P
   return Array.isArray(list) ? list : [];
 }
 
-export async function createAppointmentApi(payload: any, token: string): Promise<AppointmentRecord> {
+export async function createAppointmentApi(
+  payload: any,
+  token: string
+): Promise<AppointmentRecord> {
   const response = await fetch(`${API_BASE_URL}/api/v1/appointment/register`, {
     method: "POST",
     headers: {
@@ -403,7 +418,10 @@ export async function createAppointmentApi(payload: any, token: string): Promise
   return data.result || data.data || data;
 }
 
-export async function cancelAppointmentApi(appointmentId: string, token: string): Promise<{ message: string }> {
+export async function cancelAppointmentApi(
+  appointmentId: string,
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/appointment/cancel/${appointmentId}`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` },
@@ -417,7 +435,10 @@ export async function cancelAppointmentApi(appointmentId: string, token: string)
   return data;
 }
 
-export async function getSupplementsByMotherApi(motherId: string, token: string): Promise<SupplementRecord[]> {
+export async function getSupplementsByMotherApi(
+  motherId: string,
+  token: string
+): Promise<SupplementRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/supplement/get/mother/${motherId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -431,7 +452,10 @@ export async function getSupplementsByMotherApi(motherId: string, token: string)
   return Array.isArray(list) ? list : [];
 }
 
-export async function updateSupplementStatusApi(payload: { supplement_id: string; is_completed: boolean }, token: string): Promise<{ message: string }> {
+export async function updateSupplementStatusApi(
+  payload: { supplement_id: string; is_completed: boolean },
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/supplement/update`, {
     method: "PUT",
     headers: {
@@ -449,7 +473,10 @@ export async function updateSupplementStatusApi(payload: { supplement_id: string
   return data;
 }
 
-export async function getLabScreeningsByMotherApi(motherId: string, token: string): Promise<LabScreeningRecord[]> {
+export async function getLabScreeningsByMotherApi(
+  motherId: string,
+  token: string
+): Promise<LabScreeningRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/get/mother/${motherId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -465,9 +492,12 @@ export async function getLabScreeningsByMotherApi(motherId: string, token: strin
 
 export async function getMotherEhrDocumentsApi(motherId: string, token: string): Promise<any[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ehr/getAll?mother_id=${encodeURIComponent(motherId)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/ehr/getAll?mother_id=${encodeURIComponent(motherId)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
     const data = await response.json();
     if (!response.ok) {
       return [];
@@ -479,19 +509,23 @@ export async function getMotherEhrDocumentsApi(motherId: string, token: string):
   }
 }
 
-export function formatFormDataFile(uri?: string | null, name?: string | null, type?: string | null) {
+export function formatFormDataFile(
+  uri?: string | null,
+  name?: string | null,
+  type?: string | null
+) {
   if (!uri || typeof uri !== "string" || !uri.trim()) {
     throw new Error("Invalid file URI. Unable to attach file.");
   }
 
   const cleanUri = uri.trim();
-  let cleanName = (name && typeof name === "string" && name.trim()) ? name.trim() : "";
+  let cleanName = name && typeof name === "string" && name.trim() ? name.trim() : "";
   if (!cleanName) {
     const uriPath = cleanUri.split("/").pop()?.split("?")[0];
     cleanName = uriPath || `file_${Date.now()}`;
   }
 
-  let cleanType = (type && typeof type === "string" && type.trim()) ? type.trim() : "";
+  let cleanType = type && typeof type === "string" && type.trim() ? type.trim() : "";
   if (!cleanType || cleanType === "*/*") {
     const ext = cleanName.split(".").pop()?.toLowerCase();
     if (ext === "jpg" || ext === "jpeg") cleanType = "image/jpeg";
@@ -525,14 +559,21 @@ export function getFullFileUrl(url?: string | null, localUri?: string | null): s
     normalizedUrl = normalizedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1):\d+/, API_BASE_URL);
   }
 
-  if (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://") || normalizedUrl.startsWith("file://")) {
+  if (
+    normalizedUrl.startsWith("http://") ||
+    normalizedUrl.startsWith("https://") ||
+    normalizedUrl.startsWith("file://")
+  ) {
     return normalizedUrl;
   }
 
   return `${API_BASE_URL}${normalizedUrl.startsWith("/") ? "" : "/"}${normalizedUrl}`;
 }
 
-export async function uploadLabFileApi(formData: FormData, token: string): Promise<{ fileUrl: string; file_url: string }> {
+export async function uploadLabFileApi(
+  formData: FormData,
+  token: string
+): Promise<{ fileUrl: string; file_url: string }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE_URL}/api/v1/lab-screening/upload`);
@@ -564,7 +605,10 @@ export async function uploadLabFileApi(formData: FormData, token: string): Promi
   });
 }
 
-export async function createLabScreeningApi(payload: any, token: string): Promise<LabScreeningRecord> {
+export async function createLabScreeningApi(
+  payload: any,
+  token: string
+): Promise<LabScreeningRecord> {
   const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/register`, {
     method: "POST",
     headers: {
@@ -582,7 +626,10 @@ export async function createLabScreeningApi(payload: any, token: string): Promis
   return data.data || data.result || data;
 }
 
-export async function deleteLabScreeningApi(screeningId: string, token: string): Promise<{ message: string }> {
+export async function deleteLabScreeningApi(
+  screeningId: string,
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/lab-screening/delete/${screeningId}`, {
     method: "DELETE",
     headers: {
@@ -598,7 +645,10 @@ export async function deleteLabScreeningApi(screeningId: string, token: string):
   return data;
 }
 
-export async function deleteEhrDocumentApi(documentId: string, token: string): Promise<{ message: string }> {
+export async function deleteEhrDocumentApi(
+  documentId: string,
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/ehr-docs/delete/${documentId}`, {
     method: "DELETE",
     headers: {
@@ -614,7 +664,10 @@ export async function deleteEhrDocumentApi(documentId: string, token: string): P
   return data;
 }
 
-export async function changePasswordApi(payload: { currentPassword: string; newPassword: string }, token: string): Promise<{ message: string }> {
+export async function changePasswordApi(
+  payload: { currentPassword: string; newPassword: string },
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/change-password`, {
     method: "POST",
     headers: {
@@ -632,7 +685,10 @@ export async function changePasswordApi(payload: { currentPassword: string; newP
   return data;
 }
 
-export async function deleteAccountApi(motherId: string, token: string): Promise<{ message: string }> {
+export async function deleteAccountApi(
+  motherId: string,
+  token: string
+): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/mother/soft-delete/${motherId}`, {
     method: "PUT",
     headers: {
@@ -690,7 +746,10 @@ export type ChatContact = {
   };
 };
 
-export async function getFacilityStaffApi(token: string, facilityId?: string): Promise<ChatContact[]> {
+export async function getFacilityStaffApi(
+  token: string,
+  facilityId?: string
+): Promise<ChatContact[]> {
   const query = facilityId ? `?facility_id=${facilityId}` : "";
   const response = await fetch(`${API_BASE_URL}/api/v1/user/facility${query}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -749,7 +808,9 @@ export async function uploadAvatarApi(
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(data);
         } else {
-          reject(new Error(data.error || data.message || `Avatar upload failed (HTTP ${xhr.status})`));
+          reject(
+            new Error(data.error || data.message || `Avatar upload failed (HTTP ${xhr.status})`)
+          );
         }
       } catch {
         reject(new Error(`Avatar upload failed (HTTP ${xhr.status})`));
@@ -775,7 +836,9 @@ export async function markMessagesAsReadApi(senderId: string, token: string): Pr
   }).catch(() => {});
 }
 
-export async function getMessagesApi(token: string): Promise<{ data: InAppMessage[]; contact?: ChatContact; hasFacility?: boolean }> {
+export async function getMessagesApi(
+  token: string
+): Promise<{ data: InAppMessage[]; contact?: ChatContact; hasFacility?: boolean }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/message/getAll`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -831,7 +894,11 @@ export async function updatePushTokenApi(
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || data.message || `Failed to register push token with backend (HTTP ${response.status})`);
+    throw new Error(
+      data.error ||
+        data.message ||
+        `Failed to register push token with backend (HTTP ${response.status})`
+    );
   }
 
   return data;
@@ -848,7 +915,10 @@ export type NotificationRecord = {
   category?: string;
 };
 
-export async function getNotificationsApi(userId: string, token: string): Promise<NotificationRecord[]> {
+export async function getNotificationsApi(
+  userId: string,
+  token: string
+): Promise<NotificationRecord[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/notification/get/user/${userId}`, {
     method: "GET",
     headers: {
@@ -864,7 +934,10 @@ export async function getNotificationsApi(userId: string, token: string): Promis
   return data.notifications || data.data || [];
 }
 
-export async function getUnreadNotificationCountApi(userId: string, token: string): Promise<number> {
+export async function getUnreadNotificationCountApi(
+  userId: string,
+  token: string
+): Promise<number> {
   const response = await fetch(`${API_BASE_URL}/api/v1/notification/unread/count/${userId}`, {
     method: "GET",
     headers: {
@@ -894,7 +967,11 @@ export async function markAllNotificationsReadApi(userId: string, token: string)
   }
 }
 
-export async function updateNotificationReadApi(notificationId: string, isRead: boolean, token: string): Promise<void> {
+export async function updateNotificationReadApi(
+  notificationId: string,
+  isRead: boolean,
+  token: string
+): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/notification/update/${notificationId}`, {
     method: "PUT",
     headers: {

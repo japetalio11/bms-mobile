@@ -1,4 +1,4 @@
-﻿import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import type { JSX } from "react";
 import { useFocusEffect } from "expo-router";
 import { useState, useCallback } from "react";
@@ -93,8 +93,10 @@ export default function CalendarScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="px-5 mb-4 flex-row items-center justify-between">
           <Text className="text-primary text-lg font-semibold">{monthName}</Text>
           <View className="flex-row gap-2">
@@ -134,7 +136,9 @@ export default function CalendarScreen(): JSX.Element {
                   dateNum !== null &&
                   appointments.some((a) => {
                     const d = parseLocalDate(a.appointment_date);
-                    return d.getDate() === dateNum && d.getMonth() === month && d.getFullYear() === year;
+                    return (
+                      d.getDate() === dateNum && d.getMonth() === month && d.getFullYear() === year
+                    );
                   });
 
                 return (
@@ -149,8 +153,8 @@ export default function CalendarScreen(): JSX.Element {
                           dateNum === null
                             ? "opacity-0"
                             : isToday
-                            ? "text-white font-bold"
-                            : "text-foreground font-medium"
+                              ? "text-white font-bold"
+                              : "text-foreground font-medium"
                         }`}
                       >
                         {dateNum || ""}
@@ -172,7 +176,9 @@ export default function CalendarScreen(): JSX.Element {
 
         <View className="px-5">
           <Text className="text-foreground text-lg font-semibold mb-1">Upcoming Events</Text>
-          <Text className="text-zinc-400 text-sm mb-4">Scheduled appointments for {monthName}.</Text>
+          <Text className="text-zinc-400 text-sm mb-4">
+            Scheduled appointments for {monthName}.
+          </Text>
 
           {isLoading && appointments.length === 0 ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-6" />
@@ -182,7 +188,11 @@ export default function CalendarScreen(): JSX.Element {
                 const d = parseLocalDate(item.appointment_date);
                 const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
                 const dateNum = d.getDate();
-                const formattedDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                const formattedDate = d.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                });
 
                 return (
                   <Card
@@ -196,15 +206,22 @@ export default function CalendarScreen(): JSX.Element {
                     </View>
                     <View className="w-px h-10 bg-separator mx-2" />
                     <View className="flex-1 ml-2">
-                      <Text className="text-foreground text-base font-semibold mb-1">{item.appointment_type}</Text>
-                      <Text className="text-zinc-400 text-sm">{formattedDate} · {item.appointment_time}</Text>
+                      <Text className="text-foreground text-base font-semibold mb-1">
+                        {item.appointment_type}
+                      </Text>
+                      <Text className="text-zinc-400 text-sm">
+                        {formattedDate} · {item.appointment_time}
+                      </Text>
                     </View>
                   </Card>
                 );
               })}
             </View>
           ) : (
-            <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
+            <Card
+              variant="secondary"
+              className="bg-surface border-0 rounded-xl p-6 items-center py-8"
+            >
               <Ionicons name="calendar-outline" size={28} color="#71717a" className="mb-2" />
               <Text className="text-foreground font-semibold text-base mb-1">No Appointments</Text>
               <Text className="text-zinc-400 text-sm text-center">

@@ -1,4 +1,11 @@
-import { View, ScrollView, Image, ActivityIndicator, Pressable, RefreshControl } from "react-native";
+import {
+  View,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+} from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Card, Text, Checkbox } from "heroui-native";
@@ -135,13 +142,18 @@ export default function DashboardScreen(): JSX.Element {
     const nextStatus = !currentStatus;
 
     setSupplements((prev) =>
-      prev.map((item) => (item.supplement_id === supplementId ? { ...item, is_completed: nextStatus } : item))
+      prev.map((item) =>
+        item.supplement_id === supplementId ? { ...item, is_completed: nextStatus } : item
+      )
     );
 
     try {
       await updateSupplementStatusLocal(supplementId, nextStatus, isOnline);
       if (isOnline && token) {
-        await updateSupplementStatusApi({ supplement_id: supplementId, is_completed: nextStatus }, token);
+        await updateSupplementStatusApi(
+          { supplement_id: supplementId, is_completed: nextStatus },
+          token
+        );
       }
     } catch (err) {
       console.warn("Supplement update error:", err);
@@ -161,15 +173,18 @@ export default function DashboardScreen(): JSX.Element {
         }
       >
         <View className="px-5 pt-3">
-          
           <Card className="mb-6 p-4 bg-surface gap-3 rounded-3xl border-0">
             {gestationalData.hasPregnancy ? (
               <>
                 <View className="mb-1">
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-foreground text-lg font-bold">Week {gestationalData.weeks}</Text>
+                    <Text className="text-foreground text-lg font-bold">
+                      Week {gestationalData.weeks}
+                    </Text>
                     <View className="bg-[#3b82f6]/15 px-3 py-1 rounded-full">
-                      <Text className="text-[#3b82f6] text-sm font-semibold">{gestationalData.progress}%</Text>
+                      <Text className="text-[#3b82f6] text-sm font-semibold">
+                        {gestationalData.progress}%
+                      </Text>
                     </View>
                   </View>
                   <Text className="text-zinc-400 text-sm mt-1">
@@ -185,7 +200,9 @@ export default function DashboardScreen(): JSX.Element {
 
                 <View className="gap-2 mt-1">
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-foreground text-sm font-medium">Maternal Progress Overview</Text>
+                    <Text className="text-foreground text-sm font-medium">
+                      Maternal Progress Overview
+                    </Text>
                     <Text className="text-zinc-400 text-sm">{gestationalData.weeks} wks</Text>
                   </View>
                   <View className="h-2 w-full bg-default rounded-full overflow-hidden">
@@ -199,9 +216,12 @@ export default function DashboardScreen(): JSX.Element {
             ) : (
               <View className="py-6 items-center">
                 <Ionicons name="medical-outline" size={32} color="#3b82f6" className="mb-2" />
-                <Text className="text-foreground font-semibold text-base mb-1">Maternal Care Dashboard</Text>
+                <Text className="text-foreground font-semibold text-base mb-1">
+                  Maternal Care Dashboard
+                </Text>
                 <Text className="text-zinc-400 text-sm text-center">
-                  Your pregnancy and prenatal visit records will appear here once registered by your healthcare facility.
+                  Your pregnancy and prenatal visit records will appear here once registered by your
+                  healthcare facility.
                 </Text>
               </View>
             )}
@@ -209,14 +229,18 @@ export default function DashboardScreen(): JSX.Element {
 
           {/* 1. Upcoming Appointments */}
           <View className="mb-6">
-            <Text className="text-foreground text-lg font-semibold mb-3">Upcoming Appointments</Text>
+            <Text className="text-foreground text-lg font-semibold mb-3">
+              Upcoming Appointments
+            </Text>
 
             {nextAppointment ? (
               <Pressable onPress={() => router.push("/(tabs)/appointments")}>
                 <Card className="p-4 bg-surface flex-row items-center gap-3 rounded-2xl border-0">
                   <View className="items-center justify-center w-12 bg-[#3b82f6]/15 rounded-xl py-2">
                     <Text className="text-[#3b82f6] text-sm font-semibold">
-                      {new Date(nextAppointment.appointment_date).toLocaleDateString("en-US", { weekday: "short" })}
+                      {new Date(nextAppointment.appointment_date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                      })}
                     </Text>
                     <Text className="text-foreground text-lg font-bold">
                       {new Date(nextAppointment.appointment_date).getDate()}
@@ -224,9 +248,12 @@ export default function DashboardScreen(): JSX.Element {
                   </View>
 
                   <View className="flex-1">
-                    <Text className="text-foreground font-semibold text-base">{nextAppointment.appointment_type}</Text>
+                    <Text className="text-foreground font-semibold text-base">
+                      {nextAppointment.appointment_type}
+                    </Text>
                     <Text className="text-zinc-400 text-sm">
-                      {new Date(nextAppointment.appointment_date).toLocaleDateString()} · {nextAppointment.appointment_time}
+                      {new Date(nextAppointment.appointment_date).toLocaleDateString()} ·{" "}
+                      {nextAppointment.appointment_time}
                     </Text>
                   </View>
 
@@ -250,18 +277,31 @@ export default function DashboardScreen(): JSX.Element {
             {supplements.length > 0 ? (
               <View className="gap-3">
                 {supplements.map((item) => (
-                  <Card key={item.supplement_id} className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0">
+                  <Card
+                    key={item.supplement_id}
+                    className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0"
+                  >
                     <Checkbox
                       isSelected={item.is_completed}
-                      onSelectedChange={() => handleToggleSupplement(item.supplement_id, item.is_completed)}
+                      onSelectedChange={() =>
+                        handleToggleSupplement(item.supplement_id, item.is_completed)
+                      }
                       className="border-2 border-zinc-400 dark:border-zinc-500"
                     />
                     <View className="flex-1">
-                      <Text className="text-foreground font-semibold text-base">{item.supplement_type}</Text>
-                      <Text className="text-zinc-400 text-sm">{item.tablets_given_count} tablets prescribed</Text>
+                      <Text className="text-foreground font-semibold text-base">
+                        {item.supplement_type}
+                      </Text>
+                      <Text className="text-zinc-400 text-sm">
+                        {item.tablets_given_count} tablets prescribed
+                      </Text>
                     </View>
-                    <View className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}>
-                      <Text className={`text-sm font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}>
+                    <View
+                      className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}
+                    >
+                      <Text
+                        className={`text-sm font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}
+                      >
                         {item.is_completed ? "Done" : "Pending"}
                       </Text>
                     </View>
@@ -286,8 +326,12 @@ export default function DashboardScreen(): JSX.Element {
                   <Ionicons name="pulse" size={22} color="#3b82f6" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-foreground font-semibold text-base">Blood pressure, heart rate, weight</Text>
-                  <Text className="text-zinc-400 text-sm mt-0.5">Mother & newborn health tracking</Text>
+                  <Text className="text-foreground font-semibold text-base">
+                    Blood pressure, heart rate, weight
+                  </Text>
+                  <Text className="text-zinc-400 text-sm mt-0.5">
+                    Mother & newborn health tracking
+                  </Text>
                 </View>
                 <View className="size-8 rounded-full bg-default items-center justify-center">
                   <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />

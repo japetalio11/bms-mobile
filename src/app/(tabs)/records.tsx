@@ -1,4 +1,13 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal, RefreshControl, Linking } from "react-native";
+import {
+  View,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Image,
+  Modal,
+  RefreshControl,
+  Linking,
+} from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Tabs, Card, SearchField, Text, Button } from "heroui-native";
@@ -48,7 +57,12 @@ export default function RecordsScreen(): JSX.Element {
   const handleOpenAttachment = async (url: string, lab?: LabScreeningRecord) => {
     if (!url) return;
     const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes(".pdf") || lowerUrl.includes("/pdf") || lowerUrl.endsWith(".doc") || lowerUrl.endsWith(".docx")) {
+    if (
+      lowerUrl.includes(".pdf") ||
+      lowerUrl.includes("/pdf") ||
+      lowerUrl.endsWith(".doc") ||
+      lowerUrl.endsWith(".docx")
+    ) {
       try {
         await WebBrowser.openBrowserAsync(url);
       } catch {
@@ -69,9 +83,7 @@ export default function RecordsScreen(): JSX.Element {
     if (!recordToDelete) return;
 
     const targetId =
-      recordToDelete.screening_id ||
-      (recordToDelete as any).id ||
-      (recordToDelete as any).temp_id;
+      recordToDelete.screening_id || (recordToDelete as any).id || (recordToDelete as any).temp_id;
 
     if (!targetId) {
       setRecordToDelete(null);
@@ -97,10 +109,7 @@ export default function RecordsScreen(): JSX.Element {
       }
 
       setLabScreenings((prev) =>
-        prev.filter(
-          (l) =>
-            (l.screening_id || (l as any).id || (l as any).temp_id) !== targetId
-        )
+        prev.filter((l) => (l.screening_id || (l as any).id || (l as any).temp_id) !== targetId)
       );
 
       if (
@@ -206,7 +215,11 @@ export default function RecordsScreen(): JSX.Element {
 
           const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
           const pendingLabs = currentLocal.filter(
-            (l: any) => l.sync_status === "pending" && l.screening_id && l.screening_id !== "null" && l.screening_id !== "undefined"
+            (l: any) =>
+              l.sync_status === "pending" &&
+              l.screening_id &&
+              l.screening_id !== "null" &&
+              l.screening_id !== "undefined"
           );
           const serverIds = new Set(allLabs.map((l) => l.screening_id).filter(Boolean));
           const merged = [...allLabs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
@@ -267,21 +280,27 @@ export default function RecordsScreen(): JSX.Element {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
-        
         <View className="px-5 mb-4">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
             <Tabs.List className="bg-default p-1 rounded-xl flex-row w-full h-10 items-center">
               <Tabs.Indicator className="bg-surface-secondary rounded-lg" />
               <Tabs.Trigger value="lab" className="flex-1 items-center justify-center h-8">
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
+                  <Tabs.Label
+                    className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}
+                  >
                     Lab Records
                   </Tabs.Label>
                 )}
               </Tabs.Trigger>
-              <Tabs.Trigger value="prescriptions" className="flex-1 items-center justify-center h-8">
+              <Tabs.Trigger
+                value="prescriptions"
+                className="flex-1 items-center justify-center h-8"
+              >
                 {({ isSelected }) => (
-                  <Tabs.Label className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}>
+                  <Tabs.Label
+                    className={`font-semibold text-sm text-center ${isSelected ? "text-foreground font-bold" : "text-zinc-400"}`}
+                  >
                     Prescriptions
                   </Tabs.Label>
                 )}
@@ -308,7 +327,10 @@ export default function RecordsScreen(): JSX.Element {
             <SearchField value={searchLab} onChange={setSearchLab}>
               <SearchField.Group className="bg-default border-0 rounded-xl h-12 mb-5">
                 <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Search for laboratory records..." className="text-sm" />
+                <SearchField.Input
+                  placeholder="Search for laboratory records..."
+                  className="text-sm"
+                />
                 <SearchField.ClearButton />
               </SearchField.Group>
             </SearchField>
@@ -318,7 +340,8 @@ export default function RecordsScreen(): JSX.Element {
             ) : filteredLabs.length > 0 ? (
               <View className="gap-3.5">
                 {filteredLabs.map((lab, index) => {
-                  const labKey = lab.screening_id || (lab as any).id || (lab as any).temp_id || `lab_${index}`;
+                  const labKey =
+                    lab.screening_id || (lab as any).id || (lab as any).temp_id || `lab_${index}`;
                   const fileUrl = getFullFileUrl(lab.file_url, (lab as any).local_file_uri);
                   const dateStr = lab.date_of_screening
                     ? new Date(lab.date_of_screening).toLocaleDateString("en-US", {
@@ -330,24 +353,35 @@ export default function RecordsScreen(): JSX.Element {
                   const isPendingSync = (lab as any).sync_status === "pending";
 
                   return (
-                    <Card key={labKey} variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                    <Card
+                      key={labKey}
+                      variant="secondary"
+                      className="bg-surface border-0 rounded-2xl p-4"
+                    >
                       <View className="flex-row items-center justify-between mb-2">
                         <View className="flex-row items-center gap-3 flex-1 min-w-0 pr-2">
                           <View className="size-10 rounded-xl bg-primary/15 items-center justify-center shrink-0">
                             <Ionicons name="document-text-outline" size={20} color="#0284c7" />
                           </View>
                           <View className="flex-1 min-w-0">
-                            <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
+                            <Text
+                              className="text-foreground font-semibold text-base"
+                              numberOfLines={1}
+                            >
                               {lab.screening_type}
                             </Text>
-                            <Text className="text-zinc-400 text-sm" numberOfLines={1}>{dateStr || "Screening Record"}</Text>
+                            <Text className="text-zinc-400 text-sm" numberOfLines={1}>
+                              {dateStr || "Screening Record"}
+                            </Text>
                           </View>
                         </View>
 
                         <View className="flex-row items-center gap-1.5 shrink-0">
                           {isPendingSync ? (
                             <View className="px-2.5 py-1 rounded-full bg-amber-500/20">
-                              <Text className="text-amber-400 text-xs font-semibold">Pending Upload</Text>
+                              <Text className="text-amber-400 text-xs font-semibold">
+                                Pending Upload
+                              </Text>
                             </View>
                           ) : (
                             <View className="px-2.5 py-1 rounded-full bg-emerald-500/15">
@@ -367,7 +401,8 @@ export default function RecordsScreen(): JSX.Element {
                       </View>
 
                       {fileUrl ? (
-                        fileUrl.toLowerCase().includes(".pdf") || fileUrl.toLowerCase().includes("/pdf") ? (
+                        fileUrl.toLowerCase().includes(".pdf") ||
+                        fileUrl.toLowerCase().includes("/pdf") ? (
                           <Pressable
                             onPress={() => handleOpenAttachment(fileUrl, lab)}
                             className="mt-2.5 mb-2 p-3 bg-default/40 border border-default rounded-xl flex-row items-center gap-3 active:bg-default/70"
@@ -376,15 +411,23 @@ export default function RecordsScreen(): JSX.Element {
                               <Ionicons name="document-text" size={22} color="#3b82f6" />
                             </View>
                             <View className="flex-1 min-w-0">
-                              <Text className="text-foreground text-sm font-semibold" numberOfLines={1}>
+                              <Text
+                                className="text-foreground text-sm font-semibold"
+                                numberOfLines={1}
+                              >
                                 {fileUrl.split("/").pop()?.split("?")[0] || "PDF Document"}
                               </Text>
-                              <Text className="text-zinc-400 text-[11px] mt-0.5">PDF Document Attachment • Tap to view</Text>
+                              <Text className="text-zinc-400 text-[11px] mt-0.5">
+                                PDF Document Attachment • Tap to view
+                              </Text>
                             </View>
                             <Ionicons name="open-outline" size={16} color="#a1a1aa" />
                           </Pressable>
                         ) : (
-                          <Pressable onPress={() => handleOpenAttachment(fileUrl, lab)} className="mt-2.5 mb-2 relative rounded-xl overflow-hidden">
+                          <Pressable
+                            onPress={() => handleOpenAttachment(fileUrl, lab)}
+                            className="mt-2.5 mb-2 relative rounded-xl overflow-hidden"
+                          >
                             <Image
                               source={{ uri: fileUrl }}
                               style={{ width: "100%", height: 180 }}
@@ -393,7 +436,9 @@ export default function RecordsScreen(): JSX.Element {
                             />
                             <View className="absolute bottom-2 right-2 bg-black/70 px-2.5 py-1 rounded-lg flex-row items-center gap-1.5 z-10">
                               <Ionicons name="eye-outline" size={12} color="white" />
-                              <Text className="text-white text-[11px] font-medium">View Full Image</Text>
+                              <Text className="text-white text-[11px] font-medium">
+                                View Full Image
+                              </Text>
                             </View>
                           </Pressable>
                         )
@@ -412,7 +457,9 @@ export default function RecordsScreen(): JSX.Element {
                             color="#94a3b8"
                           />
                           <Text className="text-zinc-400 text-xs flex-1" numberOfLines={2}>
-                            {lab.remarks.startsWith("Uploaded by:") ? lab.remarks : `Remarks: ${lab.remarks}`}
+                            {lab.remarks.startsWith("Uploaded by:")
+                              ? lab.remarks
+                              : `Remarks: ${lab.remarks}`}
                           </Text>
                         </View>
                       ) : (
@@ -423,7 +470,9 @@ export default function RecordsScreen(): JSX.Element {
                             color="#94a3b8"
                           />
                           <Text className="text-zinc-400 text-xs flex-1">
-                            {lab.result === "Uploaded" ? "Uploaded by you (Patient Upload)" : "Healthcare Record"}
+                            {lab.result === "Uploaded"
+                              ? "Uploaded by you (Patient Upload)"
+                              : "Healthcare Record"}
                           </Text>
                         </View>
                       )}
@@ -432,9 +481,14 @@ export default function RecordsScreen(): JSX.Element {
                 })}
               </View>
             ) : (
-              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-6 items-center py-10">
+              <Card
+                variant="secondary"
+                className="bg-surface border-0 rounded-2xl p-6 items-center py-10"
+              >
                 <Ionicons name="document-text-outline" size={32} color="#71717a" className="mb-2" />
-                <Text className="text-foreground font-semibold text-base mb-1">No Lab Records Found</Text>
+                <Text className="text-foreground font-semibold text-base mb-1">
+                  No Lab Records Found
+                </Text>
                 <Text className="text-zinc-400 text-sm text-center max-w-xs mb-4">
                   {searchLab.trim()
                     ? "No laboratory records match your search criteria."
@@ -463,7 +517,10 @@ export default function RecordsScreen(): JSX.Element {
                 <SearchField value={searchPrescription} onChange={setSearchPrescription}>
                   <SearchField.Group className="bg-default border-0 rounded-xl h-12">
                     <SearchField.SearchIcon />
-                    <SearchField.Input placeholder="Search for prescriptions..." className="text-sm" />
+                    <SearchField.Input
+                      placeholder="Search for prescriptions..."
+                      className="text-sm"
+                    />
                     <SearchField.ClearButton />
                   </SearchField.Group>
                 </SearchField>
@@ -477,38 +534,53 @@ export default function RecordsScreen(): JSX.Element {
                 {filteredSupplements.map((supp, index) => {
                   const suppKey = supp.supplement_id || (supp as any).id || `supp_${index}`;
                   return (
-                    <Card key={suppKey} variant="secondary" className="bg-surface border-0 rounded-xl p-4">
-                    <View className="flex-row items-start gap-3 mb-4">
-                      <View className="size-10 rounded-full bg-[#6366f1]/15 items-center justify-center mt-0.5">
-                        <Ionicons name="medkit-outline" size={18} color="#6366f1" />
+                    <Card
+                      key={suppKey}
+                      variant="secondary"
+                      className="bg-surface border-0 rounded-xl p-4"
+                    >
+                      <View className="flex-row items-start gap-3 mb-4">
+                        <View className="size-10 rounded-full bg-[#6366f1]/15 items-center justify-center mt-0.5">
+                          <Ionicons name="medkit-outline" size={18} color="#6366f1" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-foreground font-semibold text-base">
+                            {supp.supplement_type}
+                          </Text>
+                          <Text className="text-zinc-400 text-sm">
+                            {supp.tablets_given_count} Tablets Prescribed
+                          </Text>
+                        </View>
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-foreground font-semibold text-base">{supp.supplement_type}</Text>
-                        <Text className="text-zinc-400 text-sm">{supp.tablets_given_count} Tablets Prescribed</Text>
+                      <View className="gap-2">
+                        <View className="flex-row justify-between">
+                          <Text className="text-zinc-400 text-sm">Status</Text>
+                          <Text
+                            className={`text-sm font-medium ${supp.is_completed ? "text-[#10b981]" : "text-[#f59e0b]"}`}
+                          >
+                            {supp.is_completed ? "Completed" : "In Progress"}
+                          </Text>
+                        </View>
+                        <View className="flex-row justify-between">
+                          <Text className="text-zinc-400 text-sm">Date Prescribed</Text>
+                          <Text className="text-foreground text-sm font-medium">
+                            {new Date(supp.date_given).toLocaleDateString()}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                    <View className="gap-2">
-                      <View className="flex-row justify-between">
-                        <Text className="text-zinc-400 text-sm">Status</Text>
-                        <Text className={`text-sm font-medium ${supp.is_completed ? "text-[#10b981]" : "text-[#f59e0b]"}`}>
-                          {supp.is_completed ? "Completed" : "In Progress"}
-                        </Text>
-                      </View>
-                      <View className="flex-row justify-between">
-                        <Text className="text-zinc-400 text-sm">Date Prescribed</Text>
-                        <Text className="text-foreground text-sm font-medium">
-                          {new Date(supp.date_given).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </View>
-                  </Card>
-                );
-              })}
+                    </Card>
+                  );
+                })}
               </View>
             ) : (
-              <Card variant="secondary" className="bg-surface border-0 rounded-xl p-6 items-center py-8">
+              <Card
+                variant="secondary"
+                className="bg-surface border-0 rounded-xl p-6 items-center py-8"
+              >
                 <Ionicons name="medkit-outline" size={28} color="#71717a" className="mb-2" />
-                <Text className="text-foreground font-semibold text-base mb-1">No Prescriptions</Text>
+                <Text className="text-foreground font-semibold text-base mb-1">
+                  No Prescriptions
+                </Text>
                 <Text className="text-zinc-400 text-sm text-center">
                   You have no active prescriptions or supplements recorded.
                 </Text>
@@ -528,7 +600,6 @@ export default function RecordsScreen(): JSX.Element {
         }}
       >
         <View className="flex-1 bg-black/95 justify-between p-4 pt-12 pb-8">
-          
           <View className="flex-row items-center justify-between px-2 pb-3 border-b border-white/10 z-20">
             <View className="flex-1 pr-3">
               <Text className="text-white font-bold text-base" numberOfLines={1}>
@@ -599,9 +670,7 @@ export default function RecordsScreen(): JSX.Element {
             </View>
 
             <View className="items-center gap-1">
-              <Text className="text-white font-bold text-lg text-center">
-                Delete Document
-              </Text>
+              <Text className="text-white font-bold text-lg text-center">Delete Document</Text>
               <Text className="text-zinc-400 text-sm text-center">
                 Are you sure you want to delete{" "}
                 <Text className="text-white font-semibold">

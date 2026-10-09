@@ -1,4 +1,4 @@
-﻿import {
+import {
   View,
   ScrollView,
   ActivityIndicator,
@@ -20,11 +20,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth, STORAGE_KEYS } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { useConfirm } from "../../context/ConfirmationContext";
-import {
-  updateMotherProfileApi,
-  uploadAvatarApi,
-  formatFormDataFile,
-} from "../../config/api";
+import { updateMotherProfileApi, uploadAvatarApi, formatFormDataFile } from "../../config/api";
 import { updateUserProfileLocal, enqueueSyncAction } from "../../db/repository";
 
 export default function EditProfileScreen(): JSX.Element {
@@ -69,7 +65,8 @@ export default function EditProfileScreen(): JSX.Element {
       if (user.phone_number) setPhone(user.phone_number);
       if (user.email) setEmail(user.email);
       if (user.address) setAddress(user.address);
-      const photo = user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url;
+      const photo =
+        user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url;
       if (photo) setAvatarUri(photo);
     }
   }, [user]);
@@ -127,7 +124,8 @@ export default function EditProfileScreen(): JSX.Element {
 
     try {
       let uploadedProfileUrl: string | undefined = undefined;
-      const isLocalFile = avatarUri && (avatarUri.startsWith("file://") || avatarUri.startsWith("content://"));
+      const isLocalFile =
+        avatarUri && (avatarUri.startsWith("file://") || avatarUri.startsWith("content://"));
 
       if (isLocalFile) {
         if (isOnline && token) {
@@ -169,7 +167,9 @@ export default function EditProfileScreen(): JSX.Element {
       const updatedUser = {
         ...user,
         ...updatedPayload,
-        name: [updatedPayload.first_name, user.middle_name, updatedPayload.last_name].filter(Boolean).join(" "),
+        name: [updatedPayload.first_name, user.middle_name, updatedPayload.last_name]
+          .filter(Boolean)
+          .join(" "),
       };
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
 
@@ -231,7 +231,12 @@ export default function EditProfileScreen(): JSX.Element {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <Header showBackButton title="Edit Profile" onBack={() => router.push("/(tabs)/profile")} rightIcon={null} />
+      <Header
+        showBackButton
+        title="Edit Profile"
+        onBack={() => router.push("/(tabs)/profile")}
+        rightIcon={null}
+      />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 180 }}
@@ -239,119 +244,121 @@ export default function EditProfileScreen(): JSX.Element {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
+          <View className="px-5 items-center pt-2 mb-6">
+            <Pressable
+              onPress={() => setIsPhotoPickerOpen(true)}
+              className="relative mb-4 active:opacity-80"
+            >
+              <Avatar size="lg" className="h-24 w-24">
+                {avatarUri ? (
+                  <Avatar.Image source={{ uri: avatarUri }} />
+                ) : (
+                  <Avatar.Fallback delayMs={0}>
+                    <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
+                      <Text className="text-white text-lg font-bold">
+                        {firstName ? firstName.charAt(0).toUpperCase() : "M"}
+                      </Text>
+                    </View>
+                  </Avatar.Fallback>
+                )}
+              </Avatar>
+              <View className="absolute bottom-0 right-0 size-8 bg-primary rounded-full items-center justify-center border-2 border-background">
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Ionicons name="camera-outline" size={14} color="white" />
+                )}
+              </View>
+            </Pressable>
 
-        <View className="px-5 items-center pt-2 mb-6">
-          <Pressable onPress={() => setIsPhotoPickerOpen(true)} className="relative mb-4 active:opacity-80">
-            <Avatar size="lg" className="h-24 w-24">
-              {avatarUri ? (
-                <Avatar.Image source={{ uri: avatarUri }} />
-              ) : (
-                <Avatar.Fallback delayMs={0}>
-                  <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                    <Text className="text-white text-lg font-bold">
-                      {firstName ? firstName.charAt(0).toUpperCase() : "M"}
-                    </Text>
-                  </View>
-                </Avatar.Fallback>
-              )}
-            </Avatar>
-            <View className="absolute bottom-0 right-0 size-8 bg-primary rounded-full items-center justify-center border-2 border-background">
-              {isUploadingPhoto ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Ionicons name="camera-outline" size={14} color="white" />
-              )}
-            </View>
-          </Pressable>
-
-          <Text className="text-foreground text-lg font-bold mb-0.5">{user.name || "Mother Profile"}</Text>
-          <Text className="text-zinc-400 text-sm">{user.email || user.phone_number || ""}</Text>
-        </View>
-
-        {error && (
-          <View className="mx-5 mb-5 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
-            <Ionicons name="alert-circle-outline" size={22} color="#ef4444" />
-            <Text className="text-red-500 text-sm flex-1">{error}</Text>
-          </View>
-        )}
-
-        {success && (
-          <View className="mx-5 mb-5 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
-            <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
-            <Text className="text-green-600 dark:text-green-400 text-sm flex-1">
-              Profile updated successfully! Redirecting...
+            <Text className="text-foreground text-lg font-bold mb-0.5">
+              {user.name || "Mother Profile"}
             </Text>
+            <Text className="text-zinc-400 text-sm">{user.email || user.phone_number || ""}</Text>
           </View>
-        )}
 
-        <View className="px-5 gap-5">
-          <Text className="text-zinc-400 text-sm font-medium ml-1">Personal Information</Text>
-
-          <TextField isRequired>
-            <Label>First Name</Label>
-            <Input 
-              value={firstName} 
-              onChangeText={setFirstName} 
-              placeholder="Enter first name"
-            />
-          </TextField>
-
-          <TextField isRequired>
-            <Label>Last Name</Label>
-            <Input 
-              value={lastName} 
-              onChangeText={setLastName} 
-              placeholder="Enter last name"
-            />
-          </TextField>
-
-          <TextField>
-            <Label>Phone Number</Label>
-            <Input 
-              value={phone} 
-              onChangeText={setPhone} 
-              placeholder="e.g. 09123456789"
-              keyboardType="phone-pad" 
-            />
-          </TextField>
-
-          <TextField>
-            <Label>Email Address</Label>
-            <Input 
-              value={email} 
-              onChangeText={setEmail} 
-              placeholder="e.g. mother@gmail.com"
-              keyboardType="email-address" 
-              autoCapitalize="none" 
-            />
-          </TextField>
-
-          <TextField>
-            <Label>Home Address</Label>
-            <Input 
-              value={address} 
-              onChangeText={setAddress} 
-              placeholder="Enter home address"
-            />
-          </TextField>
-        </View>
-
-        <View className="px-5 mt-8">
-          <Button variant="primary" className="rounded-xl h-12" onPress={handleSave} isDisabled={isLoading}>
-            <View className="flex-row items-center justify-center gap-2">
-              {isLoading ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <Ionicons name="checkmark-circle" size={18} color="white" />
-              )}
-              <Button.Label>{isLoading ? "Saving Profile..." : "Save Changes"}</Button.Label>
+          {error && (
+            <View className="mx-5 mb-5 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
+              <Ionicons name="alert-circle-outline" size={22} color="#ef4444" />
+              <Text className="text-red-500 text-sm flex-1">{error}</Text>
             </View>
-          </Button>
-        </View>
-      </ScrollView>
+          )}
+
+          {success && (
+            <View className="mx-5 mb-5 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
+              <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
+              <Text className="text-green-600 dark:text-green-400 text-sm flex-1">
+                Profile updated successfully! Redirecting...
+              </Text>
+            </View>
+          )}
+
+          <View className="px-5 gap-5">
+            <Text className="text-zinc-400 text-sm font-medium ml-1">Personal Information</Text>
+
+            <TextField isRequired>
+              <Label>First Name</Label>
+              <Input value={firstName} onChangeText={setFirstName} placeholder="Enter first name" />
+            </TextField>
+
+            <TextField isRequired>
+              <Label>Last Name</Label>
+              <Input value={lastName} onChangeText={setLastName} placeholder="Enter last name" />
+            </TextField>
+
+            <TextField>
+              <Label>Phone Number</Label>
+              <Input
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="e.g. 09123456789"
+                keyboardType="phone-pad"
+              />
+            </TextField>
+
+            <TextField>
+              <Label>Email Address</Label>
+              <Input
+                value={email}
+                onChangeText={setEmail}
+                placeholder="e.g. mother@gmail.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </TextField>
+
+            <TextField>
+              <Label>Home Address</Label>
+              <Input value={address} onChangeText={setAddress} placeholder="Enter home address" />
+            </TextField>
+          </View>
+
+          <View className="px-5 mt-8">
+            <Button
+              variant="primary"
+              className="rounded-xl h-12"
+              onPress={handleSave}
+              isDisabled={isLoading}
+            >
+              <View className="flex-row items-center justify-center gap-2">
+                {isLoading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Ionicons name="checkmark-circle" size={18} color="white" />
+                )}
+                <Button.Label>{isLoading ? "Saving Profile..." : "Save Changes"}</Button.Label>
+              </View>
+            </Button>
+          </View>
+        </ScrollView>
       </TouchableWithoutFeedback>
 
-      <Modal visible={isPhotoPickerOpen} transparent animationType="fade" onRequestClose={() => setIsPhotoPickerOpen(false)}>
+      <Modal
+        visible={isPhotoPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsPhotoPickerOpen(false)}
+      >
         <TouchableWithoutFeedback onPress={() => setIsPhotoPickerOpen(false)}>
           <View className="flex-1 bg-black/70 justify-end p-5">
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>

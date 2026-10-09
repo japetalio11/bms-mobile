@@ -1,4 +1,4 @@
-﻿import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Avatar } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -40,7 +40,6 @@ export function Header({
 
   return (
     <View className="flex-row items-center justify-between px-5 pt-6 pb-3">
-      
       <View className="flex-row items-center gap-3 flex-1 mr-3">
         {showBackButton ? (
           <Pressable
@@ -53,7 +52,14 @@ export function Header({
           <View className="relative">
             <Avatar size="sm">
               {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
-                <Avatar.Image source={{ uri: user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url }} />
+                <Avatar.Image
+                  source={{
+                    uri:
+                      user.profile_url ||
+                      (user as any).profile_picture_url ||
+                      (user as any).avatar_url,
+                  }}
+                />
               ) : (
                 <Avatar.Fallback delayMs={0}>
                   <View className="w-full h-full bg-primary/20 items-center justify-center">
@@ -90,7 +96,9 @@ export function Header({
             {title || user.name}
           </Text>
           {subtitle && (
-            <Text className="text-zinc-500 dark:text-zinc-400 text-sm" numberOfLines={1}>{subtitle}</Text>
+            <Text className="text-zinc-500 dark:text-zinc-400 text-sm" numberOfLines={1}>
+              {subtitle}
+            </Text>
           )}
         </View>
       </View>

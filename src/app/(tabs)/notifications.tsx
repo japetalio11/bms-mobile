@@ -1,10 +1,4 @@
-﻿import {
-  View,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Card, Text, Switch } from "heroui-native";
@@ -81,9 +75,7 @@ export default function NotificationCenterScreen(): JSX.Element {
     if (item.is_read) return;
 
     setNotificationList((prev) =>
-      prev.map((n) =>
-        n.notification_id === item.notification_id ? { ...n, is_read: true } : n
-      )
+      prev.map((n) => (n.notification_id === item.notification_id ? { ...n, is_read: true } : n))
     );
 
     await markNotificationReadLocal(item.notification_id);
@@ -159,7 +151,9 @@ export default function NotificationCenterScreen(): JSX.Element {
             />
             <Text
               className={`text-sm ${
-                activeTab === "notifications" ? "text-foreground font-bold" : "text-zinc-500 dark:text-zinc-400 font-medium"
+                activeTab === "notifications"
+                  ? "text-foreground font-bold"
+                  : "text-zinc-500 dark:text-zinc-400 font-medium"
               }`}
             >
               Notifications
@@ -179,7 +173,9 @@ export default function NotificationCenterScreen(): JSX.Element {
             />
             <Text
               className={`text-sm ${
-                activeTab === "preferences" ? "text-foreground font-bold" : "text-zinc-500 dark:text-zinc-400 font-medium"
+                activeTab === "preferences"
+                  ? "text-foreground font-bold"
+                  : "text-zinc-500 dark:text-zinc-400 font-medium"
               }`}
             >
               Preferences
@@ -192,16 +188,11 @@ export default function NotificationCenterScreen(): JSX.Element {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor="#3b82f6"
-          />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
         {activeTab === "notifications" ? (
           <View className="px-5">
-            
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium ml-1">
                 Recent Alerts & Notifications
@@ -240,7 +231,6 @@ export default function NotificationCenterScreen(): JSX.Element {
                           : "bg-primary/5 border-primary/30"
                       }`}
                     >
-                      
                       <View
                         className={`size-10 rounded-xl items-center justify-center border ${catConfig.bg} ${catConfig.border}`}
                       >
@@ -249,7 +239,10 @@ export default function NotificationCenterScreen(): JSX.Element {
 
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between mb-1">
-                          <Text className="text-foreground text-sm font-bold flex-1 mr-2" numberOfLines={1}>
+                          <Text
+                            className="text-foreground text-sm font-bold flex-1 mr-2"
+                            numberOfLines={1}
+                          >
                             {item.sender || catConfig.label}
                           </Text>
                           <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] font-medium">
@@ -278,20 +271,19 @@ export default function NotificationCenterScreen(): JSX.Element {
                   No notifications yet
                 </Text>
                 <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center leading-4">
-                  You are all caught up! Automated care reminders and health alerts will appear here.
+                  You are all caught up! Automated care reminders and health alerts will appear
+                  here.
                 </Text>
               </View>
             )}
           </View>
         ) : (
-          
           <View className="px-5 gap-6 pt-2">
             <View>
               <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-2 ml-1">
                 Maternal Care Reminders
               </Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
-                
                 <View className="flex-row items-center justify-between mb-4">
                   <View className="flex-1 mr-4">
                     <Text className="text-foreground text-base font-medium">
@@ -353,9 +345,7 @@ export default function NotificationCenterScreen(): JSX.Element {
             </View>
 
             <View>
-              <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">
-                General Updates
-              </Text>
+              <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">General Updates</Text>
               <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 mr-4">
@@ -369,8 +359,7 @@ export default function NotificationCenterScreen(): JSX.Element {
                   <Switch
                     isSelected={prefSettings.healthTips}
                     {...({
-                      onValueChange: (val: boolean) =>
-                        setNotificationSetting("healthTips", val),
+                      onValueChange: (val: boolean) => setNotificationSetting("healthTips", val),
                     } as any)}
                   />
                 </View>

@@ -56,26 +56,34 @@ export default function ExploreTab(): JSX.Element {
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="px-5 mb-6">
           <Text className="text-white text-lg font-semibold mb-1">Records Overview</Text>
-          <Text className="text-zinc-400 text-sm mb-6">Access all your medical information in one place.</Text>
+          <Text className="text-zinc-400 text-sm mb-6">
+            Access all your medical information in one place.
+          </Text>
 
           <View className="flex-col gap-4">
             {RECORD_MODULES.map((mod) => (
-              <Pressable 
-                key={mod.title} 
+              <Pressable
+                key={mod.title}
                 onPress={() => router.push(mod.route as any)}
                 className="active:opacity-70"
               >
-                <Card variant="secondary" className="bg-[#18181b] border-0 rounded-xl p-4 flex-row items-center gap-4">
+                <Card
+                  variant="secondary"
+                  className="bg-[#18181b] border-0 rounded-xl p-4 flex-row items-center gap-4"
+                >
                   <View
                     className="size-12 rounded-full items-center justify-center"
                     style={{ backgroundColor: mod.color + "20" }}
                   >
                     <Ionicons name={mod.icon} size={24} color={mod.color} />
                   </View>
-                  
+
                   <View className="flex-1">
                     <Text className="text-white text-base font-medium mb-0.5">{mod.title}</Text>
                     <Text className="text-zinc-400 text-sm leading-5">{mod.description}</Text>

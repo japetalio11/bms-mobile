@@ -1,4 +1,4 @@
-﻿import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { useState } from "react";
 import type { JSX } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +16,6 @@ export default function ScannerScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-black">
-      
       <View
         className="flex-row items-center justify-between px-6"
         style={{ paddingTop: insets.top + 16 }}
@@ -37,12 +36,11 @@ export default function ScannerScreen(): JSX.Element {
       <View className="flex-1 items-center justify-center">
         <View className="relative items-center justify-center">
           <View className="size-64 relative">
-            
             <View className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
             <View className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg" />
             <View className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg" />
             <View className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg" />
-            
+
             <View className="absolute top-1/2 left-4 right-4 h-0.5 bg-primary opacity-80" />
           </View>
         </View>

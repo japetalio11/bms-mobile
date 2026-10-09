@@ -1,10 +1,6 @@
-﻿import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Platform } from "react-native";
-import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
-} from "firebase/auth";
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import {
   formatToE164,
@@ -22,12 +18,16 @@ function getNativePhoneAuthHandler() {
     } catch (e) {}
 
     const firebaseAuthMod = require("@react-native-firebase/auth");
-    
+
     let authObj: any = null;
     if (typeof firebaseAuthMod === "function") {
-      try { authObj = firebaseAuthMod(); } catch (e) {}
+      try {
+        authObj = firebaseAuthMod();
+      } catch (e) {}
     } else if (typeof firebaseAuthMod?.default === "function") {
-      try { authObj = firebaseAuthMod.default(); } catch (e) {}
+      try {
+        authObj = firebaseAuthMod.default();
+      } catch (e) {}
     }
 
     if (authObj && typeof authObj.signInWithPhoneNumber === "function") {
@@ -234,7 +234,10 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
   }, [initRecaptcha]);
 
   const sendOtp = useCallback(
-    async (phoneInput: string, purpose: "registration" | "reset_password" = "registration"): Promise<boolean> => {
+    async (
+      phoneInput: string,
+      purpose: "registration" | "reset_password" = "registration"
+    ): Promise<boolean> => {
       if (cooldown > 0) {
         setStatusType("error");
         setStatusMessage(`Please wait ${cooldown} seconds before requesting a new OTP.`);
@@ -275,7 +278,9 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
           console.warn("[PhoneAuth Diagnostic] ⚠️ reCAPTCHA checkbox is not solved yet.");
           setIsSubmitting(false);
           setStatusType("error");
-          setStatusMessage("Please check the 'I\'m not a robot' verification box before continuing.");
+          setStatusMessage(
+            "Please check the 'I\'m not a robot' verification box before continuing."
+          );
           return false;
         }
 
@@ -284,7 +289,10 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
           console.log("Target Phone (E.164):", formatted);
           console.log("Firebase Project ID:", auth?.app?.options?.projectId);
           console.log("Firebase Auth Domain:", auth?.app?.options?.authDomain);
-          console.log("Current Origin:", typeof window !== "undefined" ? window.location.origin : "N/A");
+          console.log(
+            "Current Origin:",
+            typeof window !== "undefined" ? window.location.origin : "N/A"
+          );
           console.log("reCAPTCHA Solved State:", isRecaptchaSolved);
           console.groupEnd();
 
@@ -312,16 +320,22 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
             verifierRef.current = appVerifier;
           }
 
-          console.log("⏳ [PhoneAuth Web] Rendering appVerifier and invoking signInWithPhoneNumber...");
+          console.log(
+            "⏳ [PhoneAuth Web] Rendering appVerifier and invoking signInWithPhoneNumber..."
+          );
           await appVerifier.render();
           const confirmationResult = await signInWithPhoneNumber(auth, formatted, appVerifier);
           confirmationResultRef.current = confirmationResult;
 
-          console.log("🎉 [PhoneAuth Web] signInWithPhoneNumber SUCCEEDED! ConfirmationResult captured.");
+          console.log(
+            "🎉 [PhoneAuth Web] signInWithPhoneNumber SUCCEEDED! ConfirmationResult captured."
+          );
           setActiveMethod("firebase");
           setIsOtpSent(true);
           setStatusType("success");
-          setStatusMessage(`📲 SMS OTP sent via Firebase to ${formatted}! Please check your phone.`);
+          setStatusMessage(
+            `📲 SMS OTP sent via Firebase to ${formatted}! Please check your phone.`
+          );
           setCooldown(cooldownDuration);
           setIsSubmitting(false);
           return true;
@@ -333,9 +347,10 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
             console.error("Server Payload / CustomData:", firebaseErr.customData);
           }
           console.error("Full Error Object:", firebaseErr);
-          
+
           const currentOrigin = typeof window !== "undefined" ? window.location.origin : "N/A";
-          const currentHostname = typeof window !== "undefined" ? window.location.hostname : "localhost";
+          const currentHostname =
+            typeof window !== "undefined" ? window.location.hostname : "localhost";
 
           console.info(
             `🔎 Setup vs Coding Diagnostic Breakdown:
@@ -375,26 +390,35 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
             console.log("⏳ Invoking native Firebase signInWithPhoneNumber(formatted)...");
             const confirmation = await nativePhoneAuthFn(formatted);
             confirmationResultRef.current = confirmation;
-            console.log("🎉 [Native Phone Auth] SMS successfully dispatched by Firebase! Verification ID:", confirmation?.verificationId);
+            console.log(
+              "🎉 [Native Phone Auth] SMS successfully dispatched by Firebase! Verification ID:",
+              confirmation?.verificationId
+            );
             console.groupEnd();
 
             setActiveMethod("firebase");
             setIsOtpSent(true);
             setStatusType("success");
-            setStatusMessage(`📲 SMS OTP sent via Firebase to ${formatted}! Please check your phone.`);
+            setStatusMessage(
+              `📲 SMS OTP sent via Firebase to ${formatted}! Please check your phone.`
+            );
             setCooldown(cooldownDuration);
             return true;
           } catch (firebaseErr: any) {
             console.groupEnd();
             console.error("❌ [Native Firebase Auth Error]:", firebaseErr);
             setStatusType("error");
-            const humanMsg = getFirebaseErrorMessage(firebaseErr?.code || firebaseErr?.message || "");
+            const humanMsg = getFirebaseErrorMessage(
+              firebaseErr?.code || firebaseErr?.message || ""
+            );
             setStatusMessage(humanMsg);
             return false;
           }
         } else {
           console.groupEnd();
-          console.warn("⚠️ Native Firebase Auth function handler could not be initialized. Falling back to Backend SMS OTP API...");
+          console.warn(
+            "⚠️ Native Firebase Auth function handler could not be initialized. Falling back to Backend SMS OTP API..."
+          );
         }
 
         console.log(`[Backend SMS Fallback] Sending OTP via backend to ${formatted}...`);
@@ -424,7 +448,17 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
         setIsSubmitting(false);
       }
     },
-    [cooldown, isSubmitting, defaultCountryPrefix, cooldownDuration, getOrInitRecaptcha, cleanupRecaptcha, recaptchaSize, isRecaptchaSolved, containerId]
+    [
+      cooldown,
+      isSubmitting,
+      defaultCountryPrefix,
+      cooldownDuration,
+      getOrInitRecaptcha,
+      cleanupRecaptcha,
+      recaptchaSize,
+      isRecaptchaSolved,
+      containerId,
+    ]
   );
 
   const verifyOtp = useCallback(

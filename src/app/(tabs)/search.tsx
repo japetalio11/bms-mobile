@@ -1,6 +1,6 @@
-﻿import { View, Text, ScrollView, Pressable, Keyboard } from "react-native";
+import { View, Text, ScrollView, Pressable, Keyboard } from "react-native";
 import type { JSX } from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SearchField, Card } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "../../components/Header";
@@ -8,9 +8,24 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CATEGORIES = [
-  { label: "Appointments", icon: "calendar-outline" as const, color: "#6366f1", route: "/(tabs)/appointments" },
-  { label: "Lab Records", icon: "clipboard-outline" as const, color: "#3b82f6", route: "/(tabs)/records" },
-  { label: "Prescriptions", icon: "medkit-outline" as const, color: "#10b981", route: "/(tabs)/records" },
+  {
+    label: "Appointments",
+    icon: "calendar-outline" as const,
+    color: "#6366f1",
+    route: "/(tabs)/appointments",
+  },
+  {
+    label: "Lab Records",
+    icon: "clipboard-outline" as const,
+    color: "#3b82f6",
+    route: "/(tabs)/records",
+  },
+  {
+    label: "Prescriptions",
+    icon: "medkit-outline" as const,
+    color: "#10b981",
+    route: "/(tabs)/records",
+  },
   { label: "Vitals", icon: "pulse-outline" as const, color: "#f59e0b", route: "/(tabs)/vitals" },
 ];
 
@@ -21,11 +36,7 @@ export default function SearchScreen(): JSX.Element {
   const [search, setSearch] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadRecentSearches();
-  }, []);
-
-  const loadRecentSearches = async () => {
+  const loadRecentSearches = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -36,12 +47,16 @@ export default function SearchScreen(): JSX.Element {
     } catch (e) {
       console.warn("Failed to load recent searches", e);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadRecentSearches();
+  }, [loadRecentSearches]);
 
   const saveSearch = async (query: string) => {
     if (!query.trim()) return;
     try {
-      const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5);
+      const updated = [query, ...recentSearches.filter((s) => s !== query)].slice(0, 5);
       setRecentSearches(updated);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -53,31 +68,40 @@ export default function SearchScreen(): JSX.Element {
     if (!query.trim()) return;
     saveSearch(query);
     Keyboard.dismiss();
-    router.push("/(tabs)/explore"); 
+    router.push("/(tabs)/explore");
   };
 
   return (
     <View className="flex-1 bg-background pb-24">
       <Header rightIcon={null} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="px-5 mb-6">
           <Text className="text-foreground text-lg font-semibold mb-1">Search</Text>
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Find appointments, records, and more.</Text>
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">
+            Find appointments, records, and more.
+          </Text>
 
-          <SearchField 
-            value={search} 
-            onChange={setSearch}
-          >
+          <SearchField value={search} onChange={setSearch}>
             <SearchField.Group className="bg-default border-0 rounded-xl h-12">
               <SearchField.SearchIcon />
-              <SearchField.Input placeholder="Search anything..." className="text-sm" returnKeyType="search" onSubmitEditing={() => handleSearch(search)} />
+              <SearchField.Input
+                placeholder="Search anything..."
+                className="text-sm"
+                returnKeyType="search"
+                onSubmitEditing={() => handleSearch(search)}
+              />
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
         </View>
 
         <View className="px-5 mb-6">
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">Browse by Category</Text>
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">
+            Browse by Category
+          </Text>
           <View className="flex-row flex-wrap gap-3">
             {CATEGORIES.map((cat) => (
               <Pressable
@@ -98,8 +122,13 @@ export default function SearchScreen(): JSX.Element {
         </View>
 
         <View className="px-5">
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">Recent Searches</Text>
-          <Card variant="secondary" className="bg-surface border border-default rounded-xl p-0 overflow-hidden shadow-xs">
+          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">
+            Recent Searches
+          </Text>
+          <Card
+            variant="secondary"
+            className="bg-surface border border-default rounded-xl p-0 overflow-hidden shadow-xs"
+          >
             {recentSearches.map((item, index) => (
               <Pressable
                 key={item}

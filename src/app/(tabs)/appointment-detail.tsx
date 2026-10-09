@@ -23,7 +23,10 @@ const DataRow = ({ label, value }: { label: string; value: string }) => (
       {label}
     </Text>
     <View className="flex-1 shrink items-end justify-start">
-      <Text className="text-foreground text-sm font-medium text-right leading-5" style={{ flexShrink: 1 }}>
+      <Text
+        className="text-foreground text-sm font-medium text-right leading-5"
+        style={{ flexShrink: 1 }}
+      >
         {value}
       </Text>
     </View>
@@ -77,11 +80,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
       onConfirm: async () => {
         setIsCancelling(true);
         try {
-          await cancelAppointmentLocal(
-            appointment.appointment_id,
-            isOnline,
-            user?.user_id
-          );
+          await cancelAppointmentLocal(appointment.appointment_id, isOnline, user?.user_id);
 
           if (isOnline && token) {
             try {
@@ -91,9 +90,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
             }
           }
 
-          setAppointment((prev) =>
-            prev ? { ...prev, status: "Cancelled" } : null
-          );
+          setAppointment((prev) => (prev ? { ...prev, status: "Cancelled" } : null));
           confirm({
             title: "Appointment Cancelled",
             message: "Your appointment has been cancelled successfully.",
@@ -119,7 +116,9 @@ export default function AppointmentDetailScreen(): JSX.Element {
 
   const latestVisit = activePregnancy?.prenatalVisits?.[0];
   const statusCfg = getAppointmentStatusConfig(appointment?.status || "scheduled");
-  const isCancelled = (appointment?.status || "").toLowerCase() === "cancelled" || (appointment?.status || "").toLowerCase() === "canceled";
+  const isCancelled =
+    (appointment?.status || "").toLowerCase() === "cancelled" ||
+    (appointment?.status || "").toLowerCase() === "canceled";
   const isCompleted = (appointment?.status || "").toLowerCase() === "completed";
   const canCancel = appointment && !isCancelled && !isCompleted;
 
@@ -152,16 +151,11 @@ export default function AppointmentDetailScreen(): JSX.Element {
           </View>
         ) : appointment ? (
           <>
-            
             <View className="px-5 pt-3 mb-5">
               <View className="bg-surface border border-white/10 rounded-2xl p-5">
                 <View className="flex-row items-center justify-between mb-4">
                   <View className="flex-row items-center gap-2 flex-1 mr-2">
-                    <Ionicons
-                      name={statusCfg.icon}
-                      size={22}
-                      color={statusCfg.color}
-                    />
+                    <Ionicons name={statusCfg.icon} size={22} color={statusCfg.color} />
                     <Text className="text-foreground text-lg font-bold flex-1" numberOfLines={1}>
                       {appointment.appointment_type || "Clinic Appointment"}
                     </Text>
@@ -170,9 +164,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                   <View
                     className={`px-3 py-1 rounded-full ${statusCfg.bgStyle} border ${statusCfg.borderStyle}`}
                   >
-                    <Text
-                      className={`text-sm font-semibold uppercase ${statusCfg.textStyle}`}
-                    >
+                    <Text className={`text-sm font-semibold uppercase ${statusCfg.textStyle}`}>
                       {statusCfg.label}
                     </Text>
                   </View>
@@ -185,7 +177,11 @@ export default function AppointmentDetailScreen(): JSX.Element {
                 />
                 <DataRow
                   label="Healthcare Facility"
-                  value={user?.facility_name || user?.facility?.facility_name || "Community Health Center"}
+                  value={
+                    user?.facility_name ||
+                    user?.facility?.facility_name ||
+                    "Community Health Center"
+                  }
                 />
                 {appointment.reason ? (
                   <DataRow label="Purpose / Notes" value={appointment.reason} />
@@ -222,9 +218,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
             )}
 
             <View className="px-5 mb-5">
-              <Text className="text-foreground text-base font-semibold mb-1">
-                Maternal Vitals
-              </Text>
+              <Text className="text-foreground text-base font-semibold mb-1">Maternal Vitals</Text>
               <Text className="text-zinc-400 text-sm mb-3">
                 Latest recorded vitals for this pregnancy.
               </Text>
@@ -238,14 +232,8 @@ export default function AppointmentDetailScreen(): JSX.Element {
                     label="Blood Pressure"
                     value={`${latestVisit.bp_systolic}/${latestVisit.bp_diastolic} mmHg`}
                   />
-                  <DataRow
-                    label="Heart Rate"
-                    value={`${latestVisit.pulse_rate_bpm} bpm`}
-                  />
-                  <DataRow
-                    label="Body Temp"
-                    value={`${latestVisit.temperature_celsius} °C`}
-                  />
+                  <DataRow label="Heart Rate" value={`${latestVisit.pulse_rate_bpm} bpm`} />
+                  <DataRow label="Body Temp" value={`${latestVisit.temperature_celsius} °C`} />
                   <DataRow label="Weight" value={`${latestVisit.weight_kg} kg`} />
                 </Card>
               ) : (
@@ -288,9 +276,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                   <DataRow
                     label="Fundic Height"
                     value={
-                      latestVisit.fundic_height_cm
-                        ? `${latestVisit.fundic_height_cm} cm`
-                        : "N/A"
+                      latestVisit.fundic_height_cm ? `${latestVisit.fundic_height_cm} cm` : "N/A"
                     }
                   />
                 </Card>
@@ -299,9 +285,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                   variant="secondary"
                   className="bg-surface border border-white/10 rounded-xl p-4 items-center"
                 >
-                  <Text className="text-zinc-400 text-sm">
-                    No visit metrics recorded yet.
-                  </Text>
+                  <Text className="text-zinc-400 text-sm">No visit metrics recorded yet.</Text>
                 </Card>
               )}
             </View>
