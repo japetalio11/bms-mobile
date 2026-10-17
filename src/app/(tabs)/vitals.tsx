@@ -755,80 +755,96 @@ export default function VitalsScreen(): JSX.Element {
                   </Card>
                 ) : null}
 
-                <View className="flex-row gap-3">
-                  <Card variant="secondary" className="flex-1 bg-surface border-0 rounded-2xl p-4">
-                    <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-                        Weight
-                      </Text>
-                      <View className="size-7 rounded-full bg-blue-500/10 items-center justify-center">
-                        <Ionicons name="scale-outline" size={15} color="#3b82f6" />
-                      </View>
-                    </View>
-                    <View className="flex-row items-baseline gap-1">
-                      <Text className="text-foreground text-2xl font-bold">
-                        {activeVisit.weight_kg ?? "—"}
-                      </Text>
-                      {activeVisit.weight_kg ? (
-                        <Text className="text-zinc-400 text-xs font-semibold">kg</Text>
-                      ) : null}
-                    </View>
-                    {weightChange !== null ? (
-                      <View className="flex-row items-center gap-1 mt-2">
-                        <Ionicons
-                          name={weightChange >= 0 ? "trending-up" : "trending-down"}
-                          size={13}
-                          color={weightChange >= 0 ? "#10b981" : "#f59e0b"}
-                        />
-                        <Text
-                          className={`text-xs font-semibold ${
-                            weightChange >= 0
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-amber-500"
-                          }`}
-                        >
-                          {weightChange > 0 ? `+${weightChange}` : `${weightChange}`} kg vs prev
+                <View className="flex-row gap-3 w-full">
+                  <View className="flex-1" style={{ flex: 1 }}>
+                    <Card
+                      variant="secondary"
+                      className="w-full bg-surface border-0 rounded-2xl p-4"
+                      style={{ flex: 1 }}
+                    >
+                      <View className="flex-row items-center justify-between mb-2">
+                        <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+                          Weight
                         </Text>
+                        <View className="size-7 rounded-full bg-blue-500/10 items-center justify-center">
+                          <Ionicons name="scale-outline" size={15} color="#3b82f6" />
+                        </View>
                       </View>
-                    ) : (
-                      <Text className="text-zinc-400 text-xs mt-2 font-medium">
-                        Baseline record
-                      </Text>
-                    )}
-                  </Card>
-
-                  <Card variant="secondary" className="flex-1 bg-surface border-0 rounded-2xl p-4">
-                    <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-                        Maternal Pulse
-                      </Text>
-                      <View className="size-7 rounded-full bg-rose-500/10 items-center justify-center">
-                        <Ionicons name="heart-outline" size={15} color="#f43f5e" />
+                      <View className="flex-row items-baseline gap-1">
+                        <Text className="text-foreground text-2xl font-bold">
+                          {activeVisit.weight_kg ?? "—"}
+                        </Text>
+                        {activeVisit.weight_kg ? (
+                          <Text className="text-zinc-400 text-xs font-semibold">kg</Text>
+                        ) : null}
                       </View>
-                    </View>
-                    <View className="flex-row items-baseline gap-1">
-                      <Text className="text-foreground text-2xl font-bold">
-                        {activeVisit.pulse_rate_bpm ?? "—"}
-                      </Text>
-                      {activeVisit.pulse_rate_bpm ? (
-                        <Text className="text-zinc-400 text-xs font-semibold">bpm</Text>
-                      ) : null}
-                    </View>
-                    {pulseAssessment ? (
-                      <View className="flex-row items-center gap-1.5 mt-2">
-                        <View className={`px-2 py-0.5 rounded-md ${pulseAssessment.badgeBg}`}>
+                      {weightChange !== null ? (
+                        <View className="flex-row items-center gap-1 mt-2">
+                          <Ionicons
+                            name={weightChange >= 0 ? "trending-up" : "trending-down"}
+                            size={13}
+                            color={weightChange >= 0 ? "#10b981" : "#f59e0b"}
+                          />
                           <Text
-                            className={`text-[11px] font-semibold ${pulseAssessment.badgeText}`}
+                            className={`text-xs font-semibold ${
+                              weightChange >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-amber-500"
+                            }`}
+                            numberOfLines={1}
                           >
-                            {pulseAssessment.status}
+                            {weightChange > 0 ? `+${weightChange}` : `${weightChange}`} kg vs prev
                           </Text>
                         </View>
-                        <Text className="text-zinc-400 text-xs">resting</Text>
+                      ) : (
+                        <Text className="text-zinc-400 text-xs mt-2 font-medium">
+                          Baseline record
+                        </Text>
+                      )}
+                    </Card>
+                  </View>
+
+                  <View className="flex-1" style={{ flex: 1 }}>
+                    <Card
+                      variant="secondary"
+                      className="w-full bg-surface border-0 rounded-2xl p-4"
+                      style={{ flex: 1 }}
+                    >
+                      <View className="flex-row items-center justify-between mb-2">
+                        <Text
+                          className="text-zinc-500 dark:text-zinc-400 text-xs font-medium"
+                          numberOfLines={1}
+                        >
+                          Maternal Pulse
+                        </Text>
+                        <View className="size-7 rounded-full bg-rose-500/10 items-center justify-center">
+                          <Ionicons name="heart-outline" size={15} color="#f43f5e" />
+                        </View>
                       </View>
-                    ) : (
-                      <Text className="text-zinc-400 text-xs mt-2 font-medium">Heart rate</Text>
-                    )}
-                  </Card>
+                      <View className="flex-row items-baseline gap-1">
+                        <Text className="text-foreground text-2xl font-bold">
+                          {activeVisit.pulse_rate_bpm ?? "—"}
+                        </Text>
+                        {activeVisit.pulse_rate_bpm ? (
+                          <Text className="text-zinc-400 text-xs font-semibold">bpm</Text>
+                        ) : null}
+                      </View>
+                      {pulseAssessment ? (
+                        <View className="flex-row items-center gap-1.5 mt-2 flex-wrap">
+                          <View className={`px-2 py-0.5 rounded-md ${pulseAssessment.badgeBg}`}>
+                            <Text
+                              className={`text-[11px] font-semibold ${pulseAssessment.badgeText}`}
+                            >
+                              {pulseAssessment.status}
+                            </Text>
+                          </View>
+                          <Text className="text-zinc-400 text-xs font-medium">resting</Text>
+                        </View>
+                      ) : (
+                        <Text className="text-zinc-400 text-xs mt-2 font-medium">Heart rate</Text>
+                      )}
+                    </Card>
+                  </View>
                 </View>
 
                 <View className="gap-2">
