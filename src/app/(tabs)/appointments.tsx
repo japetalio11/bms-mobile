@@ -635,12 +635,24 @@ export default function AppointmentsScreen(): JSX.Element {
 
         <View className="px-5 gap-3">
           {selectedDateNum !== null && (
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[#3b82f6] text-sm font-semibold">
-                Showing visits for {monthName} {selectedDateNum}
-              </Text>
-              <Pressable onPress={() => setSelectedDateNum(null)}>
-                <Text className="text-zinc-400 text-sm underline">Clear date filter</Text>
+            <View className="flex-row items-center justify-between mb-1 bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-xl">
+              <View className="flex-row items-center gap-1.5 flex-1 mr-2">
+                <Ionicons name="calendar-outline" size={14} color="#3b82f6" />
+                <Text className="text-[#3b82f6] text-xs font-semibold flex-1" numberOfLines={1}>
+                  Visits for {currentDate.toLocaleDateString("en-US", { month: "short" })}{" "}
+                  {selectedDateNum}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setSelectedDateNum(null);
+                }}
+                className="flex-row items-center gap-1 active:opacity-70 shrink-0"
+                accessibilityLabel="Clear date filter"
+              >
+                <Text className="text-xs font-medium text-zinc-400">Clear</Text>
+                <Ionicons name="close-circle" size={14} color="#a1a1aa" />
               </Pressable>
             </View>
           )}
