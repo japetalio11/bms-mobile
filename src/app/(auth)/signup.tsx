@@ -128,6 +128,9 @@ export default function SignupScreen(): JSX.Element {
 
     try {
       await nativeGoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      try {
+        await nativeGoogleSignin.signOut();
+      } catch {}
       const response = await nativeGoogleSignin.signIn();
       const idToken = response.data?.idToken || (response as any).idToken;
       const user = response.data?.user || (response as any).user;

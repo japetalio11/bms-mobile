@@ -11,8 +11,10 @@ import type { JSX } from "react";
 import { Card, Text, SearchField } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { triggerSelectionHaptic } from "../../lib/haptics";
 
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/UserContext";
@@ -58,6 +60,8 @@ const VISIT_TYPES = [
   },
 ];
 
+const ITEMS_PER_PAGE = 3;
+
 export default function AppointmentsScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -69,6 +73,7 @@ export default function AppointmentsScreen(): JSX.Element {
   );
   const [searchValue, setSearchValue] = useState("");
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateNum, setSelectedDateNum] = useState<number | null>(null);
@@ -139,6 +144,26 @@ export default function AppointmentsScreen(): JSX.Element {
     }
   };
 
+  const isNotCompleted = (statusStr: string) => {
+    const s = (statusStr || "").toLowerCase().trim();
+    return s !== "completed" && s !== "cancelled" && s !== "canceled";
+  };
+
+  const getAppointmentTimestamp = (dateStr: string, timeStr?: string) => {
+    const base = parseLocalDate(dateStr);
+    if (!timeStr) return base.getTime();
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const meridiem = match[3]?.toUpperCase();
+      if (meridiem === "PM" && hours < 12) hours += 12;
+      if (meridiem === "AM" && hours === 12) hours = 0;
+      base.setHours(hours, minutes, 0, 0);
+    }
+    return base.getTime();
+  };
+
   const filteredAppointments = useMemo(() => {
     return appointments.filter((item) => {
       if (selectedDateNum !== null) {
@@ -175,6 +200,42 @@ export default function AppointmentsScreen(): JSX.Element {
       return true;
     });
   }, [appointments, selectedDateNum, currentDate, searchValue, activeFilter]);
+
+  const sortedAppointments = useMemo(() => {
+    return [...filteredAppointments].sort((a, b) => {
+      const aNotDone = isNotCompleted(a.status);
+      const bNotDone = isNotCompleted(b.status);
+
+      if (aNotDone && !bNotDone) return -1;
+      if (!aNotDone && bNotDone) return 1;
+
+      const timeA = getAppointmentTimestamp(a.appointment_date, a.appointment_time);
+      const timeB = getAppointmentTimestamp(b.appointment_date, b.appointment_time);
+
+      if (aNotDone && bNotDone) {
+        return timeA - timeB;
+      }
+
+      return timeB - timeA;
+    });
+  }, [filteredAppointments]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE));
+
+  const paginatedAppointments = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedAppointments.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedAppointments, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchValue, activeFilter, selectedDateNum]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -574,100 +635,190 @@ export default function AppointmentsScreen(): JSX.Element {
 
         <View className="px-5 gap-3">
           {selectedDateNum !== null && (
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[#3b82f6] text-sm font-semibold">
-                Showing visits for {monthName} {selectedDateNum}
-              </Text>
-              <Pressable onPress={() => setSelectedDateNum(null)}>
-                <Text className="text-zinc-400 text-sm underline">Clear date filter</Text>
+            <View className="flex-row items-center justify-between mb-1 bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-xl">
+              <View className="flex-row items-center gap-1.5 flex-1 mr-2">
+                <Ionicons name="calendar-outline" size={14} color="#3b82f6" />
+                <Text className="text-[#3b82f6] text-xs font-semibold flex-1" numberOfLines={1}>
+                  Visits for {currentDate.toLocaleDateString("en-US", { month: "short" })}{" "}
+                  {selectedDateNum}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setSelectedDateNum(null);
+                }}
+                className="flex-row items-center gap-1 active:opacity-70 shrink-0"
+                accessibilityLabel="Clear date filter"
+              >
+                <Text className="text-xs font-medium text-zinc-400">Clear</Text>
+                <Ionicons name="close-circle" size={14} color="#a1a1aa" />
               </Pressable>
             </View>
           )}
 
           {isLoading && appointments.length === 0 ? (
             <ActivityIndicator size="small" color="#3b82f6" className="py-6" />
-          ) : filteredAppointments.length > 0 ? (
-            filteredAppointments.map((item) => {
-              const d = parseLocalDate(item.appointment_date);
-              const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
-              const dateNum = d.getDate();
-              const statusCfg = getAppointmentStatusConfig(item.status);
-              const accentColor = statusCfg.color || getAccentColor(item.appointment_type);
-              const isPendingSync = (item as any).sync_status === "pending";
+          ) : sortedAppointments.length > 0 ? (
+            <>
+              {paginatedAppointments.map((item) => {
+                const d = parseLocalDate(item.appointment_date);
+                const dayStr = d.toLocaleDateString("en-US", { weekday: "short" });
+                const dateNum = d.getDate();
+                const statusCfg = getAppointmentStatusConfig(item.status);
+                const accentColor = statusCfg.color || getAccentColor(item.appointment_type);
+                const isPendingSync = (item as any).sync_status === "pending";
 
-              return (
-                <Pressable
-                  key={item.appointment_id}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/appointment-detail",
-                      params: { id: item.appointment_id },
-                    })
-                  }
-                >
-                  <View className="bg-surface border border-white/[0.08] rounded-2xl flex-row items-center overflow-hidden h-[84px]">
-                    <View style={{ width: 4, height: "100%", backgroundColor: accentColor }} />
+                return (
+                  <Pressable
+                    key={item.appointment_id}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/appointment-detail",
+                        params: { id: item.appointment_id },
+                      })
+                    }
+                  >
+                    <View className="bg-surface border border-white/[0.08] rounded-2xl flex-row items-center overflow-hidden h-[84px]">
+                      <View style={{ width: 4, height: "100%", backgroundColor: accentColor }} />
 
-                    <View className="px-3.5 flex-1 flex-row items-center gap-3">
-                      <View className="items-center justify-center size-12 rounded-xl bg-default">
-                        <Text className="text-zinc-400 text-[11px] font-medium leading-none">
-                          {dayStr}
-                        </Text>
-                        <Text className="text-foreground text-base font-bold leading-tight mt-0.5">
-                          {dateNum}
-                        </Text>
-                      </View>
-
-                      <View className="flex-1 justify-center">
-                        <View className="flex-row items-center justify-between">
-                          <Text
-                            className="text-foreground text-[15px] font-semibold flex-1 mr-2"
-                            numberOfLines={1}
-                          >
-                            {item.appointment_type}
+                      <View className="px-3.5 flex-1 flex-row items-center gap-3">
+                        <View className="items-center justify-center size-12 rounded-xl bg-default">
+                          <Text className="text-zinc-400 text-[11px] font-medium leading-none">
+                            {dayStr}
                           </Text>
+                          <Text className="text-foreground text-base font-bold leading-tight mt-0.5">
+                            {dateNum}
+                          </Text>
+                        </View>
 
-                          {isPendingSync && (
-                            <View className="bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded">
-                              <Text className="text-amber-300 text-[10px] font-medium">
-                                Pending Sync
+                        <View className="flex-1 justify-center">
+                          <View className="flex-row items-center justify-between">
+                            <Text
+                              className="text-foreground text-[15px] font-semibold flex-1 mr-2"
+                              numberOfLines={1}
+                            >
+                              {item.appointment_type}
+                            </Text>
+
+                            {isPendingSync && (
+                              <View className="bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded">
+                                <Text className="text-amber-300 text-[10px] font-medium">
+                                  Pending Sync
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <View className="flex-row items-center justify-between mt-1">
+                            <Text
+                              className="text-zinc-400 text-sm font-medium flex-1 mr-2"
+                              numberOfLines={1}
+                            >
+                              {formatTime12h(item.appointment_time)}
+                              {item.reason && item.reason.trim().length > 0
+                                ? ` · ${item.reason}`
+                                : ""}
+                            </Text>
+
+                            <View className="flex-row items-center gap-1.5">
+                              <View
+                                className="size-2 rounded-full"
+                                style={{ backgroundColor: statusCfg.color }}
+                              />
+                              <Text
+                                className="text-sm font-semibold"
+                                style={{ color: statusCfg.color }}
+                              >
+                                {statusCfg.label}
                               </Text>
                             </View>
-                          )}
-                        </View>
-
-                        <View className="flex-row items-center justify-between mt-1">
-                          <Text
-                            className="text-zinc-400 text-sm font-medium flex-1 mr-2"
-                            numberOfLines={1}
-                          >
-                            {formatTime12h(item.appointment_time)}
-                            {item.reason && item.reason.trim().length > 0
-                              ? ` · ${item.reason}`
-                              : ""}
-                          </Text>
-
-                          <View className="flex-row items-center gap-1.5">
-                            <View
-                              className="size-2 rounded-full"
-                              style={{ backgroundColor: statusCfg.color }}
-                            />
-                            <Text
-                              className="text-sm font-semibold"
-                              style={{ color: statusCfg.color }}
-                            >
-                              {statusCfg.label}
-                            </Text>
                           </View>
                         </View>
-                      </View>
 
-                      <Ionicons name="chevron-forward" size={16} color="#71717a" />
+                        <Ionicons name="chevron-forward" size={16} color="#71717a" />
+                      </View>
                     </View>
+                  </Pressable>
+                );
+              })}
+
+              {totalPages > 1 && (
+                <View className="flex-row items-center justify-between pt-1 pb-2">
+                  <Text className="text-xs text-zinc-400 font-medium">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(currentPage * ITEMS_PER_PAGE, sortedAppointments.length)} of{" "}
+                    {sortedAppointments.length}
+                  </Text>
+
+                  <View className="flex-row items-center gap-2">
+                    <Pressable
+                      onPress={() => {
+                        if (currentPage > 1) {
+                          triggerSelectionHaptic();
+                          setCurrentPage((p) => p - 1);
+                        }
+                      }}
+                      disabled={currentPage === 1}
+                      className={`h-8 px-2.5 rounded-xl flex-row items-center gap-1 border ${
+                        currentPage === 1
+                          ? "border-white/[0.04] bg-white/[0.02] opacity-40"
+                          : "border-white/[0.08] bg-surface active:bg-white/[0.08]"
+                      }`}
+                      accessibilityLabel="Previous page"
+                    >
+                      <Ionicons
+                        name="chevron-back"
+                        size={14}
+                        color={currentPage === 1 ? "#52525b" : "#e4e4e7"}
+                      />
+                      <Text
+                        className={`text-xs font-semibold ${
+                          currentPage === 1 ? "text-zinc-600" : "text-zinc-300"
+                        }`}
+                      >
+                        Prev
+                      </Text>
+                    </Pressable>
+
+                    <View className="px-3 h-8 rounded-xl bg-surface border border-white/[0.08] flex-row items-center justify-center gap-1">
+                      <Text className="text-xs font-semibold text-foreground">{currentPage}</Text>
+                      <Text className="text-xs font-normal text-zinc-500">/</Text>
+                      <Text className="text-xs font-semibold text-zinc-400">{totalPages}</Text>
+                    </View>
+
+                    <Pressable
+                      onPress={() => {
+                        if (currentPage < totalPages) {
+                          triggerSelectionHaptic();
+                          setCurrentPage((p) => p + 1);
+                        }
+                      }}
+                      disabled={currentPage === totalPages}
+                      className={`h-8 px-2.5 rounded-xl flex-row items-center gap-1 border ${
+                        currentPage === totalPages
+                          ? "border-white/[0.04] bg-white/[0.02] opacity-40"
+                          : "border-white/[0.08] bg-surface active:bg-white/[0.08]"
+                      }`}
+                      accessibilityLabel="Next page"
+                    >
+                      <Text
+                        className={`text-xs font-semibold ${
+                          currentPage === totalPages ? "text-zinc-600" : "text-zinc-300"
+                        }`}
+                      >
+                        Next
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={14}
+                        color={currentPage === totalPages ? "#52525b" : "#e4e4e7"}
+                      />
+                    </Pressable>
                   </View>
-                </Pressable>
-              );
-            })
+                </View>
+              )}
+            </>
           ) : (
             <View className="p-6 bg-surface border border-white/[0.08] rounded-2xl items-center">
               <Ionicons name="calendar-outline" size={24} color="#a1a1aa" className="mb-2" />

@@ -12,3 +12,13 @@ export function getNativeGoogleSignin() {
     return null;
   }
 }
+
+export async function signOutNativeGoogle() {
+  const nativeGoogleSignin = getNativeGoogleSignin();
+  if (!nativeGoogleSignin) return;
+  try {
+    await nativeGoogleSignin.signOut();
+  } catch {
+    return;
+  }
+}
