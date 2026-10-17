@@ -769,11 +769,10 @@ export default function AppointmentsScreen(): JSX.Element {
                       </Text>
                     </Pressable>
 
-                    <View className="px-2.5 h-8 rounded-xl bg-surface border border-white/[0.08] items-center justify-center">
-                      <Text className="text-xs font-semibold text-foreground">
-                        {currentPage}{" "}
-                        <Text className="text-zinc-500 font-normal">/ {totalPages}</Text>
-                      </Text>
+                    <View className="px-3 h-8 rounded-xl bg-surface border border-white/[0.08] flex-row items-center justify-center gap-1">
+                      <Text className="text-xs font-semibold text-foreground">{currentPage}</Text>
+                      <Text className="text-xs font-normal text-zinc-500">/</Text>
+                      <Text className="text-xs font-semibold text-zinc-400">{totalPages}</Text>
                     </View>
 
                     <Pressable
