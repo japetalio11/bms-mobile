@@ -29,11 +29,7 @@ import {
   getAppointmentsLocal,
   saveAppointmentsLocal,
 } from "../../db/repository";
-import {
-  getWeekMilestone,
-  PREGNANCY_WEEKS,
-  type WeekMilestone,
-} from "../../lib/pregnancyTimeline";
+import { getWeekMilestone, PREGNANCY_WEEKS, type WeekMilestone } from "../../lib/pregnancyTimeline";
 
 export default function DashboardScreen(): JSX.Element {
   const router = useRouter();
@@ -245,7 +241,8 @@ export default function DashboardScreen(): JSX.Element {
                     <View className="absolute bottom-3 left-3 bg-black/75 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-xs">
                       <Ionicons name="nutrition-outline" size={13} color="#60a5fa" />
                       <Text className="text-white text-xs font-semibold">
-                        Size of {currentWeekMilestone.sizeComparison} ({currentWeekMilestone.approxLength})
+                        Size of {currentWeekMilestone.sizeComparison} (
+                        {currentWeekMilestone.approxLength})
                       </Text>
                     </View>
                   </View>
@@ -283,8 +280,8 @@ export default function DashboardScreen(): JSX.Element {
                     Maternal Care Dashboard
                   </Text>
                   <Text className="text-zinc-400 text-sm text-center">
-                    Your pregnancy and prenatal visit records will appear here once registered by your
-                    healthcare facility.
+                    Your pregnancy and prenatal visit records will appear here once registered by
+                    your healthcare facility.
                   </Text>
                 </View>
               )}
@@ -423,7 +420,7 @@ export default function DashboardScreen(): JSX.Element {
               <View className="flex-1 mr-2">
                 <Text className="text-foreground font-bold text-base">40-Week Timeline</Text>
                 <Text className="text-zinc-400 text-xs mt-0.5">
-                  Slide across weeks to explore baby's development
+                  Slide across weeks to explore baby&apos;s development
                 </Text>
               </View>
               <Pressable
@@ -476,8 +473,8 @@ export default function DashboardScreen(): JSX.Element {
                         isSelected
                           ? "bg-primary border-primary shadow-xs"
                           : isCurrent
-                          ? "bg-primary/15 border-primary/40"
-                          : "bg-default border-transparent"
+                            ? "bg-primary/15 border-primary/40"
+                            : "bg-default border-transparent"
                       }`}
                     >
                       <Text
@@ -520,8 +517,8 @@ export default function DashboardScreen(): JSX.Element {
                       {activeDetailMilestone.week === gestationalData.weeks
                         ? "Current Week"
                         : activeDetailMilestone.week < gestationalData.weeks
-                        ? "Past Week"
-                        : "Upcoming"}
+                          ? "Past Week"
+                          : "Upcoming"}
                     </Text>
                   </View>
                 </View>
@@ -542,7 +539,9 @@ export default function DashboardScreen(): JSX.Element {
                   </View>
 
                   <View className="items-end">
-                    <Text className="text-zinc-400 text-[10px] font-semibold uppercase">Length & Wt</Text>
+                    <Text className="text-zinc-400 text-[10px] font-semibold uppercase">
+                      Length & Wt
+                    </Text>
                     <Text className="text-foreground font-bold text-xs">
                       {activeDetailMilestone.approxLength} · {activeDetailMilestone.approxWeight}
                     </Text>
@@ -554,7 +553,7 @@ export default function DashboardScreen(): JSX.Element {
               <Card className="p-3.5 bg-surface rounded-2xl border-0 gap-1.5 mb-2.5">
                 <View className="flex-row items-center gap-2 mb-0.5">
                   <Ionicons name="heart" size={15} color="#ef4444" />
-                  <Text className="text-foreground font-bold text-sm">Baby's Development</Text>
+                  <Text className="text-foreground font-bold text-sm">Baby&apos;s Development</Text>
                 </View>
                 <Text className="text-zinc-600 dark:text-zinc-300 text-xs leading-5">
                   {activeDetailMilestone.babyDevelopment}

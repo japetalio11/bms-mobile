@@ -20,6 +20,7 @@ import {
 import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
 import { getSecureToken, setSecureToken, deleteSecureToken } from "../lib/secureStorage";
+import { signOutNativeGoogle } from "../lib/googleAuthUtils";
 
 export const STORAGE_KEYS = {
   TOKEN: "@bms_auth_token",
@@ -308,6 +309,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
 
     try {
+      await signOutNativeGoogle();
       await deleteSecureToken();
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.TOKEN,
