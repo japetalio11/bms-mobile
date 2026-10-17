@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getDeliveryOutcomesLocal } from "../../db/repository";
 import type { DeliveryOutcomeRecord, PrenatalVisitRecord } from "../../config/api";
+import { triggerSelectionHaptic } from "../../lib/haptics";
 
 interface EnrichedNewborn {
   id: string;
@@ -98,10 +99,160 @@ const getApgarAssessment = (score: number) => {
   };
 };
 
+const RangeSpectrumBar = ({
+  percentage,
+  labels = ["Low", "Optimal", "High"],
+  markerColor = "#10b981",
+}: {
+  percentage: number;
+  labels?: [string, string, string];
+  markerColor?: string;
+}) => {
+  const clamped = Math.max(6, Math.min(94, percentage));
+  return (
+    <View className="mt-3.5 mb-1">
+      <View className="h-2 rounded-full flex-row overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+        <View className="w-1/4 bg-blue-400/50" />
+        <View className="w-1/2 bg-emerald-500/80" />
+        <View className="w-1/4 bg-rose-400/60" />
+      </View>
+      <View
+        style={{
+          position: "absolute",
+          top: -3,
+          left: `${clamped}%`,
+          marginLeft: -7,
+          backgroundColor: markerColor,
+        }}
+        className="size-3.5 rounded-full border-2 border-white dark:border-zinc-950 shadow-xs"
+      />
+      <View className="flex-row justify-between items-center mt-2 px-0.5">
+        <Text className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+          {labels[0]}
+        </Text>
+        <Text className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+          {labels[1]}
+        </Text>
+        <Text className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+          {labels[2]}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const getBpAssessment = (systolic?: number | null, diastolic?: number | null) => {
+  if (!systolic || !diastolic) return null;
+  const sys = Number(systolic);
+  const dia = Number(diastolic);
+  if (isNaN(sys) || isNaN(dia)) return null;
+
+  if (sys < 90 || dia < 60) {
+    return {
+      status: "Low",
+      title: "Low Blood Pressure",
+      note: "Mild hypotension can happen in early pregnancy. Rest and hydrate.",
+      badgeBg: "bg-blue-500/10 dark:bg-blue-500/20",
+      badgeText: "text-blue-600 dark:text-blue-400",
+      accentColor: "#3b82f6",
+      percentage: 18,
+    };
+  }
+  if (sys < 120 && dia < 80) {
+    return {
+      status: "Optimal",
+      title: "Healthy & Optimal Range",
+      note: "Both systolic and diastolic pressures are inside reassuring clinical targets.",
+      badgeBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+      badgeText: "text-emerald-600 dark:text-emerald-400",
+      accentColor: "#10b981",
+      percentage: 50,
+    };
+  }
+  if (sys < 130 && dia < 80) {
+    return {
+      status: "Elevated",
+      title: "Slightly Elevated",
+      note: "A slight rise above normal. Continue monitoring at upcoming appointments.",
+      badgeBg: "bg-amber-500/10 dark:bg-amber-500/20",
+      badgeText: "text-amber-600 dark:text-amber-400",
+      accentColor: "#f59e0b",
+      percentage: 72,
+    };
+  }
+  return {
+    status: "High",
+    title: "High Blood Pressure",
+    note: "Clinical attention recommended to monitor for preeclampsia risks.",
+    badgeBg: "bg-rose-500/10 dark:bg-rose-500/20",
+    badgeText: "text-rose-600 dark:text-rose-400",
+    accentColor: "#ef4444",
+    percentage: 88,
+  };
+};
+
+const getFhtAssessment = (bpm?: number | null) => {
+  if (!bpm) return null;
+  const val = Number(bpm);
+  if (isNaN(val)) return null;
+
+  if (val < 110) {
+    return {
+      status: "Slow (<110)",
+      title: "Slow Fetal Rhythm",
+      note: "Below the typical 110-160 bpm baseline. Consult your midwife.",
+      badgeBg: "bg-amber-500/10 dark:bg-amber-500/20",
+      badgeText: "text-amber-600 dark:text-amber-400",
+      accentColor: "#f59e0b",
+      percentage: 20,
+    };
+  }
+  if (val <= 160) {
+    return {
+      status: "Reassuring",
+      title: "Normal Fetal Heart Rhythm",
+      note: "Baby's heart rate is inside the safe 110–160 bpm physiological window.",
+      badgeBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+      badgeText: "text-emerald-600 dark:text-emerald-400",
+      accentColor: "#10b981",
+      percentage: 52,
+    };
+  }
+  return {
+    status: "Rapid (>160)",
+    title: "Rapid Fetal Rhythm",
+    note: "Above standard baseline. May occur during periods of fetal movement.",
+    badgeBg: "bg-amber-500/10 dark:bg-amber-500/20",
+    badgeText: "text-amber-600 dark:text-amber-400",
+    accentColor: "#f59e0b",
+    percentage: 85,
+  };
+};
+
+const getPulseAssessment = (pulse?: number | null) => {
+  if (!pulse) return null;
+  const p = Number(pulse);
+  if (isNaN(p)) return null;
+
+  if (p >= 60 && p <= 100) {
+    return {
+      status: "Normal",
+      badgeBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+      badgeText: "text-emerald-600 dark:text-emerald-400",
+    };
+  }
+  return {
+    status: p < 60 ? "Low" : "Elevated",
+    badgeBg: "bg-amber-500/10 dark:bg-amber-500/20",
+    badgeText: "text-amber-600 dark:text-amber-400",
+  };
+};
+
 export default function VitalsScreen(): JSX.Element {
   const router = useRouter();
   const [activeMainTab, setActiveMainTab] = useState<string>("maternal");
   const [selectedNewbornId, setSelectedNewbornId] = useState<string>("all");
+  const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
   const { activePregnancy, motherRecord, user, refreshProfile } = useAuth();
   const [localDeliveries, setLocalDeliveries] = useState<DeliveryOutcomeRecord[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -130,7 +281,6 @@ export default function VitalsScreen(): JSX.Element {
     setIsRefreshing(false);
   };
 
-  // Compile all maternal prenatal visits
   const allVisits = useMemo<PrenatalVisitRecord[]>(() => {
     const list: PrenatalVisitRecord[] = [];
     if (activePregnancy?.prenatalVisits) {
@@ -150,10 +300,99 @@ export default function VitalsScreen(): JSX.Element {
     return list.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   }, [activePregnancy, motherRecord]);
 
-  const latestVisit = allVisits[0] || null;
+  const activeVisit = useMemo<PrenatalVisitRecord | null>(() => {
+    if (!allVisits.length) return null;
+    if (selectedVisitId) {
+      const found = allVisits.find((v) => v.visit_id === selectedVisitId);
+      if (found) return found;
+    }
+    return allVisits[0] || null;
+  }, [allVisits, selectedVisitId]);
 
-  // Compile and enrich all newborns across all deliveries and pregnancies
-  const { allDeliveries, allNewborns } = useMemo(() => {
+  const activeVisitIndex = useMemo(() => {
+    if (!activeVisit) return -1;
+    return allVisits.findIndex((v) => v.visit_id === activeVisit.visit_id);
+  }, [allVisits, activeVisit]);
+
+  const previousVisit = useMemo(() => {
+    if (activeVisitIndex >= 0 && activeVisitIndex < allVisits.length - 1) {
+      return allVisits[activeVisitIndex + 1];
+    }
+    return null;
+  }, [allVisits, activeVisitIndex]);
+
+  const weightChange = useMemo(() => {
+    if (
+      activeVisit?.weight_kg !== undefined &&
+      activeVisit?.weight_kg !== null &&
+      previousVisit?.weight_kg !== undefined &&
+      previousVisit?.weight_kg !== null
+    ) {
+      const curr = Number(activeVisit.weight_kg);
+      const prev = Number(previousVisit.weight_kg);
+      if (!isNaN(curr) && !isNaN(prev)) {
+        return Number((curr - prev).toFixed(1));
+      }
+    }
+    return null;
+  }, [activeVisit, previousVisit]);
+
+  const bpAssessment = useMemo(() => {
+    return getBpAssessment(activeVisit?.bp_systolic, activeVisit?.bp_diastolic);
+  }, [activeVisit?.bp_systolic, activeVisit?.bp_diastolic]);
+
+  const fhtAssessment = useMemo(() => {
+    return getFhtAssessment(activeVisit?.fetal_heart_tone_bpm);
+  }, [activeVisit?.fetal_heart_tone_bpm]);
+
+  const pulseAssessment = useMemo(() => {
+    return getPulseAssessment(activeVisit?.pulse_rate_bpm);
+  }, [activeVisit?.pulse_rate_bpm]);
+
+  const healthStory = useMemo(() => {
+    if (!activeVisit) return null;
+    const isHighRisk =
+      (activeVisit.risk_level_assessed &&
+        activeVisit.risk_level_assessed.toLowerCase().includes("high")) ||
+      bpAssessment?.status === "High";
+
+    const isAttention =
+      bpAssessment?.status === "Elevated" ||
+      (fhtAssessment && fhtAssessment.status.includes("Slow")) ||
+      (fhtAssessment && fhtAssessment.status.includes("Rapid")) ||
+      pulseAssessment?.status === "Elevated" ||
+      pulseAssessment?.status === "Low";
+
+    if (isHighRisk) {
+      return {
+        title: "Clinical Attention Advised",
+        description: "Measurements require clinical review. Please consult your provider.",
+        icon: "alert-circle" as const,
+        iconColor: "#ef4444",
+        cardBg: "bg-rose-500/5 dark:bg-rose-950/20 border border-rose-500/20",
+      };
+    }
+
+    if (isAttention) {
+      return {
+        title: "Checkup Notes Recorded",
+        description: "Slight variations noted. Stay hydrated and attend scheduled visits.",
+        icon: "information-circle" as const,
+        iconColor: "#f59e0b",
+        cardBg: "bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20",
+      };
+    }
+
+    return {
+      title: "Vitals are on track",
+      description: "Blood pressure and heart rate are inside healthy clinical targets.",
+      icon: "checkmark-circle" as const,
+      iconColor: "#10b981",
+      cardBg: "bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20",
+    };
+  }, [activeVisit, bpAssessment, fhtAssessment, pulseAssessment]);
+
+  const { allNewborns } = useMemo(() => {
     const deliveryMap = new Map<string, DeliveryOutcomeRecord & { pregnancyLabel?: string }>();
 
     for (const d of localDeliveries) {
@@ -274,7 +513,6 @@ export default function VitalsScreen(): JSX.Element {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
-        {/* iOS Native Segmented Tab Control */}
         <View className="px-5 mb-5 pt-2">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
             <Tabs.List className="bg-default p-1 rounded-2xl flex-row w-full h-11 items-center">
@@ -332,7 +570,6 @@ export default function VitalsScreen(): JSX.Element {
           </Tabs>
         </View>
 
-        {/* Maternal Tab Content */}
         {activeMainTab === "maternal" && (
           <View className="px-5 gap-4">
             <View className="flex-row items-center justify-between">
@@ -344,84 +581,311 @@ export default function VitalsScreen(): JSX.Element {
               )}
             </View>
 
-            {latestVisit ? (
-              <View className="gap-4">
-                <View className="flex-row items-center justify-between px-1">
-                  <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-                    Latest checkup:{" "}
-                    {new Date(latestVisit.visit_date).toLocaleDateString("en-US", {
+            {allVisits.length > 1 && (
+              <View className="gap-2">
+                <Text className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold uppercase tracking-wider px-1">
+                  Visit History
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
+                >
+                  {allVisits.map((visit, index) => {
+                    const isSelected = activeVisit?.visit_id === visit.visit_id;
+                    const visitNumber = visit.visit_number || allVisits.length - index;
+                    const formattedDate = new Date(visit.visit_date).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
-                      year: "numeric",
-                    })}
-                  </Text>
-                  <Text className="text-primary text-xs font-semibold">
-                    Visit #{latestVisit.visit_number || 1} · Tri {latestVisit.trimester || 1}
-                  </Text>
-                </View>
+                    });
 
-                {/* Inset Grouped Card */}
-                <Card
-                  variant="secondary"
-                  className="bg-surface border-0 rounded-2xl overflow-hidden p-0"
-                >
-                  <InsetRow
-                    label="Blood Pressure"
-                    value={`${latestVisit.bp_systolic}/${latestVisit.bp_diastolic}`}
-                    subvalue="mmHg (Systolic/Diastolic)"
-                  />
-                  <InsetRow
-                    label="Heart Rate"
-                    value={`${latestVisit.pulse_rate_bpm}`}
-                    subvalue="beats per min (bpm)"
-                  />
-                  <InsetRow
-                    label="Body Temperature"
-                    value={`${latestVisit.temperature_celsius} °C`}
-                  />
-                  <InsetRow label="Maternal Weight" value={`${latestVisit.weight_kg} kg`} />
-                  {latestVisit.fundic_height_cm ? (
-                    <InsetRow label="Fundic Height" value={`${latestVisit.fundic_height_cm} cm`} />
-                  ) : null}
-                  {latestVisit.fetal_heart_tone_bpm ? (
-                    <InsetRow
-                      label="Fetal Heart Tone"
-                      value={`${latestVisit.fetal_heart_tone_bpm} bpm`}
-                    />
-                  ) : null}
-                  {latestVisit.age_of_gestation_weeks ? (
-                    <InsetRow
-                      label="Gestational Age"
-                      value={`${latestVisit.age_of_gestation_weeks} weeks`}
-                    />
-                  ) : null}
-                  {latestVisit.risk_level_assessed ? (
-                    <InsetRow
-                      label="Risk Level Assessed"
-                      value={latestVisit.risk_level_assessed}
-                      badge={
+                    return (
+                      <Pressable
+                        key={visit.visit_id || `visit-${index}`}
+                        onPress={() => {
+                          triggerSelectionHaptic();
+                          setSelectedVisitId(visit.visit_id);
+                        }}
+                        className={`px-3.5 py-2 rounded-xl flex-row items-center gap-2 ${
+                          isSelected
+                            ? "bg-primary shadow-xs"
+                            : "bg-surface border border-separator/30 dark:border-zinc-800"
+                        }`}
+                      >
                         <View
-                          className={`px-2 py-0.5 rounded-md ${
-                            latestVisit.risk_level_assessed.toLowerCase().includes("high")
-                              ? "bg-rose-500/15"
-                              : "bg-emerald-500/15"
+                          className={`size-2 rounded-full ${
+                            isSelected ? "bg-primary-foreground" : "bg-primary"
                           }`}
-                        >
+                        />
+                        <View>
                           <Text
-                            className={`text-xs font-semibold ${
-                              latestVisit.risk_level_assessed.toLowerCase().includes("high")
-                                ? "text-rose-500"
-                                : "text-emerald-500"
+                            className={`text-xs font-bold ${
+                              isSelected ? "text-primary-foreground" : "text-foreground"
                             }`}
                           >
-                            {latestVisit.risk_level_assessed}
+                            Visit #{visitNumber}
+                          </Text>
+                          <Text
+                            className={`text-[11px] ${
+                              isSelected ? "text-primary-foreground/80" : "text-zinc-400"
+                            }`}
+                          >
+                            {formattedDate}
                           </Text>
                         </View>
-                      }
-                      isLast
-                    />
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {activeVisit ? (
+              <View className="gap-4">
+                {healthStory && (
+                  <Card
+                    variant="secondary"
+                    className={`rounded-xl px-4 py-3 ${healthStory.cardBg}`}
+                  >
+                    <View className="flex-row items-center gap-2.5">
+                      <View className="size-7 rounded-full bg-surface items-center justify-center shadow-2xs shrink-0">
+                        <Ionicons name={healthStory.icon} size={15} color={healthStory.iconColor} />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-foreground text-sm font-bold">
+                          {healthStory.title}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text className="text-foreground/80 dark:text-foreground/75 text-xs leading-4 mt-2">
+                      {healthStory.description}
+                    </Text>
+                  </Card>
+                )}
+
+                <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-2.5">
+                      <View className="size-8 rounded-full bg-emerald-500/10 items-center justify-center">
+                        <Ionicons name="fitness-outline" size={17} color="#10b981" />
+                      </View>
+                      <View>
+                        <Text className="text-foreground text-sm font-semibold">
+                          Blood Pressure
+                        </Text>
+                        <Text className="text-zinc-400 text-xs font-normal">
+                          Maternal circulation
+                        </Text>
+                      </View>
+                    </View>
+                    {bpAssessment ? (
+                      <View className={`px-2.5 py-1 rounded-full ${bpAssessment.badgeBg}`}>
+                        <Text className={`text-xs font-bold ${bpAssessment.badgeText}`}>
+                          {bpAssessment.status}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View className="flex-row items-baseline gap-1.5 mt-3">
+                    <Text className="text-foreground text-3xl font-extrabold tracking-tight">
+                      {activeVisit.bp_systolic}/{activeVisit.bp_diastolic}
+                    </Text>
+                    <Text className="text-zinc-400 text-xs font-medium">mmHg</Text>
+                  </View>
+
+                  {bpAssessment ? (
+                    <>
+                      <RangeSpectrumBar
+                        percentage={bpAssessment.percentage}
+                        markerColor={bpAssessment.accentColor}
+                        labels={["<90 Low", "120/80 Target", ">140 High"]}
+                      />
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-xs leading-4 mt-2">
+                        {bpAssessment.note}
+                      </Text>
+                    </>
                   ) : null}
                 </Card>
+
+                {activeVisit.fetal_heart_tone_bpm ? (
+                  <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center gap-2.5">
+                        <View className="size-8 rounded-full bg-rose-500/10 items-center justify-center">
+                          <Ionicons name="heart" size={16} color="#f43f5e" />
+                        </View>
+                        <View>
+                          <Text className="text-foreground text-sm font-semibold">
+                            Fetal Heart Tone
+                          </Text>
+                          <Text className="text-zinc-400 text-xs font-normal">
+                            Baby&apos;s heartbeat
+                          </Text>
+                        </View>
+                      </View>
+                      {fhtAssessment ? (
+                        <View className={`px-2.5 py-1 rounded-full ${fhtAssessment.badgeBg}`}>
+                          <Text className={`text-xs font-bold ${fhtAssessment.badgeText}`}>
+                            {fhtAssessment.status}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <View className="flex-row items-baseline gap-1.5 mt-3">
+                      <Text className="text-foreground text-3xl font-extrabold tracking-tight">
+                        {activeVisit.fetal_heart_tone_bpm}
+                      </Text>
+                      <Text className="text-zinc-400 text-xs font-medium">bpm</Text>
+                    </View>
+
+                    {fhtAssessment ? (
+                      <>
+                        <RangeSpectrumBar
+                          percentage={fhtAssessment.percentage}
+                          markerColor={fhtAssessment.accentColor}
+                          labels={["<110 Slow", "110–160 Target", ">160 Rapid"]}
+                        />
+                        <Text className="text-zinc-500 dark:text-zinc-400 text-xs leading-4 mt-2">
+                          {fhtAssessment.note}
+                        </Text>
+                      </>
+                    ) : null}
+                  </Card>
+                ) : null}
+
+                <View className="flex-row gap-3">
+                  <Card variant="secondary" className="flex-1 bg-surface border-0 rounded-2xl p-4">
+                    <View className="flex-row items-center justify-between mb-2">
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+                        Weight
+                      </Text>
+                      <View className="size-7 rounded-full bg-blue-500/10 items-center justify-center">
+                        <Ionicons name="scale-outline" size={15} color="#3b82f6" />
+                      </View>
+                    </View>
+                    <View className="flex-row items-baseline gap-1">
+                      <Text className="text-foreground text-2xl font-bold">
+                        {activeVisit.weight_kg ?? "—"}
+                      </Text>
+                      {activeVisit.weight_kg ? (
+                        <Text className="text-zinc-400 text-xs font-semibold">kg</Text>
+                      ) : null}
+                    </View>
+                    {weightChange !== null ? (
+                      <View className="flex-row items-center gap-1 mt-2">
+                        <Ionicons
+                          name={weightChange >= 0 ? "trending-up" : "trending-down"}
+                          size={13}
+                          color={weightChange >= 0 ? "#10b981" : "#f59e0b"}
+                        />
+                        <Text
+                          className={`text-xs font-semibold ${
+                            weightChange >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-amber-500"
+                          }`}
+                        >
+                          {weightChange > 0 ? `+${weightChange}` : `${weightChange}`} kg vs prev
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text className="text-zinc-400 text-xs mt-2 font-medium">
+                        Baseline record
+                      </Text>
+                    )}
+                  </Card>
+
+                  <Card variant="secondary" className="flex-1 bg-surface border-0 rounded-2xl p-4">
+                    <View className="flex-row items-center justify-between mb-2">
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+                        Maternal Pulse
+                      </Text>
+                      <View className="size-7 rounded-full bg-rose-500/10 items-center justify-center">
+                        <Ionicons name="heart-outline" size={15} color="#f43f5e" />
+                      </View>
+                    </View>
+                    <View className="flex-row items-baseline gap-1">
+                      <Text className="text-foreground text-2xl font-bold">
+                        {activeVisit.pulse_rate_bpm ?? "—"}
+                      </Text>
+                      {activeVisit.pulse_rate_bpm ? (
+                        <Text className="text-zinc-400 text-xs font-semibold">bpm</Text>
+                      ) : null}
+                    </View>
+                    {pulseAssessment ? (
+                      <View className="flex-row items-center gap-1.5 mt-2">
+                        <View className={`px-2 py-0.5 rounded-md ${pulseAssessment.badgeBg}`}>
+                          <Text
+                            className={`text-[11px] font-semibold ${pulseAssessment.badgeText}`}
+                          >
+                            {pulseAssessment.status}
+                          </Text>
+                        </View>
+                        <Text className="text-zinc-400 text-xs">resting</Text>
+                      </View>
+                    ) : (
+                      <Text className="text-zinc-400 text-xs mt-2 font-medium">Heart rate</Text>
+                    )}
+                  </Card>
+                </View>
+
+                <View className="gap-2">
+                  <Text className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold uppercase tracking-wider px-1">
+                    Clinical Examination
+                  </Text>
+                  <Card
+                    variant="secondary"
+                    className="bg-surface border-0 rounded-2xl overflow-hidden p-0"
+                  >
+                    <InsetRow
+                      label="Body Temperature"
+                      value={`${activeVisit.temperature_celsius} °C`}
+                    />
+                    {activeVisit.fundic_height_cm ? (
+                      <InsetRow
+                        label="Fundic Height"
+                        value={`${activeVisit.fundic_height_cm} cm`}
+                      />
+                    ) : null}
+                    {activeVisit.age_of_gestation_weeks ? (
+                      <InsetRow
+                        label="Gestational Age"
+                        value={`${activeVisit.age_of_gestation_weeks} weeks`}
+                      />
+                    ) : null}
+                    {activeVisit.trimester ? (
+                      <InsetRow label="Trimester" value={`Trimester ${activeVisit.trimester}`} />
+                    ) : null}
+                    {activeVisit.risk_level_assessed ? (
+                      <InsetRow
+                        label="Risk Assessment"
+                        value={activeVisit.risk_level_assessed}
+                        badge={
+                          <View
+                            className={`px-2 py-0.5 rounded-md ${
+                              activeVisit.risk_level_assessed.toLowerCase().includes("high")
+                                ? "bg-rose-500/15"
+                                : "bg-emerald-500/15"
+                            }`}
+                          >
+                            <Text
+                              className={`text-xs font-semibold ${
+                                activeVisit.risk_level_assessed.toLowerCase().includes("high")
+                                  ? "text-rose-500"
+                                  : "text-emerald-500"
+                              }`}
+                            >
+                              {activeVisit.risk_level_assessed}
+                            </Text>
+                          </View>
+                        }
+                        isLast
+                      />
+                    ) : null}
+                  </Card>
+                </View>
               </View>
             ) : (
               <Card
@@ -440,7 +904,6 @@ export default function VitalsScreen(): JSX.Element {
           </View>
         )}
 
-        {/* Newborn Tab Content */}
         {activeMainTab === "newborn" && (
           <View className="px-5 gap-4">
             <View className="flex-row items-center justify-between">
