@@ -1,15 +1,7 @@
-import {
-  View,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  Modal,
-} from "react-native";
+import { View, ScrollView, Image, Pressable, RefreshControl, Modal } from "react-native";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { JSX } from "react";
-import { Card, Text, Checkbox, Button } from "heroui-native";
+import { Card, Text, Button } from "heroui-native";
 import { Header } from "../../components/Header";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +22,11 @@ import {
   saveAppointmentsLocal,
 } from "../../db/repository";
 import { getWeekMilestone, PREGNANCY_WEEKS, type WeekMilestone } from "../../lib/pregnancyTimeline";
+import {
+  triggerLightHaptic,
+  triggerSelectionHaptic,
+  triggerSuccessHaptic,
+} from "../../lib/haptics";
 
 export default function DashboardScreen(): JSX.Element {
   const router = useRouter();
@@ -142,6 +139,7 @@ export default function DashboardScreen(): JSX.Element {
   }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
 
   const onRefresh = async () => {
+    triggerLightHaptic();
     setIsRefreshing(true);
     await Promise.all([loadData(), refreshProfile()]);
     setIsRefreshing(false);
@@ -155,6 +153,11 @@ export default function DashboardScreen(): JSX.Element {
 
   const handleToggleSupplement = async (supplementId: string, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
+    if (nextStatus) {
+      triggerSuccessHaptic();
+    } else {
+      triggerLightHaptic();
+    }
 
     setSupplements((prev) =>
       prev.map((item) =>
@@ -176,6 +179,7 @@ export default function DashboardScreen(): JSX.Element {
   };
 
   const openTimelineModal = () => {
+    triggerLightHaptic();
     const initialWeek = Math.min(40, Math.max(1, gestationalData.weeks || 1));
     setSelectedTimelineWeek(initialWeek);
     setIsTimelineModalOpen(true);
@@ -188,6 +192,7 @@ export default function DashboardScreen(): JSX.Element {
   };
 
   const jumpToCurrentWeek = (animated = true) => {
+    triggerLightHaptic();
     const target = Math.min(40, Math.max(1, gestationalData.weeks || 1));
     setSelectedTimelineWeek(target);
     if (weekScrollerRef.current) {
@@ -287,7 +292,12 @@ export default function DashboardScreen(): JSX.Element {
             </Text>
 
             {nextAppointment ? (
-              <Pressable onPress={() => router.push("/(tabs)/appointments")}>
+              <Pressable
+                onPress={() => {
+                  triggerLightHaptic();
+                  router.push("/(tabs)/appointments");
+                }}
+              >
                 <Card className="p-4 bg-surface flex-row items-center gap-3.5 rounded-2xl border-0">
                   <View className="items-center justify-center w-12 bg-[#3b82f6]/15 rounded-xl py-2">
                     <Text className="text-[#3b82f6] text-xs font-bold">
@@ -329,35 +339,63 @@ export default function DashboardScreen(): JSX.Element {
             {supplements.length > 0 ? (
               <View className="gap-3">
                 {supplements.map((item) => (
-                  <Card
+                  <Pressable
                     key={item.supplement_id}
-                    className="p-4 bg-surface flex-row items-center gap-4 rounded-2xl border-0"
+                    onPress={() => handleToggleSupplement(item.supplement_id, item.is_completed)}
+                    className="active:scale-[0.98]"
                   >
-                    <Checkbox
-                      isSelected={item.is_completed}
-                      onSelectedChange={() =>
-                        handleToggleSupplement(item.supplement_id, item.is_completed)
-                      }
-                      className="border-2 border-zinc-400 dark:border-zinc-500"
-                    />
-                    <View className="flex-1">
-                      <Text className="text-foreground font-semibold text-sm">
-                        {item.supplement_type}
-                      </Text>
-                      <Text className="text-zinc-400 text-xs mt-0.5">
-                        {item.tablets_given_count} tablets prescribed
-                      </Text>
-                    </View>
-                    <View
-                      className={`px-3 py-1 rounded-full ${item.is_completed ? "bg-emerald-500/20" : "bg-amber-400/20 border border-amber-400/30"}`}
+                    <Card
+                      className={`p-4 flex-row items-center gap-3.5 rounded-2xl ${
+                        item.is_completed
+                          ? "bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30"
+                          : "bg-surface border-0"
+                      }`}
                     >
-                      <Text
-                        className={`text-xs font-semibold ${item.is_completed ? "text-emerald-400" : "text-amber-300"}`}
+                      <View
+                        className={`size-6 rounded-full items-center justify-center border-2 ${
+                          item.is_completed
+                            ? "bg-emerald-500 border-emerald-500 shadow-xs"
+                            : "border-zinc-400 dark:border-zinc-600 bg-transparent"
+                        }`}
                       >
-                        {item.is_completed ? "Done" : "Pending"}
-                      </Text>
-                    </View>
-                  </Card>
+                        {item.is_completed && (
+                          <Ionicons name="checkmark" size={14} color="#ffffff" />
+                        )}
+                      </View>
+                      <View className="flex-1">
+                        <Text
+                          className={`font-semibold text-sm ${
+                            item.is_completed
+                              ? "text-foreground line-through opacity-80"
+                              : "text-foreground"
+                          }`}
+                        >
+                          {item.supplement_type}
+                        </Text>
+                        <Text className="text-zinc-400 text-xs mt-0.5">
+                          {item.tablets_given_count} tablets prescribed
+                        </Text>
+                      </View>
+                      <View
+                        className={`px-3 py-1 rounded-full flex-row items-center gap-1.5 ${
+                          item.is_completed
+                            ? "bg-emerald-500/20"
+                            : "bg-amber-400/20 border border-amber-400/30"
+                        }`}
+                      >
+                        {item.is_completed && (
+                          <Ionicons name="checkmark-circle" size={13} color="#34d399" />
+                        )}
+                        <Text
+                          className={`text-xs font-semibold ${
+                            item.is_completed ? "text-emerald-400" : "text-amber-300"
+                          }`}
+                        >
+                          {item.is_completed ? "Taken" : "Pending"}
+                        </Text>
+                      </View>
+                    </Card>
+                  </Pressable>
                 ))}
               </View>
             ) : (
@@ -371,7 +409,12 @@ export default function DashboardScreen(): JSX.Element {
           <View className="mb-6">
             <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
 
-            <Pressable onPress={() => router.push("/(tabs)/vitals")}>
+            <Pressable
+              onPress={() => {
+                triggerLightHaptic();
+                router.push("/(tabs)/vitals");
+              }}
+            >
               <Card className="p-4 bg-surface flex-row items-center gap-3.5 rounded-2xl border-0">
                 <View className="size-11 rounded-full bg-blue-500/15 items-center justify-center">
                   <Ionicons name="pulse" size={20} color="#3b82f6" />
@@ -459,7 +502,10 @@ export default function DashboardScreen(): JSX.Element {
                   return (
                     <Pressable
                       key={item.week}
-                      onPress={() => setSelectedTimelineWeek(item.week)}
+                      onPress={() => {
+                        triggerSelectionHaptic();
+                        setSelectedTimelineWeek(item.week);
+                      }}
                       className={`w-13 py-2 rounded-xl items-center justify-center border ${
                         isSelected
                           ? "bg-primary border-primary shadow-xs"
