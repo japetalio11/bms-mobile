@@ -1,45 +1,52 @@
-import { View, ScrollView, Image, Pressable, RefreshControl, Modal } from "react-native";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { View, ScrollView, Pressable, RefreshControl, useWindowDimensions } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import type { ScrollViewInstance } from "react-native";
+import { useState, useRef, useCallback, useMemo } from "react";
 import type { JSX } from "react";
-import { Card, Text, Button } from "heroui-native";
+import { BottomSheet, Card, Text, useToast } from "heroui-native";
+import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { NativeViewGestureHandler } from "react-native-gesture-handler";
 import { Header } from "../../components/Header";
+import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
+import { UploadRecordSheet } from "../../components/UploadRecordSheet";
+import { AppointmentBookingSheet } from "../../components/AppointmentBookingSheet";
+import { BottomSheetHeader } from "../../components/BottomSheetHeader";
+import { MobileEmptyState } from "../../components/MobileEmptyState";
 import { useRouter, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
-import {
-  getSupplementsByMotherApi,
-  updateSupplementStatusApi,
-  getAppointmentsByUserApi,
-} from "../../config/api";
-import type { SupplementRecord, AppointmentRecord } from "../../config/api";
-import {
-  getSupplementsLocal,
-  saveSupplementsLocal,
-  updateSupplementStatusLocal,
-  getAppointmentsLocal,
-  saveAppointmentsLocal,
-} from "../../db/repository";
-import { getWeekMilestone, PREGNANCY_WEEKS, type WeekMilestone } from "../../lib/pregnancyTimeline";
+import { getAppointmentsByUserApi, getSupplementsByMotherApi } from "../../config/api";
+import type { AppointmentRecord, SupplementRecord } from "../../config/api";
+import { getAppointmentsLocal, getSupplementsLocal, saveAppointmentsLocal, saveSupplementsLocal } from "../../db/repository";
+import { getWeekMilestone, PREGNANCY_WEEKS } from "../../lib/pregnancyTimeline";
+import { getLoggedDoseIds, localDoseDate, setLoggedDoseIds } from "../../lib/doseLog";
 import {
   triggerLightHaptic,
   triggerSelectionHaptic,
-  triggerSuccessHaptic,
 } from "../../lib/haptics";
 
 export default function DashboardScreen(): JSX.Element {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { toast } = useToast();
+  const { width: screenWidth } = useWindowDimensions();
   const { user, token, motherRecord, activePregnancy, refreshProfile } = useAuth();
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [uploadSheetOpen, setUploadSheetOpen] = useState(false);
+  const [appointmentSheetOpen, setAppointmentSheetOpen] = useState(false);
   const { isOnline } = useNetwork();
-
-  const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [prescriptions, setPrescriptions] = useState<SupplementRecord[]>([]);
+  const [todayDoseIds, setTodayDoseIds] = useState<string[]>([]);
+  const [doseLogDate, setDoseLogDate] = useState(localDoseDate);
+  const [doseLogBusy, setDoseLogBusy] = useState(false);
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<string | null>(null);
+  const [appointmentTab, setAppointmentTab] = useState<"upcoming" | "completed">("upcoming");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
-  const [selectedTimelineWeek, setSelectedTimelineWeek] = useState<number>(1);
-  const weekScrollerRef = useRef<ScrollView>(null);
+  const [selectedTimelineWeek, setSelectedTimelineWeek] = useState<number | null>(null);
+  const weekScrollerRef = useRef<ScrollViewInstance | null>(null);
 
   const calculateGestationalWeeks = (): {
     weeks: number;
@@ -85,96 +92,124 @@ export default function DashboardScreen(): JSX.Element {
   };
 
   const gestationalData = calculateGestationalWeeks();
-  const currentWeekMilestone = getWeekMilestone(gestationalData.weeks || 1);
-  const activeDetailMilestone = getWeekMilestone(selectedTimelineWeek);
+  const timelineWeek = selectedTimelineWeek ?? Math.min(40, Math.max(1, gestationalData.weeks || 1));
+  const activeDetailMilestone = getWeekMilestone(timelineWeek);
 
-  useEffect(() => {
-    if (gestationalData.weeks > 0) {
-      setSelectedTimelineWeek(Math.min(40, Math.max(1, gestationalData.weeks)));
+  const loadAppointments = useCallback(async () => {
+    if (!user?.user_id) return;
+    try {
+      setAppointments(await getAppointmentsLocal(user.user_id));
+    } catch (error) {
+      console.warn("Could not read saved appointments:", error);
     }
-  }, [gestationalData.weeks]);
-
-  const loadData = useCallback(async () => {
-    if (motherRecord?.mother_id) {
-      try {
-        const localSupps = await getSupplementsLocal(motherRecord.mother_id);
-        if (localSupps && localSupps.length > 0) setSupplements(localSupps);
-      } catch (e) {
-        console.warn("Local supplements load error:", e);
-      }
-    }
-
-    if (user?.user_id) {
-      try {
-        const localAppts = await getAppointmentsLocal(user.user_id);
-        if (localAppts && localAppts.length > 0) setAppointments(localAppts);
-      } catch (e) {
-        console.warn("Local appointments load error:", e);
-      }
-    }
-
     if (isOnline && token) {
-      if (motherRecord?.mother_id) {
-        getSupplementsByMotherApi(motherRecord.mother_id, token)
-          .then((res) => {
-            if (Array.isArray(res)) {
-              setSupplements(res);
-              saveSupplementsLocal(res, true);
-            }
-          })
-          .catch(() => {});
-      }
-
-      if (user?.user_id) {
-        getAppointmentsByUserApi(user.user_id, token)
-          .then((res) => {
-            if (Array.isArray(res)) {
-              setAppointments(res);
-              saveAppointmentsLocal(res, true);
-            }
-          })
-          .catch(() => {});
+      try {
+        const fresh = await getAppointmentsByUserApi(user.user_id, token);
+        setAppointments(fresh);
+        await saveAppointmentsLocal(fresh, true);
+      } catch (error) {
+        console.warn("Could not refresh appointments:", error);
       }
     }
-  }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
+  }, [user, token, isOnline]);
+
+  useFocusEffect(useCallback(() => { void loadAppointments(); }, [loadAppointments]));
+
+  const loadPrescriptions = useCallback(async () => {
+    if (!motherRecord?.mother_id) {
+      setPrescriptions([]);
+      return;
+    }
+    try {
+      setPrescriptions(await getSupplementsLocal(motherRecord.mother_id));
+    } catch (error) {
+      console.warn("Could not read saved prescriptions:", error);
+    }
+    if (isOnline && token) {
+      try {
+        const fresh = await getSupplementsByMotherApi(motherRecord.mother_id, token);
+        setPrescriptions(fresh);
+        await saveSupplementsLocal(fresh, true);
+      } catch (error) {
+        console.warn("Could not refresh prescriptions:", error);
+      }
+    }
+  }, [motherRecord, isOnline, token]);
+
+  useFocusEffect(useCallback(() => { void loadPrescriptions(); }, [loadPrescriptions]));
+
+  const loadDoseLog = useCallback(async () => {
+    const date = localDoseDate();
+    setDoseLogDate(date);
+    if (!user?.user_id) {
+      setTodayDoseIds([]);
+      return;
+    }
+    try {
+      setTodayDoseIds(await getLoggedDoseIds(user.user_id, date));
+    } catch (error) {
+      console.warn("Could not read today's dose log:", error);
+      setTodayDoseIds([]);
+    }
+  }, [user]);
+
+  useFocusEffect(useCallback(() => { void loadDoseLog(); }, [loadDoseLog]));
+
+  const prescriptionProgress = useMemo(() => {
+    const ordered = prescriptions.filter((item) => !item.is_completed);
+    const selected = ordered.find((item) => item.supplement_id === selectedPrescriptionId) ?? ordered.find((item) => !todayDoseIds.includes(item.supplement_id)) ?? ordered[0];
+    return { ordered, selected, logged: ordered.filter((item) => todayDoseIds.includes(item.supplement_id)).length };
+  }, [prescriptions, selectedPrescriptionId, todayDoseIds]);
+
+  const toggleSelectedDose = async () => {
+    const prescription = prescriptionProgress.selected;
+    if (!user?.user_id || !prescription || doseLogBusy) return;
+    setDoseLogBusy(true);
+    try {
+      const date = localDoseDate();
+      const current = date === doseLogDate ? todayDoseIds : await getLoggedDoseIds(user.user_id, date);
+      const wasLogged = current.includes(prescription.supplement_id);
+      const next = wasLogged ? current.filter((id) => id !== prescription.supplement_id) : [...current, prescription.supplement_id];
+      await setLoggedDoseIds(user.user_id, date, next);
+      setDoseLogDate(date);
+      setTodayDoseIds(next);
+      triggerLightHaptic();
+      toast.show({ label: wasLogged ? "Dose log removed" : "Dose logged for today", variant: "success" });
+    } catch (error) {
+      console.warn("Could not save today's dose:", error);
+      toast.show({ label: "Could not save dose log", description: "Please try again.", variant: "danger" });
+    } finally {
+      setDoseLogBusy(false);
+    }
+  };
+
+  const appointmentGroups = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateFor = (item: AppointmentRecord) => {
+      const value = item.appointment_date?.split("T")[0] ?? "";
+      const [year, month, day] = value.split("-").map(Number);
+      return year && month && day ? new Date(year, month - 1, day) : new Date(item.appointment_date);
+    };
+    const completed = appointments.filter((item) => item.status?.toLowerCase() === "completed");
+    const upcoming = appointments.filter((item) => {
+      const status = item.status?.toLowerCase();
+      return status !== "completed" && status !== "cancelled" && status !== "canceled" && dateFor(item) >= today;
+    });
+    upcoming.sort((a, b) => dateFor(a).getTime() - dateFor(b).getTime());
+    completed.sort((a, b) => dateFor(b).getTime() - dateFor(a).getTime());
+    return { upcoming, completed, dateFor };
+  }, [appointments]);
+
+  const shownAppointments = appointmentGroups[appointmentTab].slice(0, 3);
 
   const onRefresh = async () => {
     triggerLightHaptic();
     setIsRefreshing(true);
-    await Promise.all([loadData(), refreshProfile()]);
-    setIsRefreshing(false);
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
-
-  const handleToggleSupplement = async (supplementId: string, currentStatus: boolean) => {
-    const nextStatus = !currentStatus;
-    if (nextStatus) {
-      triggerSuccessHaptic();
-    } else {
-      triggerLightHaptic();
-    }
-
-    setSupplements((prev) =>
-      prev.map((item) =>
-        item.supplement_id === supplementId ? { ...item, is_completed: nextStatus } : item
-      )
-    );
-
     try {
-      await updateSupplementStatusLocal(supplementId, nextStatus, isOnline);
-      if (isOnline && token) {
-        await updateSupplementStatusApi(
-          { supplement_id: supplementId, is_completed: nextStatus },
-          token
-        );
-      }
-    } catch (err) {
-      console.warn("Supplement update error:", err);
+      await Promise.all([refreshProfile(), loadAppointments(), loadPrescriptions(), loadDoseLog()]);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -203,432 +238,323 @@ export default function DashboardScreen(): JSX.Element {
     }
   };
 
-  const nextAppointment = appointments.length > 0 ? appointments[0] : null;
-
   return (
     <View className="flex-1 bg-background">
-      <Header title={`Good day${user.first_name ? `, ${user.first_name}` : ""} 👋`} />
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 140 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
-        }
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#003f2c" />}
       >
-        <View className="px-5 pt-3">
-          <Pressable
-            onPress={gestationalData.hasPregnancy ? openTimelineModal : undefined}
-            className="active:opacity-90"
-          >
-            <Card className="mb-6 p-4 bg-surface gap-3.5 rounded-3xl border-0">
-              {gestationalData.hasPregnancy ? (
-                <>
-                  <View>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-foreground text-lg font-bold">
-                        Week {gestationalData.weeks}
-                      </Text>
-                      <View className="bg-[#3b82f6]/15 px-3 py-1 rounded-full">
-                        <Text className="text-[#3b82f6] text-xs font-bold">
-                          {gestationalData.progress}%
-                        </Text>
-                      </View>
-                    </View>
-                    <Text className="text-zinc-400 text-xs mt-0.5">
-                      {gestationalData.trimesterText} · {gestationalData.remainingWeeks} weeks to go
-                    </Text>
-                  </View>
+        <Card className="px-5 pt-5 pb-6 gap-7 rounded-none border-0" style={{ backgroundColor: "#1f1f1f" }}>
+          <Header
+            variant="dashboard"
+            darkHero
+            subtitle={gestationalData.hasPregnancy
+              ? gestationalData.trimesterText.replace(/\b\w/g, (letter) => letter.toUpperCase())
+              : "Maternal care"}
+          />
 
-                  <View className="overflow-hidden rounded-2xl">
-                    <Image
-                      source={require("../../../assets/fetus.jpg")}
-                      className="w-full h-44 rounded-2xl"
-                      resizeMode="cover"
-                    />
-                  </View>
-
-                  <View className="gap-1.5">
-                    <View className="flex-row justify-between items-center">
-                      <Text className="text-foreground text-xs font-medium">
-                        Maternal Progress Overview
-                      </Text>
-                      <Text className="text-zinc-400 text-xs font-medium">
-                        {gestationalData.weeks} wks
-                      </Text>
-                    </View>
-                    <View className="h-2 w-full bg-default rounded-full overflow-hidden">
-                      <View
-                        className="h-full bg-[#3b82f6] rounded-full"
-                        style={{ width: `${gestationalData.progress}%` }}
-                      />
-                    </View>
-                  </View>
-
-                  <View className="flex-row items-center justify-between pt-2 border-t border-separator/20">
-                    <Text className="text-zinc-400 text-xs flex-1 mr-2 leading-4" numberOfLines={1}>
-                      {currentWeekMilestone.babyDevelopment}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={14} color="#71717a" />
-                  </View>
-                </>
-              ) : (
-                <View className="py-6 items-center">
-                  <Ionicons name="medical-outline" size={32} color="#3b82f6" className="mb-2" />
-                  <Text className="text-foreground font-semibold text-base mb-1">
-                    Maternal Care Dashboard
-                  </Text>
-                  <Text className="text-zinc-400 text-sm text-center">
-                    Your pregnancy and prenatal visit records will appear here once registered by
-                    your healthcare facility.
-                  </Text>
-                </View>
-              )}
-            </Card>
-          </Pressable>
-
-          <View className="mb-6">
-            <Text className="text-foreground text-lg font-semibold mb-3">
-              Upcoming Appointments
+          <View className="gap-1">
+            <Text className="text-sm" style={{ color: "#a3a3a3" }}>Active Pregnancy</Text>
+            <Text className="text-[36px] leading-[42px] font-semibold" style={{ color: "#fafafa" }}>
+              {gestationalData.hasPregnancy ? `Week ${gestationalData.weeks}` : "No active pregnancy"}
             </Text>
-
-            {nextAppointment ? (
-              <Pressable
-                onPress={() => {
-                  triggerLightHaptic();
-                  router.push("/(tabs)/appointments");
-                }}
-              >
-                <Card className="p-4 bg-surface flex-row items-center gap-3.5 rounded-2xl border-0">
-                  <View className="items-center justify-center w-12 bg-[#3b82f6]/15 rounded-xl py-2">
-                    <Text className="text-[#3b82f6] text-xs font-bold">
-                      {new Date(nextAppointment.appointment_date).toLocaleDateString("en-US", {
-                        weekday: "short",
-                      })}
-                    </Text>
-                    <Text className="text-foreground text-base font-bold">
-                      {new Date(nextAppointment.appointment_date).getDate()}
-                    </Text>
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="text-foreground font-semibold text-sm">
-                      {nextAppointment.appointment_type}
-                    </Text>
-                    <Text className="text-zinc-400 text-xs mt-0.5">
-                      {new Date(nextAppointment.appointment_date).toLocaleDateString()} ·{" "}
-                      {nextAppointment.appointment_time}
-                    </Text>
-                  </View>
-
-                  <View className="size-8 rounded-full bg-[#3b82f6]/15 items-center justify-center">
-                    <Ionicons name="chevron-forward" size={14} color="#3b82f6" />
-                  </View>
-                </Card>
-              </Pressable>
-            ) : (
-              <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
-                <Ionicons name="calendar-outline" size={24} color="#71717a" className="mb-2" />
-                <Text className="text-zinc-400 text-sm">No upcoming appointments scheduled.</Text>
-              </Card>
-            )}
           </View>
 
-          <View className="mb-6">
-            <Text className="text-foreground text-lg font-semibold mb-3">Daily Prescriptions</Text>
-
-            {supplements.length > 0 ? (
-              <View className="gap-3">
-                {supplements.map((item) => (
-                  <Pressable
-                    key={item.supplement_id}
-                    onPress={() => handleToggleSupplement(item.supplement_id, item.is_completed)}
-                    className="active:scale-[0.98]"
-                  >
-                    <Card
-                      className={`p-4 flex-row items-center gap-3.5 rounded-2xl ${
-                        item.is_completed
-                          ? "bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30"
-                          : "bg-surface border-0"
-                      }`}
-                    >
-                      <View
-                        className={`size-6 rounded-full items-center justify-center border-2 ${
-                          item.is_completed
-                            ? "bg-emerald-500 border-emerald-500 shadow-xs"
-                            : "border-zinc-400 dark:border-zinc-600 bg-transparent"
-                        }`}
-                      >
-                        {item.is_completed && (
-                          <Ionicons name="checkmark" size={14} color="#ffffff" />
-                        )}
-                      </View>
-                      <View className="flex-1">
-                        <Text
-                          className={`font-semibold text-sm ${
-                            item.is_completed
-                              ? "text-foreground line-through opacity-80"
-                              : "text-foreground"
-                          }`}
-                        >
-                          {item.supplement_type}
-                        </Text>
-                        <Text className="text-zinc-400 text-xs mt-0.5">
-                          {item.tablets_given_count} tablets prescribed
-                        </Text>
-                      </View>
-                      <View
-                        className={`px-3 py-1 rounded-full flex-row items-center gap-1.5 ${
-                          item.is_completed
-                            ? "bg-emerald-500/20"
-                            : "bg-amber-400/20 border border-amber-400/30"
-                        }`}
-                      >
-                        {item.is_completed && (
-                          <Ionicons name="checkmark-circle" size={13} color="#34d399" />
-                        )}
-                        <Text
-                          className={`text-xs font-semibold ${
-                            item.is_completed ? "text-emerald-400" : "text-amber-300"
-                          }`}
-                        >
-                          {item.is_completed ? "Taken" : "Pending"}
-                        </Text>
-                      </View>
-                    </Card>
-                  </Pressable>
-                ))}
-              </View>
-            ) : (
-              <Card className="p-4 bg-surface rounded-2xl border-0 items-center py-6">
-                <Ionicons name="leaf-outline" size={24} color="#71717a" className="mb-2" />
-                <Text className="text-zinc-400 text-sm">No active daily prescriptions logged.</Text>
-              </Card>
-            )}
-          </View>
-
-          <View className="mb-6">
-            <Text className="text-foreground text-lg font-semibold mb-3">Vitals & Analytics</Text>
-
+          <View className={`gap-2 ${screenWidth < 360 ? "flex-col" : "flex-row"}`}>
             <Pressable
               onPress={() => {
                 triggerLightHaptic();
-                router.push("/(tabs)/vitals");
+                setAppointmentSheetOpen(true);
               }}
+              className="flex-1 min-h-12 flex-row items-center justify-center gap-2 rounded-full px-3 active:opacity-85"
+              style={{ backgroundColor: "#fffe8c" }}
             >
-              <Card className="p-4 bg-surface flex-row items-center gap-3.5 rounded-2xl border-0">
-                <View className="size-11 rounded-full bg-blue-500/15 items-center justify-center">
-                  <Ionicons name="pulse" size={20} color="#3b82f6" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-foreground font-semibold text-sm">
-                    Blood pressure, heart rate, weight
-                  </Text>
-                  <Text className="text-zinc-400 text-xs mt-0.5">
-                    Mother & newborn health tracking
-                  </Text>
-                </View>
-                <View className="size-8 rounded-full bg-default items-center justify-center">
-                  <Ionicons name="chevron-forward" size={14} color="#a1a1aa" />
-                </View>
-              </Card>
+              <Ionicons name="add" weight="bold" size={20} color="#111111" />
+              <Text className="text-sm font-medium" style={{ color: "#111111" }}>Set Appointment</Text>
+            </Pressable>
+            <Pressable
+              onPress={gestationalData.hasPregnancy ? openTimelineModal : () => router.push("/(tabs)/records")}
+              className="flex-1 min-h-12 flex-row items-center justify-center gap-2 rounded-full px-3 active:opacity-85"
+              style={{ backgroundColor: "#303030" }}
+            >
+              <Ionicons name="navigate-outline" weight="bold" size={19} color="#fafafa" />
+              <Text className="text-sm font-medium" style={{ color: "#fafafa" }}>Track Pregnancy</Text>
             </Pressable>
           </View>
-        </View>
-      </ScrollView>
+        </Card>
 
-      <Modal
-        visible={isTimelineModalOpen}
-        transparent
-        animationType="slide"
-        onShow={() => jumpToCurrentWeek(false)}
-        onRequestClose={() => setIsTimelineModalOpen(false)}
-      >
-        <View className="flex-1 bg-black/60 justify-end">
-          <Card
-            className="w-full h-[85%] bg-surface rounded-t-3xl border-0 p-5 gap-3.5"
-            style={{ paddingBottom: Math.max(24, insets.bottom + 16) }}
-          >
-            <View className="flex-row items-center justify-between pb-2 border-b border-separator/20">
-              <View className="flex-1 mr-2">
-                <Text className="text-foreground font-bold text-base">40-Week Timeline</Text>
-                <Text className="text-zinc-400 text-xs mt-0.5">
-                  Slide across weeks to explore baby&apos;s development
-                </Text>
-              </View>
+        <LinearGradient
+          colors={["#fffecb", "#fffef0", "#ffffff"]}
+          locations={[0, 0.32, 0.78]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{ width: "100%" }}
+        >
+        <Animated.View entering={FadeInUp.duration(220)} className="px-4 pt-8">
+          <View className="flex-row justify-between">
+            {[
+              { label: "QR Connect", icon: "qr-code-outline" as const, route: "qr-connect", weight: "bold" as const },
+              { label: "Upload EHR", icon: "cloud-upload-outline" as const, route: "upload-ehr", weight: "bold" as const },
+              { label: "Appointment History", icon: "calendar-outline" as const, route: "/(tabs)/history", weight: "bold" as const },
+              { label: "Messages", icon: "chatbubble-ellipses-outline" as const, route: "/(tabs)/chat", weight: "bold" as const },
+            ].map((action) => (
               <Pressable
-                onPress={() => setIsTimelineModalOpen(false)}
-                className="size-8 rounded-full bg-default items-center justify-center active:opacity-75 shrink-0"
+                key={action.label}
+                onPress={() => {
+                  triggerLightHaptic();
+                  if (action.route === "qr-connect") setQrModalOpen(true);
+                  else if (action.route === "upload-ehr") setUploadSheetOpen(true);
+                  else router.push(action.route as never);
+                }}
+                className="w-[24%] items-center gap-2 active:opacity-75"
               >
-                <Ionicons name="close" size={18} color="#71717a" />
+                <View className="size-14 rounded-full items-center justify-center" style={{ backgroundColor: "#262626" }}>
+                  <Ionicons name={action.icon} weight={action.weight} size={22} color="#fffe8c" />
+                </View>
+                <Text className="text-foreground text-sm font-medium text-center" numberOfLines={2}>
+                  {action.label}
+                </Text>
               </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+
+        <View className="gap-3 px-4 pt-8">
+          <View className="min-h-11 flex-row items-center justify-between">
+            <Text className="text-base font-semibold text-foreground">Your prescriptions</Text>
+            <Pressable
+              onPress={() => router.push({ pathname: "/(tabs)/records", params: { tab: "prescriptions" } })}
+              accessibilityRole="link"
+              className="min-h-11 justify-center active:opacity-70"
+            >
+              <Text className="text-sm font-medium" style={{ color: "#8a8100" }}>See all</Text>
+            </Pressable>
+          </View>
+          <View className="rounded-[18px] bg-[#1f1f1f] p-4">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-sm font-semibold text-[#f5f5f5]">Today&apos;s doses</Text>
+              <Text className="text-sm font-medium text-[#fffe8c]">{prescriptionProgress.logged} of {prescriptionProgress.ordered.length} logged</Text>
             </View>
 
-            {gestationalData.weeks > 0 && (
-              <View className="flex-row items-center justify-between bg-primary/10 px-3 py-2.5 rounded-xl gap-2">
-                <View className="flex-row items-center gap-2 flex-1 min-w-0">
-                  <Ionicons name="time-outline" size={15} color="#3b82f6" />
-                  <Text
-                    className="text-primary text-xs font-semibold flex-1"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    Current: Week {gestationalData.weeks} ({gestationalData.trimesterText})
-                  </Text>
+            {prescriptionProgress.ordered.length > 0 ? (
+              <>
+                <View className="mt-5 flex-row items-center">
+                  {prescriptionProgress.ordered.slice(0, 4).map((prescription, index) => {
+                    const isSelected = prescription.supplement_id === prescriptionProgress.selected?.supplement_id;
+                    const isLogged = todayDoseIds.includes(prescription.supplement_id);
+                    return (
+                      <View key={prescription.supplement_id} className="flex-1 flex-row items-center">
+                        {index > 0 && <View className="h-0.5 flex-1 bg-[#595959]" />}
+                        <Pressable
+                          onPress={() => setSelectedPrescriptionId(prescription.supplement_id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${prescription.supplement_type}, ${isLogged ? "logged today" : "not logged today"}`}
+                          className="size-9 items-center justify-center rounded-full"
+                          style={{ backgroundColor: isLogged ? "#fffe8c" : isSelected ? "#e8ddff" : "#353535" }}
+                        >
+                          <Ionicons name={isLogged ? "checkmark" : "time-outline"} weight="bold" size={17} color={isLogged || isSelected ? "#171717" : "#f5f5f5"} />
+                        </Pressable>
+                        {index < Math.min(prescriptionProgress.ordered.length, 4) - 1 && <View className="h-0.5 flex-1 bg-[#595959]" />}
+                      </View>
+                    );
+                  })}
                 </View>
-                <Pressable
-                  onPress={() => jumpToCurrentWeek(true)}
-                  className="bg-primary px-3 py-1.5 rounded-lg active:opacity-80 shrink-0"
-                >
-                  <Text className="text-white text-[11px] font-bold">My Week</Text>
-                </Pressable>
-              </View>
+                <View className="mt-4 flex-row items-center justify-between gap-3 rounded-xl bg-[#303030] px-3 py-2.5">
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-[#fafafa]" numberOfLines={1}>{prescriptionProgress.selected?.supplement_type}</Text>
+                    <Text className="text-sm text-[#a3a3a3]">{prescriptionProgress.selected?.tablets_given_count ?? 0} tablets prescribed</Text>
+                  </View>
+                  <Pressable
+                    onPress={toggleSelectedDose}
+                    disabled={doseLogBusy}
+                    accessibilityRole="button"
+                    className="min-h-11 justify-center rounded-full px-3 active:opacity-80 disabled:opacity-50"
+                    style={{ backgroundColor: todayDoseIds.includes(prescriptionProgress.selected?.supplement_id ?? "") ? "#454545" : "#fffe8c" }}
+                  >
+                    <Text className="text-sm font-semibold" style={{ color: todayDoseIds.includes(prescriptionProgress.selected?.supplement_id ?? "") ? "#fafafa" : "#171717" }}>
+                      {todayDoseIds.includes(prescriptionProgress.selected?.supplement_id ?? "") ? "Undo log" : "Log dose"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <Text className="mt-4 text-sm text-[#a3a3a3]">Prescriptions from your care team will appear here.</Text>
             )}
 
-            <View className="py-1">
-              <ScrollView
-                ref={weekScrollerRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentOffset={{
-                  x: Math.max(0, (selectedTimelineWeek - 2.5) * 60),
-                  y: 0,
-                }}
-                contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
-              >
-                {PREGNANCY_WEEKS.map((item) => {
-                  const isSelected = item.week === selectedTimelineWeek;
-                  const isCurrent = item.week === gestationalData.weeks;
+          </View>
+        </View>
 
-                  return (
-                    <Pressable
-                      key={item.week}
-                      onPress={() => {
-                        triggerSelectionHaptic();
-                        setSelectedTimelineWeek(item.week);
-                      }}
-                      className={`w-13 py-2 rounded-xl items-center justify-center border ${
-                        isSelected
-                          ? "bg-primary border-primary shadow-xs"
-                          : isCurrent
-                            ? "bg-primary/15 border-primary/40"
-                            : "bg-default border-transparent"
-                      }`}
-                    >
-                      <Text
-                        className={`text-[9px] font-semibold uppercase ${
-                          isSelected ? "text-white/80" : "text-zinc-400"
-                        }`}
-                      >
-                        Wk
-                      </Text>
-                      <Text
-                        className={`text-sm font-bold ${
-                          isSelected ? "text-white" : isCurrent ? "text-primary" : "text-foreground"
-                        }`}
-                      >
-                        {item.week}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+        <View className="px-4 pt-9 gap-4">
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="text-base font-semibold text-foreground">Your appointments</Text>
+            <Pressable
+              onPress={() => router.push({ pathname: "/(tabs)/history" })}
+              accessibilityRole="link"
+              className="min-h-11 justify-center active:opacity-70"
+            >
+              <Text className="text-sm font-medium" style={{ color: "#8a8100" }}>See all</Text>
+            </Pressable>
+          </View>
+
+          <View className="overflow-hidden rounded-[18px]" style={{ backgroundColor: "#262626" }}>
+            <View className="flex-row" style={{ backgroundColor: "#1b1b1b" }}>
+              {(["upcoming", "completed"] as const).map((tab) => (
+                <Pressable
+                  key={tab}
+                  onPress={() => setAppointmentTab(tab)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: appointmentTab === tab }}
+                  className="min-h-12 flex-1 items-center justify-center rounded-t-[18px] px-3 active:opacity-75"
+                  style={{ backgroundColor: appointmentTab === tab ? "#262626" : tab === "upcoming" ? "#1b1b1b" : "#222222" }}
+                >
+                  <Text className="text-sm font-semibold" style={{ color: appointmentTab === tab ? "#f5f5f5" : "#a3a3a3" }}>
+                    {tab === "upcoming" ? "Upcoming" : "Completed"} ({appointmentGroups[tab].length})
+                  </Text>
+                </Pressable>
+              ))}
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} className="gap-3 flex-1">
-              <Card className="p-3.5 bg-default/70 rounded-2xl border-0 gap-2 mb-2.5">
-                <View className="flex-row items-center justify-between">
-                  <View>
-                    <Text className="text-foreground font-bold text-base">
-                      Week {activeDetailMilestone.week}
-                    </Text>
-                    <Text className="text-zinc-400 text-xs mt-0.5">
-                      Trimester {activeDetailMilestone.trimester} ·{" "}
-                      {Math.max(0, 40 - activeDetailMilestone.week)} weeks to go
-                    </Text>
+            <View className="gap-3 px-3 pb-3 pt-3" style={{ backgroundColor: "#262626" }}>
+            {shownAppointments.map((appointment) => {
+              const date = appointmentGroups.dateFor(appointment);
+              const dateLabel = Number.isNaN(date.getTime())
+                ? "Date to be confirmed"
+                : date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+              const timeLabel = appointment.appointment_time || "Time to be confirmed";
+              return (
+                <Pressable
+                  key={appointment.appointment_id}
+                  onPress={() => router.push({ pathname: "/(tabs)/appointment-detail", params: { id: appointment.appointment_id } })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${appointment.appointment_type}, ${dateLabel}, ${timeLabel}`}
+                  className="flex-row gap-3 active:opacity-80"
+                >
+                  <View className="w-12 items-end pt-4">
+                    <Text className="text-sm font-semibold" style={{ color: "#f5f1c4" }} numberOfLines={1}>{timeLabel.split(" ")[0]}</Text>
+                    <Text className="text-sm" style={{ color: "#b9b48a" }}>{timeLabel.split(" ")[1] || ""}</Text>
+                    <View className="mr-1 mt-3 w-[2px] flex-1 rounded-full" style={{ backgroundColor: "#77713a" }} />
                   </View>
-
-                  <View className="bg-primary/20 px-2.5 py-0.5 rounded-full">
-                    <Text className="text-primary font-bold text-xs">
-                      {activeDetailMilestone.week === gestationalData.weeks
-                        ? "Current Week"
-                        : activeDetailMilestone.week < gestationalData.weeks
-                          ? "Past Week"
-                          : "Upcoming"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View className="bg-surface p-2.5 rounded-xl flex-row items-center justify-between mt-1">
-                  <View className="flex-row items-center gap-2">
-                    <View className="size-7 rounded-full bg-pink-500/15 items-center justify-center">
-                      <Ionicons name="nutrition" size={14} color="#ec4899" />
+                  <View className="min-h-40 flex-1 justify-between rounded-[16px] p-4" style={{ backgroundColor: "#302f22" }}>
+                    <View className="gap-2">
+                      <Text className="text-sm" style={{ color: "#b9b48a" }}>{timeLabel}</Text>
+                      <Text className="text-base font-semibold leading-6" style={{ color: "#f5f1c4" }} numberOfLines={2}>{appointment.appointment_type}</Text>
                     </View>
-                    <View>
-                      <Text className="text-zinc-400 text-[10px] font-semibold uppercase">
-                        Size Comparison
-                      </Text>
-                      <Text className="text-foreground font-bold text-xs">
-                        {activeDetailMilestone.sizeComparison}
-                      </Text>
+                    <View className="flex-row items-center justify-between gap-3">
+                      <View className="flex-1 flex-row items-center gap-2">
+                        <View className="size-9 rounded-[10px] items-center justify-center" style={{ backgroundColor: "#41402c" }}>
+                          <Ionicons name="calendar-outline" weight="bold" size={18} color="#fffe8c" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-sm font-medium" style={{ color: "#f5f1c4" }} numberOfLines={2}>{dateLabel}</Text>
+                          <Text className="text-sm" style={{ color: "#b9b48a" }}>{appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).toLowerCase() : "Scheduled"}</Text>
+                        </View>
+                      </View>
+                      <View className="size-9 rounded-full items-center justify-center" style={{ backgroundColor: "#171717" }}>
+                        <Ionicons name="arrow-up-right-box-outline" weight="bold" size={17} color="#ffffff" />
+                      </View>
                     </View>
                   </View>
-
-                  <View className="items-end">
-                    <Text className="text-zinc-400 text-[10px] font-semibold uppercase">
-                      Length & Wt
-                    </Text>
-                    <Text className="text-foreground font-bold text-xs">
-                      {activeDetailMilestone.approxLength} · {activeDetailMilestone.approxWeight}
-                    </Text>
-                  </View>
-                </View>
-              </Card>
-
-              <Card className="p-3.5 bg-surface rounded-2xl border-0 gap-1.5 mb-2.5">
-                <View className="flex-row items-center gap-2 mb-0.5">
-                  <Ionicons name="heart" size={15} color="#ef4444" />
-                  <Text className="text-foreground font-bold text-sm">Baby&apos;s Development</Text>
-                </View>
-                <Text className="text-zinc-600 dark:text-zinc-300 text-xs leading-5">
-                  {activeDetailMilestone.babyDevelopment}
-                </Text>
-              </Card>
-
-              <Card className="p-3.5 bg-surface rounded-2xl border-0 gap-1.5 mb-2.5">
-                <View className="flex-row items-center gap-2 mb-0.5">
-                  <Ionicons name="body" size={15} color="#3b82f6" />
-                  <Text className="text-foreground font-bold text-sm">What Mom May Feel</Text>
-                </View>
-                <Text className="text-zinc-600 dark:text-zinc-300 text-xs leading-5">
-                  {activeDetailMilestone.momExperience}
-                </Text>
-              </Card>
-
-              {activeDetailMilestone.clinicalMilestone && (
-                <Card className="p-3.5 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-2xl border border-emerald-500/25 gap-1.5 mb-2.5">
-                  <View className="flex-row items-center gap-2 mb-0.5">
-                    <Ionicons name="medkit" size={15} color="#10b981" />
-                    <Text className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                      Recommended Clinical Milestone
-                    </Text>
-                  </View>
-                  <Text className="text-zinc-700 dark:text-zinc-200 text-xs leading-5 font-medium">
-                    {activeDetailMilestone.clinicalMilestone}
-                  </Text>
-                </Card>
-              )}
-            </ScrollView>
-
-            <Button
-              variant="secondary"
-              className="rounded-xl w-full"
-              onPress={() => setIsTimelineModalOpen(false)}
-            >
-              <Button.Label className="text-foreground font-semibold">Done</Button.Label>
-            </Button>
-          </Card>
+                </Pressable>
+              );
+            })}
+            {shownAppointments.length === 0 && (
+              <MobileEmptyState
+                icon="calendar-outline"
+                title={appointmentTab === "upcoming" ? "No upcoming appointments" : "No completed appointments"}
+                description={appointmentTab === "upcoming" ? "Your scheduled visits will appear here." : "Completed visits will appear here after your appointment."}
+                action={appointmentTab === "upcoming" ? (
+                  <Pressable onPress={() => setAppointmentSheetOpen(true)} className="min-h-11 justify-center rounded-md bg-[#fffe8c] px-3 active:opacity-80">
+                    <Text className="text-sm font-medium text-[#171717]">Schedule Appointment</Text>
+                  </Pressable>
+                ) : undefined}
+              />
+            )}
+            </View>
+          </View>
         </View>
-      </Modal>
+        </LinearGradient>
+      </ScrollView>
+
+      <BottomSheet isOpen={isTimelineModalOpen} onOpenChange={open => { if (!open) setIsTimelineModalOpen(false); }}>
+        <BottomSheet.Portal>
+          <BottomSheet.Overlay className="bg-black/60" />
+          <BottomSheet.Content snapPoints={["66%"]} enableDynamicSizing={false} enableOverDrag={false} contentContainerClassName="h-full" backgroundClassName="rounded-t-[24px] bg-background" handleIndicatorClassName="bg-muted">
+            <View className="flex-1 px-5 pb-5 pt-1">
+              <BottomSheetHeader title="Track pregnancy" description="Follow your pregnancy week by week." onClose={() => setIsTimelineModalOpen(false)} closeLabel="Close pregnancy timeline" />
+              <BottomSheetScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 36 }}>
+              <View className="mb-4 rounded-2xl bg-surface p-4">
+                <View className="flex-row items-start justify-between gap-3">
+                  <View>
+                    <Text className="text-sm font-medium text-muted-foreground">Pregnancy timeline</Text>
+                    <Text className="mt-1 text-2xl font-semibold text-foreground">Week {timelineWeek}</Text>
+                    <Text className="mt-1 text-sm text-muted-foreground">Trimester {activeDetailMilestone.trimester} · {Math.max(0, 40 - timelineWeek)} weeks remaining</Text>
+                  </View>
+                  {timelineWeek !== gestationalData.weeks && (
+                    <Pressable onPress={() => jumpToCurrentWeek(true)} accessibilityRole="button" className="min-h-10 justify-center rounded-md bg-[#fffe8c] px-3">
+                      <Text className="text-sm font-medium text-[#171717]">Today</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <View accessibilityLabel={`Pregnancy progress: week ${timelineWeek} of 40`} className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                  <View className="h-full rounded-full bg-[#e5dc42]" style={{ width: `${Math.min(100, (timelineWeek / 40) * 100)}%` }} />
+                </View>
+                <View className="mt-2 flex-row justify-between">
+                  <Text className="text-sm text-muted-foreground">Week {timelineWeek}</Text>
+                  <Text className="text-sm text-muted-foreground">40 weeks</Text>
+                </View>
+              </View>
+              <Text className="mb-2 text-sm font-medium text-muted-foreground">Explore a week</Text>
+              <NativeViewGestureHandler disallowInterruption>
+                <ScrollView ref={weekScrollerRef} horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} className="mb-5 grow-0" contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+                  {PREGNANCY_WEEKS.map(item => {
+                    const selected = item.week === timelineWeek;
+                    return <Pressable key={item.week} onPress={() => { triggerSelectionHaptic(); setSelectedTimelineWeek(item.week); }} accessibilityRole="button" accessibilityLabel={`Week ${item.week}`} accessibilityState={{ selected }} className={`min-h-11 min-w-11 items-center justify-center rounded-xl px-3 ${selected ? "bg-[#fffe8c]" : "bg-surface active:opacity-70"}`}>
+                      <Text className={`text-sm font-semibold ${selected ? "text-[#171717]" : "text-muted-foreground"}`}>{item.week}</Text>
+                    </Pressable>;
+                  })}
+                </ScrollView>
+              </NativeViewGestureHandler>
+              <View className="gap-4">
+                <View className="rounded-2xl bg-surface p-4">
+                  <Text className="text-sm font-medium text-muted-foreground">Baby’s development</Text>
+                  <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.sizeComparison}</Text>
+                  <Text className="mt-2 text-sm leading-5 text-muted-foreground">{activeDetailMilestone.babyDevelopment}</Text>
+                  <View className="mt-4 flex-row gap-3">
+                    <View className="flex-1 rounded-xl bg-background px-3 py-2.5">
+                      <Text className="text-sm text-muted-foreground">Length</Text>
+                      <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.approxLength}</Text>
+                    </View>
+                    <View className="flex-1 rounded-xl bg-background px-3 py-2.5">
+                      <Text className="text-sm text-muted-foreground">Weight</Text>
+                      <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.approxWeight}</Text>
+                    </View>
+                  </View>
+                </View>
+                <View className="px-1">
+                  <Text className="text-base font-semibold text-foreground">For you</Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted-foreground">{activeDetailMilestone.momExperience}</Text>
+                </View>
+                {activeDetailMilestone.clinicalMilestone && (
+                  <View className="rounded-2xl bg-[#fffedc] p-4">
+                    <Text className="text-sm font-semibold text-foreground">Care milestone</Text>
+                    <Text className="mt-1 text-sm leading-5 text-foreground/80">{activeDetailMilestone.clinicalMilestone}</Text>
+                  </View>
+                )}
+              </View>
+              </BottomSheetScrollView>
+            </View>
+          </BottomSheet.Content>
+        </BottomSheet.Portal>
+      </BottomSheet>
+      <MotherQRCodeModal
+        visible={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        user={user}
+        motherRecord={motherRecord}
+      />
+      <UploadRecordSheet visible={uploadSheetOpen} onClose={() => setUploadSheetOpen(false)} />
+      <AppointmentBookingSheet visible={appointmentSheetOpen} onClose={() => setAppointmentSheetOpen(false)} onCreated={loadAppointments} />
     </View>
   );
 }

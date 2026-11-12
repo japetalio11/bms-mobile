@@ -16,7 +16,6 @@ import {
   encryptSensitiveText,
   decryptSensitiveText,
   encryptObject,
-  decryptObject,
 } from "../lib/crypto";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;

@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   FlatList,
-  Alert,
   ActivityIndicator,
   Image,
   Modal,
@@ -16,10 +15,11 @@ import {
   Text,
 } from "react-native";
 import { Avatar } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
+import { BottomSheetHeader } from "../../components/BottomSheetHeader";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { JSX } from "react";
-import { useRouter, useFocusEffect, useNavigation } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -58,6 +58,22 @@ type MessageBubble = {
   status?: "sending" | "sent" | "failed" | "queued";
 };
 
+function MessagesTopBar({ onBack, isDark }: { onBack: () => void; isDark: boolean }): JSX.Element {
+  return (
+    <View className="mt-4 h-12 flex-row items-center justify-center bg-background px-4">
+      <Pressable
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        className="absolute left-4 size-9 items-center justify-center active:opacity-70"
+      >
+        <Ionicons name="chevron-back" size={20} weight="bold" color={isDark ? "#f5f5f5" : "#262626"} />
+      </Pressable>
+      <Text className="text-2xl font-semibold text-foreground">Messages</Text>
+    </View>
+  );
+}
+
 export default function ChatScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -78,12 +94,25 @@ export default function ChatScreen(): JSX.Element {
   const [staffList, setStaffList] = useState<ChatContact[]>([]);
   const [allMessages, setAllMessages] = useState<InAppMessage[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<ChatContact | null>(null);
+  const [isStaffListVisible, setIsStaffListVisible] = useState(false);
+  const assignedStaff = staffList.find((staff) => staff.user_id === assignedWorkerId)
+    || motherRecord?.assignedWorker
+    || motherRecord?.creator
+    || null;
+  const defaultStaffContact: ChatContact | null = assignedWorkerId
+    ? (assignedStaff as ChatContact | null) || {
+        user_id: assignedWorkerId,
+        first_name: "Assigned",
+        last_name: "Care Provider",
+        role: "Health Worker",
+      }
+    : null;
+  const activeStaff = selectedStaff || (isStaffListVisible ? null : defaultStaffContact);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [hasFacility, setHasFacility] = useState<boolean | null>(user?.facility_id ? true : null);
 
   const [inputText, setInputText] = useState("");
-  const [isFetching, setIsFetching] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -141,7 +170,6 @@ export default function ChatScreen(): JSX.Element {
   }, []);
 
   const flatListRef = useRef<FlatList>(null);
-
   const isInitialHydrationDone = useRef(false);
 
   const fetchAllData = useCallback(async () => {
@@ -281,7 +309,7 @@ export default function ChatScreen(): JSX.Element {
     } catch (err) {
       console.warn("Failed to fetch chat data:", err);
     }
-  }, [token, user?.user_id, user?.facility_id, isOnline, motherRecord?.assignedWorker]);
+  }, [token, user, isOnline, motherRecord]);
 
   useFocusEffect(
     useCallback(() => {
@@ -303,10 +331,10 @@ export default function ChatScreen(): JSX.Element {
   };
 
   useEffect(() => {
-    if (selectedStaff && token && isOnline) {
-      markMessagesAsReadApi(selectedStaff.user_id, token).catch(() => {});
+    if (activeStaff && token && isOnline) {
+      markMessagesAsReadApi(activeStaff.user_id, token).catch(() => {});
     }
-  }, [selectedStaff, token, isOnline]);
+  }, [activeStaff, token, isOnline]);
 
   const staffWithMeta = useMemo(() => {
     return staffList.map((staff) => {
@@ -435,12 +463,12 @@ export default function ChatScreen(): JSX.Element {
   ]);
 
   const currentChatMessages = useMemo<MessageBubble[]>(() => {
-    if (!selectedStaff) return [];
+    if (!activeStaff) return [];
 
     const thread = allMessages.filter(
       (m) =>
-        (m.sender_id === selectedStaff.user_id && m.receiver_id === user?.user_id) ||
-        (m.sender_id === user?.user_id && m.receiver_id === selectedStaff.user_id)
+        (m.sender_id === activeStaff.user_id && m.receiver_id === user?.user_id) ||
+        (m.sender_id === user?.user_id && m.receiver_id === activeStaff.user_id)
     );
 
     const seenIds = new Set<string>();
@@ -483,7 +511,7 @@ export default function ChatScreen(): JSX.Element {
             : "sent",
       };
     });
-  }, [allMessages, selectedStaff, user?.user_id, sendingMessageIds]);
+  }, [allMessages, activeStaff, user?.user_id, sendingMessageIds]);
 
   useEffect(() => {
     if (currentChatMessages.length > 0) {
@@ -495,13 +523,13 @@ export default function ChatScreen(): JSX.Element {
 
   const handleSendText = async () => {
     const trimmed = inputText.trim();
-    if (!trimmed || !selectedStaff || isSending || !user?.user_id) return;
+    if (!trimmed || !activeStaff || isSending || !user?.user_id) return;
 
     const localId = `local_${Date.now()}`;
     const localMessage: InAppMessage = {
       message_id: localId,
       sender_id: user.user_id,
-      receiver_id: selectedStaff.user_id,
+      receiver_id: activeStaff.user_id,
       message_content: trimmed,
       message_type: "text",
       message_date: new Date().toISOString(),
@@ -517,7 +545,7 @@ export default function ChatScreen(): JSX.Element {
       if (isOnline && token) {
         const sentMsg = await sendMessageApi(
           {
-            receiver_id: selectedStaff.user_id,
+            receiver_id: activeStaff.user_id,
             message_content: trimmed,
             message_type: "text",
           },
@@ -552,7 +580,7 @@ export default function ChatScreen(): JSX.Element {
     fileInfo: { uri: string; name: string; type: string },
     detectedType: "image" | "file"
   ) => {
-    if (!token || !selectedStaff || isSending || !user?.user_id) return;
+    if (!token || !activeStaff || isSending || !user?.user_id) return;
     if (!isOnline) {
       confirm({
         title: "Offline Mode",
@@ -570,7 +598,7 @@ export default function ChatScreen(): JSX.Element {
     const localMessage: InAppMessage = {
       message_id: localId,
       sender_id: user.user_id,
-      receiver_id: selectedStaff.user_id,
+      receiver_id: activeStaff.user_id,
       message_content: fileInfo.uri,
       message_type: detectedType,
       message_date: new Date().toISOString(),
@@ -592,7 +620,7 @@ export default function ChatScreen(): JSX.Element {
 
       const sentMsg = await sendMessageApi(
         {
-          receiver_id: selectedStaff.user_id,
+          receiver_id: activeStaff.user_id,
           message_content: serverUrl,
           message_type: detectedType,
         },
@@ -775,11 +803,22 @@ export default function ChatScreen(): JSX.Element {
     }
   };
 
+  const getChatDayLabel = (dateStr?: string) => {
+    if (!dateStr) return "Today";
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  };
+
   const getRoleBadgeStyle = (role: string) => {
     const r = (role || "").toLowerCase();
     if (r.includes("doctor")) {
       return {
-        bg: "bg-blue-500/10",
+        bg: "bg-muted",
         border: "border-blue-500/25",
         text: "text-blue-600 dark:text-blue-400",
       };
@@ -805,40 +844,34 @@ export default function ChatScreen(): JSX.Element {
     };
   };
 
-  if (hasFacility === false || (!user?.facility_id && hasFacility !== true)) {
+  const canMessageAssignedProvider = Boolean(motherRecord && assignedWorkerId);
+
+  if (
+    !canMessageAssignedProvider &&
+    (hasFacility === false || (!user?.facility_id && hasFacility !== true))
+  ) {
     return (
       <View className="flex-1 bg-background">
-        <View className="px-4 pt-6 pb-3 bg-surface border-b border-default flex-row items-center gap-3">
-          <Pressable
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.push("/(tabs)/profile");
-              }
-            }}
-            className="size-9 rounded-full bg-default items-center justify-center"
-          >
-            <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
-          </Pressable>
-          <Text className="text-foreground font-bold text-lg">Direct Messaging</Text>
-        </View>
+        <MessagesTopBar
+          isDark={isDark}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
+        />
 
         <View className="flex-1 items-center justify-center p-6">
-          <View className="size-20 rounded-full bg-blue-500/10 border border-blue-500/20 items-center justify-center mb-4">
+          <View className="size-20 rounded-full bg-muted border border-blue-500/20 items-center justify-center mb-4">
             <Ionicons name="business-outline" size={36} color="#3b82f6" />
           </View>
-          <Text className="text-foreground font-bold text-lg mb-2 text-center">
+          <Text className="text-foreground font-semibold text-base mb-2 text-center">
             Not Affiliated with any Facility
           </Text>
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-sm leading-6 mb-6">
+          <Text className="text-muted-foreground dark:text-muted-foreground text-sm text-center max-w-sm leading-6 mb-6">
             You are currently not affiliated with any healthcare facility. Direct messaging is only
             available once your account is linked to a health center.
           </Text>
 
           <Pressable
             onPress={() => router.push("/(tabs)/profile")}
-            className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2 shadow-xs"
+            className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2 shadow-none"
           >
             <Ionicons name="person-circle-outline" size={20} color="white" />
             <Text className="text-white font-semibold text-sm">View Profile</Text>
@@ -848,97 +881,43 @@ export default function ChatScreen(): JSX.Element {
     );
   }
 
-  if (selectedStaff) {
-    const staffBadge = getRoleBadgeStyle(selectedStaff.role);
-    const staffDisplayName = selectedStaff.role.toLowerCase().includes("doctor")
-      ? `Dr. ${selectedStaff.first_name} ${selectedStaff.last_name}`
-      : `${selectedStaff.first_name} ${selectedStaff.last_name}`;
+  if (activeStaff) {
+    const staffDisplayName = activeStaff.role.toLowerCase().includes("doctor")
+      ? `Dr. ${activeStaff.first_name} ${activeStaff.last_name}`
+      : `${activeStaff.first_name} ${activeStaff.last_name}`;
 
     return (
       <Modal
-        visible={!!selectedStaff}
+        visible={!!activeStaff}
         animationType="slide"
         statusBarTranslucent
-        onRequestClose={() => setSelectedStaff(null)}
+        onRequestClose={() => {
+          if (motherRecord && assignedWorkerId) {
+            if (router.canGoBack()) router.back();
+            else router.replace("/(tabs)");
+          } else {
+            setSelectedStaff(null);
+            setIsStaffListVisible(true);
+          }
+        }}
       >
         <KeyboardAvoidingView
           className="flex-1 bg-background"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <View
-            style={{ paddingTop: Math.max(insets.top, 16) }}
-            className="px-4 pb-3 bg-surface border-b border-default flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center gap-3 flex-1">
-              <Pressable
-                onPress={() => setSelectedStaff(null)}
-                className="size-9 rounded-full bg-default items-center justify-center"
-              >
-                <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
-              </Pressable>
-
-              <View className="relative">
-                <Avatar size="sm">
-                  {selectedStaff.profile_url ? (
-                    <Avatar.Image source={{ uri: selectedStaff.profile_url }} />
-                  ) : (
-                    <Avatar.Fallback delayMs={0}>
-                      <View className="w-full h-full bg-primary/20 items-center justify-center">
-                        <Text className="text-primary text-sm font-bold">
-                          {selectedStaff.first_name
-                            ? selectedStaff.first_name.charAt(0).toUpperCase()
-                            : "S"}
-                        </Text>
-                      </View>
-                    </Avatar.Fallback>
-                  )}
-                </Avatar>
-                <View
-                  style={{
-                    position: "absolute",
-                    bottom: -1,
-                    right: -1,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: isOnline ? "#10b981" : "#f59e0b",
-                    borderWidth: 1.5,
-                    borderColor: isDark ? "#18181b" : "#ffffff",
-                  }}
-                />
-              </View>
-
-              <View className="flex-1 min-w-0">
-                <Text className="text-foreground font-bold text-base" numberOfLines={1}>
-                  {staffDisplayName}
-                </Text>
-                <View className="flex-row items-center gap-1.5 mt-0.5">
-                  <View
-                    className={`px-1.5 py-0.2 rounded border ${staffBadge.bg} ${staffBadge.border}`}
-                  >
-                    <Text className={`text-[10px] font-semibold ${staffBadge.text}`}>
-                      {selectedStaff.role}
-                    </Text>
-                  </View>
-                  {selectedStaff.user_id === assignedWorkerId && (
-                    <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
-                      <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
-                      <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                        Assigned Provider
-                      </Text>
-                    </View>
-                  )}
-                  {selectedStaff.facility?.facility_name && (
-                    <Text
-                      className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate flex-1"
-                      numberOfLines={1}
-                    >
-                      • {selectedStaff.facility.facility_name}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
+          <View style={{ paddingTop: Math.max(insets.top, 12) }} className="bg-background">
+            <MessagesTopBar
+              isDark={isDark}
+              onBack={() => {
+                if (motherRecord && assignedWorkerId) {
+                  if (router.canGoBack()) router.back();
+                  else router.replace("/(tabs)");
+                } else {
+                  setSelectedStaff(null);
+                  setIsStaffListVisible(true);
+                }
+              }}
+            />
           </View>
 
           {currentChatMessages.length > 0 ? (
@@ -953,7 +932,16 @@ export default function ChatScreen(): JSX.Element {
                   tintColor="#3b82f6"
                 />
               }
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14 }}
+              ListHeaderComponent={
+                <View className="items-center pb-5 pt-1">
+                  <View className="rounded-full bg-surface px-3 py-1">
+                    <Text className="text-sm font-medium text-muted-foreground">
+                      {getChatDayLabel(currentChatMessages[currentChatMessages.length - 1]?.dateRaw)}
+                    </Text>
+                  </View>
+                </View>
+              }
+              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 18 }}
               showsVerticalScrollIndicator={false}
               onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               renderItem={({ item }) => (
@@ -963,37 +951,14 @@ export default function ChatScreen(): JSX.Element {
                   }`}
                 >
                   <View
-                    style={
-                      item.mine
-                        ? {
-                            backgroundColor: "#2563eb",
-                            borderTopLeftRadius: 18,
-                            borderTopRightRadius: 18,
-                            borderBottomLeftRadius: 18,
-                            borderBottomRightRadius: 4,
-                            padding: 12,
-                            shadowColor: "#2563eb",
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.25,
-                            shadowRadius: 4,
-                            elevation: 3,
-                          }
-                        : {
-                            backgroundColor: isDark ? "#202025" : "#ffffff",
-                            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
-                            borderWidth: 1,
-                            borderTopLeftRadius: 18,
-                            borderTopRightRadius: 18,
-                            borderBottomLeftRadius: 4,
-                            borderBottomRightRadius: 18,
-                            padding: 12,
-                            shadowColor: "#000",
-                            shadowOffset: { width: 0, height: 1 },
-                            shadowOpacity: isDark ? 0.2 : 0.05,
-                            shadowRadius: 3,
-                            elevation: 1,
-                          }
-                    }
+                    style={{
+                      backgroundColor: item.mine ? "#2563eb" : isDark ? "#262626" : "#ffffff",
+                      borderColor: item.mine ? "transparent" : isDark ? "#343434" : "#e5e5e5",
+                      borderWidth: item.mine ? 0 : 1,
+                      borderRadius: 16,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                    }}
                   >
                     {item.type === "image" ? (
                       <Pressable
@@ -1049,7 +1014,9 @@ export default function ChatScreen(): JSX.Element {
                             justifyContent: "center",
                             backgroundColor: item.mine
                               ? "rgba(255, 255, 255, 0.2)"
-                              : "rgba(37, 99, 235, 0.1)",
+                              : isDark
+                                ? "rgba(255,255,255,0.08)"
+                                : "rgba(37, 99, 235, 0.1)",
                             borderWidth: item.mine ? 0 : 1,
                             borderColor: "rgba(37, 99, 235, 0.2)",
                           }}
@@ -1057,7 +1024,7 @@ export default function ChatScreen(): JSX.Element {
                           {item.status === "sending" ? (
                             <ActivityIndicator
                               size="small"
-                              color={item.mine ? "#ffffff" : "#2563eb"}
+                              color={item.mine ? "#ffffff" : isDark ? "#d4d4d8" : "#2563eb"}
                             />
                           ) : (
                             <Ionicons
@@ -1088,7 +1055,7 @@ export default function ChatScreen(): JSX.Element {
                           </Text>
                           <Text
                             style={{
-                              fontSize: 11,
+                              fontSize: 14,
                               marginTop: 2,
                               color: item.mine
                                 ? "rgba(255, 255, 255, 0.75)"
@@ -1118,9 +1085,9 @@ export default function ChatScreen(): JSX.Element {
                     ) : (
                       <Text
                         style={{
-                          fontSize: 15,
-                          lineHeight: 21,
-                          fontWeight: item.mine ? "500" : "400",
+                          fontSize: 14,
+                          lineHeight: 20,
+                          fontWeight: "400",
                           color: item.mine ? "#ffffff" : isDark ? "#fafafa" : "#111827",
                         }}
                       >
@@ -1128,10 +1095,10 @@ export default function ChatScreen(): JSX.Element {
                       </Text>
                     )}
 
-                    <View className="flex-row items-center gap-1.5 justify-end mt-1.5">
+                    <View className={`flex-row items-center gap-1.5 mt-1 ${item.mine ? "justify-end" : "justify-start"}`}>
                       <Text
                         style={{
-                          fontSize: 10,
+                          fontSize: 14,
                           color: item.mine
                             ? "rgba(255, 255, 255, 0.75)"
                             : isDark
@@ -1144,11 +1111,7 @@ export default function ChatScreen(): JSX.Element {
                       {item.mine && item.status === "sending" ? (
                         <ActivityIndicator size={10} color="rgba(255,255,255,0.85)" />
                       ) : item.mine && item.id.startsWith("local_") ? (
-                        <Ionicons
-                          name="checkmark-outline"
-                          size={12}
-                          color="rgba(255,255,255,0.7)"
-                        />
+                          <Ionicons name="checkmark-done" size={12} color="rgba(255,255,255,0.85)" />
                       ) : null}
                     </View>
                   </View>
@@ -1157,49 +1120,56 @@ export default function ChatScreen(): JSX.Element {
             />
           ) : (
             <View className="flex-1 items-center justify-center p-6">
-              <View className="size-16 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-xs">
-                <Ionicons name="chatbubble-ellipses-outline" size={28} color="#3b82f6" />
+              <View className="size-14 rounded-full bg-surface items-center justify-center mb-3">
+                <Ionicons name="chatbubble-ellipses-outline" size={24} color={isDark ? "#d4d4d8" : "#52525b"} />
               </View>
-              <Text className="text-foreground font-bold text-lg mb-1">
-                Personalized 1-to-1 Chat
+              <Text className="text-foreground font-semibold text-sm mb-1">
+                Start a conversation
               </Text>
-              <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs leading-5">
-                Send a direct message or share health records with {staffDisplayName}.
+              <Text className="text-muted-foreground text-sm text-center max-w-xs leading-5">
+                Send a message to {staffDisplayName} or share a health record.
               </Text>
             </View>
           )}
 
           <View
-            style={{
-              paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom + 16, 32),
-            }}
-            className="px-4 pt-3 bg-surface border-t border-default flex-row items-center gap-3"
+            style={{ paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom + 10, 20) }}
+            className="px-4 pt-2 bg-background flex-row items-center gap-2"
           >
             <Pressable
               onPress={() => setIsAttachmentSheetVisible(true)}
               disabled={isSending}
-              className="size-10 bg-default rounded-full items-center justify-center active:scale-95"
+              className="size-9 items-center justify-center rounded-full bg-surface active:opacity-70"
             >
-              <Ionicons name="add" size={22} color={isDark ? "#a1a1aa" : "#52525b"} />
+              <Ionicons name="add" size={21} color={isDark ? "#d4d4d8" : "#52525b"} />
             </Pressable>
 
-            <View className="flex-1 bg-default rounded-2xl px-4 py-2 flex-row items-center min-h-[44px]">
+            <View className="flex-1 min-h-11 flex-row items-center rounded-full bg-surface px-4 py-1.5">
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder={isSending ? "Sending attachment..." : "Type your message..."}
+                placeholder={isSending ? "Sending attachment..." : "Type a message"}
                 placeholderTextColor={isDark ? "#71717a" : "#94a3b8"}
                 multiline
                 editable={!isSending}
-                className="flex-1 text-foreground text-base max-h-24 p-0"
+                className="max-h-20 flex-1 p-0 text-sm text-foreground"
               />
+              {!inputText.trim() && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Voice message"
+                  className="ml-2 size-8 items-center justify-center"
+                >
+                  <Ionicons name="mic-outline" size={18} color={isDark ? "#a1a1aa" : "#737373"} />
+                </Pressable>
+              )}
             </View>
 
             <Pressable
               onPress={handleSendText}
               disabled={!inputText.trim()}
-              className={`size-10 rounded-full items-center justify-center ${
-                inputText.trim() ? "bg-primary active:scale-95 shadow-xs" : "bg-default opacity-50"
+              className={`size-9 rounded-full items-center justify-center ${
+                inputText.trim() ? "bg-primary active:opacity-80" : "bg-surface opacity-60"
               }`}
             >
               <Ionicons
@@ -1249,28 +1219,27 @@ export default function ChatScreen(): JSX.Element {
                 style={{
                   paddingBottom: Math.max(insets.bottom + 20, 32),
                 }}
-                className="bg-surface rounded-t-3xl border-t border-default p-6 shadow-2xl"
+                className="bg-surface rounded-t-[24px] px-5 pb-4 pt-1 shadow-none"
               >
-                <View className="w-12 h-1 bg-default rounded-full self-center mb-4" />
+                <View className="w-12 h-1 bg-default rounded-full self-center mb-3" />
+                <BottomSheetHeader
+                  title="Add attachment"
+                  description="Choose a photo or health record."
+                  onClose={() => setIsAttachmentSheetVisible(false)}
+                  closeLabel="Close attachments"
+                  className="mb-4"
+                />
 
-                <Text className="text-foreground font-bold text-lg mb-1">Add Attachment</Text>
-                <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-5">
-                  Share photos or medical documents directly with your healthcare provider.
-                </Text>
-
-                <View className="gap-3 mb-4">
+                <View className="gap-1 mb-3">
                   <Pressable
                     onPress={() => handlePickImage(true)}
-                    className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
+                    className="min-h-12 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
                   >
-                    <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
-                      <Ionicons name="camera-outline" size={22} color="#3b82f6" />
+                    <View className="size-9 rounded-full bg-muted items-center justify-center">
+                      <Ionicons name="camera-outline" size={19} color={isDark ? "#e5e5e5" : "#404040"} />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-foreground font-semibold text-base">Take Photo</Text>
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
-                        Use camera to capture a new photo
-                      </Text>
+                      <Text className="text-foreground font-medium text-sm">Take photo</Text>
                     </View>
                     <Ionicons
                       name="chevron-forward"
@@ -1281,16 +1250,13 @@ export default function ChatScreen(): JSX.Element {
 
                   <Pressable
                     onPress={() => handlePickImage(false)}
-                    className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
+                    className="min-h-12 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
                   >
-                    <View className="size-11 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center">
-                      <Ionicons name="images-outline" size={22} color="#3b82f6" />
+                    <View className="size-9 rounded-full bg-muted items-center justify-center">
+                      <Ionicons name="images-outline" size={19} color={isDark ? "#e5e5e5" : "#404040"} />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-foreground font-semibold text-base">Photo Library</Text>
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
-                        Select photos from your device gallery
-                      </Text>
+                      <Text className="text-foreground font-medium text-sm">Photo library</Text>
                     </View>
                     <Ionicons
                       name="chevron-forward"
@@ -1301,18 +1267,13 @@ export default function ChatScreen(): JSX.Element {
 
                   <Pressable
                     onPress={() => handlePickDocument()}
-                    className="flex-row items-center gap-3.5 p-3.5 bg-default/40 rounded-2xl border border-default active:bg-default"
+                    className="min-h-12 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
                   >
-                    <View className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
-                      <Ionicons name="document-text-outline" size={22} color="#10b981" />
+                    <View className="size-9 rounded-full bg-muted items-center justify-center">
+                      <Ionicons name="document-text-outline" size={19} color={isDark ? "#e5e5e5" : "#404040"} />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-foreground font-semibold text-base">
-                        Document / Health Record
-                      </Text>
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
-                        Upload PDF, Word files, or lab reports
-                      </Text>
+                      <Text className="text-foreground font-medium text-sm">Health record</Text>
                     </View>
                     <Ionicons
                       name="chevron-forward"
@@ -1322,12 +1283,6 @@ export default function ChatScreen(): JSX.Element {
                   </Pressable>
                 </View>
 
-                <Pressable
-                  onPress={() => setIsAttachmentSheetVisible(false)}
-                  className="bg-default py-3.5 rounded-2xl items-center active:opacity-90 mt-1"
-                >
-                  <Text className="text-foreground font-semibold text-sm">Cancel</Text>
-                </Pressable>
               </Pressable>
             </Pressable>
           </Modal>
@@ -1342,40 +1297,28 @@ export default function ChatScreen(): JSX.Element {
               style={{
                 paddingBottom: Math.max(insets.bottom + 24, 40),
               }}
-              className="flex-1 bg-black/80 justify-end sm:justify-center p-4"
+              className="flex-1 bg-black/70 justify-end sm:justify-center p-0"
             >
               {pendingAttachment && (
-                <View className="bg-surface rounded-3xl p-5 border border-default shadow-2xl">
-                  <View className="flex-row items-center justify-between mb-4">
-                    <View className="flex-row items-center gap-2">
-                      <Ionicons
-                        name={
-                          pendingAttachment.detectedType === "image"
-                            ? "image-outline"
-                            : "document-text-outline"
-                        }
-                        size={20}
-                        color="#3b82f6"
-                      />
-                      <Text className="text-foreground font-bold text-lg">Confirm Attachment</Text>
-                    </View>
-                    <Pressable
-                      onPress={() => setPendingAttachment(null)}
-                      className="size-8 rounded-full bg-default items-center justify-center"
-                    >
-                      <Ionicons name="close" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
-                    </Pressable>
-                  </View>
+                <View className="bg-surface rounded-t-[24px] px-5 pt-1 pb-4 shadow-none">
+                  <View className="w-12 h-1 bg-default rounded-full self-center mb-3" />
+                  <BottomSheetHeader
+                    title="Send attachment?"
+                    description="Review the file before sending."
+                    onClose={() => setPendingAttachment(null)}
+                    closeLabel="Close attachment preview"
+                    className="mb-4"
+                  />
 
                   {pendingAttachment.detectedType === "image" ? (
                     <Image
                       source={{ uri: pendingAttachment.uri }}
-                      className="w-full h-48 rounded-2xl bg-default/40 mb-4"
+                      className="w-full h-48 rounded-xl bg-default/40 mb-4"
                       resizeMode="cover"
                     />
                   ) : (
-                    <View className="bg-default/40 rounded-2xl p-4 flex-row items-center gap-3.5 mb-4 border border-default">
-                      <View className="size-12 rounded-xl bg-primary/10 border border-primary/20 items-center justify-center">
+                    <View className="bg-default/40 rounded-xl p-3 flex-row items-center gap-3 mb-4">
+                      <View className="size-10 rounded-xl bg-muted items-center justify-center">
                         <Ionicons
                           name={
                             pendingAttachment.name.toLowerCase().endsWith(".pdf")
@@ -1387,10 +1330,10 @@ export default function ChatScreen(): JSX.Element {
                         />
                       </View>
                       <View className="flex-1 min-w-0">
-                        <Text className="text-foreground font-bold text-sm" numberOfLines={1}>
+                        <Text className="text-foreground font-semibold text-sm" numberOfLines={1}>
                           {pendingAttachment.name}
                         </Text>
-                        <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
+                        <Text className="text-muted-foreground dark:text-muted-foreground text-sm mt-0.5">
                           {pendingAttachment.sizeFormatted} •{" "}
                           {pendingAttachment.name.split(".").pop()?.toUpperCase() || "FILE"}
                         </Text>
@@ -1402,7 +1345,7 @@ export default function ChatScreen(): JSX.Element {
                     <Pressable
                       onPress={() => setPendingAttachment(null)}
                       disabled={isSending}
-                      className="bg-default px-5 py-3.5 rounded-xl active:scale-95 items-center"
+                      className="min-h-11 px-5 rounded-md bg-default active:opacity-75 items-center justify-center"
                     >
                       <Text className="text-foreground font-semibold text-sm">Cancel</Text>
                     </Pressable>
@@ -1421,7 +1364,7 @@ export default function ChatScreen(): JSX.Element {
                         );
                       }}
                       disabled={isSending}
-                      className="flex-1 bg-primary py-3.5 rounded-xl flex-row items-center justify-center gap-2 active:scale-95 shadow-sm shadow-primary/30"
+                      className="min-h-11 flex-1 bg-primary rounded-md flex-row items-center justify-center gap-2 active:opacity-85"
                     >
                       {isSending ? (
                         <ActivityIndicator size="small" color="white" />
@@ -1442,43 +1385,36 @@ export default function ChatScreen(): JSX.Element {
     );
   }
 
+  if (motherRecord && assignedWorkerId) {
+    return (
+      <View className="flex-1 bg-background">
+        <MessagesTopBar
+          isDark={isDark}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
+        />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="small" color={isDark ? "#fffe8c" : "#003f2c"} />
+        </View>
+      </View>
+    );
+  }
+
   const facilityTitle =
     user?.facility_name || user?.facility?.facility_name || "Facility Healthcare Team";
 
   return (
     <View className="flex-1 bg-background">
-      <View className="px-5 pt-6 pb-3 bg-surface border-b border-default">
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-3">
-            <Pressable
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.push("/(tabs)/profile");
-                }
-              }}
-              className="size-9 rounded-full bg-default items-center justify-center"
-            >
-              <Ionicons name="arrow-back" size={18} color={isDark ? "#a1a1aa" : "#52525b"} />
-            </Pressable>
-            <View>
-              <Text className="text-foreground font-bold text-lg">Messages</Text>
-              <Text
-                className="text-zinc-500 dark:text-zinc-400 text-sm truncate max-w-[240px]"
-                numberOfLines={1}
-              >
-                {facilityTitle}
-              </Text>
-            </View>
-          </View>
+      <MessagesTopBar
+        isDark={isDark}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
+      />
 
-          <View className="size-9 rounded-full bg-primary/10 items-center justify-center">
-            <Ionicons name="chatbubbles" size={18} color="#3b82f6" />
-          </View>
-        </View>
+      <View className="px-4 pt-3 pb-3 bg-background">
+        <Text className="mb-3 text-sm text-muted-foreground" numberOfLines={1}>
+          {facilityTitle}
+        </Text>
 
-        <View className="flex-row items-center bg-default rounded-xl px-3 py-2">
+        <View className="flex-row items-center bg-field-background border border-border rounded-md px-3 py-2">
           <Ionicons
             name="search-outline"
             size={18}
@@ -1490,7 +1426,7 @@ export default function ChatScreen(): JSX.Element {
             onChangeText={setSearchQuery}
             placeholder="Search healthcare staff by name or role..."
             placeholderTextColor={isDark ? "#71717a" : "#94a3b8"}
-            className="flex-1 text-foreground text-sm p-0"
+            className="flex-1 text-foreground text-base p-0"
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery("")}>
@@ -1519,7 +1455,7 @@ export default function ChatScreen(): JSX.Element {
               >
                 <Text
                   className={`text-sm font-semibold ${
-                    isSelected ? "text-white" : "text-zinc-600 dark:text-zinc-400"
+                    isSelected ? "text-white" : "text-muted-foreground dark:text-muted-foreground"
                   }`}
                 >
                   {role === "HealthWorker" ? "Health Worker" : role}
@@ -1539,11 +1475,11 @@ export default function ChatScreen(): JSX.Element {
         contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 90 }}
         ListEmptyComponent={
           <View className="items-center justify-center p-10">
-            <View className="size-14 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-xs">
+            <View className="size-14 rounded-full bg-surface border border-default items-center justify-center mb-3 shadow-none">
               <Ionicons name="people-outline" size={24} color={isDark ? "#71717a" : "#94a3b8"} />
             </View>
             <Text className="text-foreground font-semibold text-base mb-1">No Staff Found</Text>
-            <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center max-w-xs">
+            <Text className="text-muted-foreground dark:text-muted-foreground text-sm text-center max-w-xs">
               {searchQuery
                 ? "No staff matches your search query."
                 : "No healthcare staff members are listed for your facility."}
@@ -1558,7 +1494,10 @@ export default function ChatScreen(): JSX.Element {
 
           return (
             <Pressable
-              onPress={() => setSelectedStaff(item)}
+              onPress={() => {
+                setSelectedStaff(item);
+                setIsStaffListVisible(false);
+              }}
               className="flex-row items-center px-5 py-3.5 border-b border-default/50 active:bg-surface-secondary"
             >
               <View className="relative mr-3.5">
@@ -1568,7 +1507,7 @@ export default function ChatScreen(): JSX.Element {
                   ) : (
                     <Avatar.Fallback delayMs={0}>
                       <View className="w-full h-full bg-primary/20 items-center justify-center">
-                        <Text className="text-primary text-base font-bold">
+                        <Text className="text-primary text-base font-semibold">
                           {item.first_name ? item.first_name.charAt(0).toUpperCase() : "S"}
                         </Text>
                       </View>
@@ -1594,7 +1533,7 @@ export default function ChatScreen(): JSX.Element {
               <View className="flex-1 min-w-0 pr-2">
                 <View className="flex-row items-center justify-between gap-1 mb-1">
                   <Text
-                    className={`text-base font-bold truncate ${
+                    className={`text-base font-semibold truncate ${
                       item.unreadCount > 0 ? "text-foreground" : "text-foreground/90"
                     }`}
                     numberOfLines={1}
@@ -1602,7 +1541,7 @@ export default function ChatScreen(): JSX.Element {
                     {displayName}
                   </Text>
                   {item.lastMessageDate && (
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] shrink-0">
+                    <Text className="text-muted-foreground dark:text-muted-foreground text-sm shrink-0">
                       {formatTimeLabel(item.lastMessageDate)}
                     </Text>
                   )}
@@ -1610,19 +1549,19 @@ export default function ChatScreen(): JSX.Element {
 
                 <View className="flex-row items-center gap-1.5 mb-1 flex-wrap">
                   <View className={`px-1.5 py-0.2 rounded border ${badge.bg} ${badge.border}`}>
-                    <Text className={`text-[10px] font-semibold ${badge.text}`}>{item.role}</Text>
+                    <Text className={`text-sm font-semibold ${badge.text}`}>{item.role}</Text>
                   </View>
                   {item.isAssigned && (
-                    <View className="flex-row items-center gap-1 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/25">
+                    <View className="flex-row items-center gap-1 bg-muted px-1.5 py-0.2 rounded border border-blue-500/25">
                       <Ionicons name="shield-checkmark" size={10} color="#3b82f6" />
-                      <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                      <Text className="text-sm font-semibold text-blue-600 dark:text-blue-400">
                         Assigned Provider
                       </Text>
                     </View>
                   )}
                   {item.facility?.facility_name && (
                     <Text
-                      className="text-zinc-500 dark:text-zinc-400 text-[11px] truncate"
+                      className="text-muted-foreground dark:text-muted-foreground text-sm truncate"
                       numberOfLines={1}
                     >
                       • {item.facility.facility_name}
@@ -1635,7 +1574,7 @@ export default function ChatScreen(): JSX.Element {
                     className={`text-sm truncate flex-1 mr-2 ${
                       item.unreadCount > 0
                         ? "text-foreground font-semibold"
-                        : "text-zinc-500 dark:text-zinc-400"
+                        : "text-muted-foreground dark:text-muted-foreground"
                     }`}
                     numberOfLines={1}
                   >
@@ -1644,7 +1583,7 @@ export default function ChatScreen(): JSX.Element {
 
                   {item.unreadCount > 0 && (
                     <View className="size-5 rounded-full bg-primary items-center justify-center shrink-0">
-                      <Text className="text-white text-[10px] font-bold">{item.unreadCount}</Text>
+                      <Text className="text-white text-sm font-semibold">{item.unreadCount}</Text>
                     </View>
                   )}
                 </View>

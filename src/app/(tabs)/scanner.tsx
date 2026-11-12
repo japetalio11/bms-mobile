@@ -1,7 +1,7 @@
 import { View, Text, Pressable } from "react-native";
 import { useState } from "react";
 import type { JSX } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/UserContext";
@@ -20,7 +20,7 @@ export default function ScannerScreen(): JSX.Element {
         className="flex-row items-center justify-between px-6"
         style={{ paddingTop: insets.top + 16 }}
       >
-        <Text className="text-white text-lg font-semibold">Scan QR Code</Text>
+        <Text className="text-white text-base font-semibold">Scan QR Code</Text>
         <Pressable
           onPress={() => setTorchOn(!torchOn)}
           className="size-10 rounded-full bg-white/10 items-center justify-center"
@@ -66,7 +66,7 @@ export default function ScannerScreen(): JSX.Element {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push("/(tabs)/appointments")}
+          onPress={() => router.push("/(tabs)/history")}
           className="bg-white/10 active:bg-white/15 rounded-xl p-4 flex-row items-center gap-4"
         >
           <View className="size-10 rounded-full bg-primary/20 items-center justify-center">

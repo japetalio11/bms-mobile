@@ -1,17 +1,15 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { Tabs, Redirect } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import type { ComponentProps, JSX } from "react";
 import type { ColorValue } from "react-native";
-import { withUniwind } from "uniwind";
 import { AnimatedTabBar } from "../../components/AnimatedTabBar";
 import { useAuth } from "../../context/UserContext";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
-const StyledIonicons = withUniwind(Ionicons);
 
-function TabIcon({ name, color }: { name: IoniconName; color: ColorValue }): JSX.Element {
-  return <StyledIonicons name={name} size={22} color={color} />;
+function TabIcon({ name, color, size, weight }: { name: IoniconName; color: ColorValue; size: number; weight: "fill" | "bold" }): JSX.Element {
+  return <Ionicons name={name} size={size} weight={weight} color={typeof color === "string" ? color : "#71717a"} />;
 }
 
 export default function TabsLayout(): JSX.Element {
@@ -44,52 +42,33 @@ export default function TabsLayout(): JSX.Element {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => <TabIcon name="home-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="appointments"
-        options={{
-          title: "Appointments",
-          tabBarIcon: ({ color }) => <TabIcon name="calendar-outline" color={color} />,
+          tabBarIcon: ({ color, size }) => <TabIcon name="home-outline" color={color} size={size} weight="fill" />,
         }}
       />
       <Tabs.Screen
         name="records"
         options={{
-          title: "Lab Records",
-          tabBarIcon: ({ color }) => <TabIcon name="clipboard-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ color }) => <TabIcon name="chatbubble-ellipses-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => <TabIcon name="person-outline" color={color} />,
+          title: "EHR Records",
+          tabBarIcon: ({ color, size }) => <TabIcon name="document-text-outline" color={color} size={size} weight="bold" />,
         }}
       />
 
-      <Tabs.Screen name="scanner" options={{ href: null }} />
-      <Tabs.Screen name="search" options={{ href: null }} />
-      <Tabs.Screen name="history" options={{ href: null }} />
-      <Tabs.Screen name="calendar" options={{ href: null }} />
-      <Tabs.Screen name="security" options={{ href: null }} />
-      <Tabs.Screen name="privacy" options={{ href: null }} />
-      <Tabs.Screen name="upload-record" options={{ href: null }} />
-      <Tabs.Screen name="vitals" options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ href: null }} />
-      <Tabs.Screen name="appointment-detail" options={{ href: null }} />
-      <Tabs.Screen name="urinalysis" options={{ href: null }} />
-      <Tabs.Screen name="edit-profile" options={{ href: null }} />
-      <Tabs.Screen name="app-appearance" options={{ href: null }} />
-      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="chat" options={{ title: "Messages" }} />
+      <Tabs.Screen name="profile" options={{}} />
+
+      <Tabs.Screen name="scanner" options={{}} />
+      <Tabs.Screen name="search" options={{}} />
+      <Tabs.Screen name="history" options={{}} />
+      <Tabs.Screen name="security" options={{}} />
+      <Tabs.Screen name="privacy" options={{}} />
+      <Tabs.Screen name="upload-record" options={{}} />
+      <Tabs.Screen name="vitals" options={{}} />
+      <Tabs.Screen name="explore" options={{}} />
+      <Tabs.Screen name="appointment-detail" options={{}} />
+      <Tabs.Screen name="urinalysis" options={{}} />
+      <Tabs.Screen name="medical-history" options={{}} />
+      <Tabs.Screen name="edit-profile" options={{}} />
+      <Tabs.Screen name="notifications" options={{}} />
     </Tabs>
   );
 }

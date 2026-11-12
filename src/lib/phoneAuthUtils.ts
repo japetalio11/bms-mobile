@@ -26,18 +26,6 @@ export function isValidE164(phone: string): boolean {
   return e164Regex.test(phone);
 }
 
-export const MOCK_TEST_NUMBERS: string[] = [
-  "+639170000000",
-  "+639171111111",
-  "+639999999999",
-  "+16505553434",
-];
-
-export function isTestPhoneNumber(phone: string): boolean {
-  const formatted = formatToE164(phone);
-  return MOCK_TEST_NUMBERS.includes(formatted);
-}
-
 export function getFirebaseErrorMessage(errorCodeOrMessage: string): string {
   const code = (errorCodeOrMessage || "").toLowerCase();
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "./AppIcon";
 import { useNetwork } from "../context/NetworkContext";
 
 export const OfflineBanner: React.FC = () => {
@@ -9,13 +9,14 @@ export const OfflineBanner: React.FC = () => {
 
   useEffect(() => {
     if (!isOnline) {
-      setIsVisible(true);
-      const timer = setTimeout(() => {
+      const showTimer = setTimeout(() => setIsVisible(true), 0);
+      const hideTimer = setTimeout(() => {
         setIsVisible(false);
       }, 5000);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, [isOnline]);
 
@@ -68,14 +69,14 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#fbbf24",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
     letterSpacing: 0.2,
   },
   subtitle: {
     color: "#d4d4d8",
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 18,
     marginTop: 1,
   },
 });

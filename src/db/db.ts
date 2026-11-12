@@ -1,9 +1,11 @@
 import { Platform } from "react-native";
-import * as SQLite from "expo-sqlite";
+import { requireOptionalNativeModule } from "expo";
+import type * as SQLite from "expo-sqlite";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let dbInstance: any = null;
 let dbInitPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+let usingAsyncStorageFallback = false;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (dbInstance) {
@@ -17,11 +19,26 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   dbInitPromise = (async () => {
     try {
       if (Platform.OS === "web") {
+        usingAsyncStorageFallback = true;
         dbInstance = createWebFallbackDatabase() as any;
       } else {
-        const db = await SQLite.openDatabaseAsync("bms.db");
-        await initTables(db);
-        dbInstance = db;
+        // expo-sqlite throws at import time when the installed native binary
+        // predates the config plugin. Check the native module before loading it.
+        const sqliteNativeModule = requireOptionalNativeModule("ExpoSQLite");
+        if (!sqliteNativeModule) {
+          usingAsyncStorageFallback = true;
+          console.warn(
+            "[Local storage] Expo SQLite is not included in this app build. Using temporary local storage; rebuild the native app to restore full offline database support."
+          );
+          dbInstance = createWebFallbackDatabase() as any;
+        } else {
+          usingAsyncStorageFallback = false;
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const SQLiteModule = require("expo-sqlite") as typeof import("expo-sqlite");
+          const db = await SQLiteModule.openDatabaseAsync("bms.db");
+          await initTables(db);
+          dbInstance = db;
+        }
       }
       return dbInstance as SQLite.SQLiteDatabase;
     } catch (err) {
@@ -38,6 +55,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 export function resetDatabaseInstance() {
   dbInstance = null;
   dbInitPromise = null;
+  usingAsyncStorageFallback = false;
 }
 
 async function initTables(db: SQLite.SQLiteDatabase) {
@@ -495,7 +513,7 @@ function createWebFallbackDatabase() {
   };
 }
 
-export async function clearAllTablesLocal(userId?: string): Promise<void> {
+export async function clearAllTablesLocal(): Promise<void> {
   try {
     const db = await getDatabase();
     const tables = [
@@ -515,7 +533,7 @@ export async function clearAllTablesLocal(userId?: string): Promise<void> {
       "sync_queue",
     ];
 
-    if (Platform.OS !== "web") {
+    if (Platform.OS !== "web" && !usingAsyncStorageFallback) {
       const deleteSql = `
         PRAGMA foreign_keys = OFF;
         ${tables.map((t) => `DELETE FROM ${t};`).join("\n")}

@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Pressable, Keyboard } from "react-native";
 import type { JSX } from "react";
 import { useState, useEffect, useCallback } from "react";
 import { SearchField, Card } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { Header } from "../../components/Header";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,7 +12,7 @@ const CATEGORIES = [
     label: "Appointments",
     icon: "calendar-outline" as const,
     color: "#6366f1",
-    route: "/(tabs)/appointments",
+    route: "/(tabs)/history",
   },
   {
     label: "Lab Records",
@@ -24,7 +24,7 @@ const CATEGORIES = [
     label: "Prescriptions",
     icon: "medkit-outline" as const,
     color: "#10b981",
-    route: "/(tabs)/records",
+    route: "/(tabs)/records?tab=prescriptions",
   },
   { label: "Vitals", icon: "pulse-outline" as const, color: "#f59e0b", route: "/(tabs)/vitals" },
 ];
@@ -42,7 +42,7 @@ export default function SearchScreen(): JSX.Element {
       if (stored) {
         setRecentSearches(JSON.parse(stored));
       } else {
-        setRecentSearches(["Prenatal Checkup", "Urinalysis", "Iron Supplement", "Blood Pressure"]);
+        setRecentSearches([]);
       }
     } catch (e) {
       console.warn("Failed to load recent searches", e);
@@ -50,7 +50,8 @@ export default function SearchScreen(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    loadRecentSearches();
+    const timeout = setTimeout(() => void loadRecentSearches(), 0);
+    return () => clearTimeout(timeout);
   }, [loadRecentSearches]);
 
   const saveSearch = async (query: string) => {
@@ -68,7 +69,7 @@ export default function SearchScreen(): JSX.Element {
     if (!query.trim()) return;
     saveSearch(query);
     Keyboard.dismiss();
-    router.push("/(tabs)/explore");
+    router.push({ pathname: "/(tabs)/explore", params: { q: query.trim() } });
   };
 
   return (
@@ -79,8 +80,8 @@ export default function SearchScreen(): JSX.Element {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 mb-6">
-          <Text className="text-foreground text-lg font-semibold mb-1">Search</Text>
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">
+          <Text className="text-foreground text-base font-semibold mb-1">Search</Text>
+          <Text className="text-muted-foreground dark:text-muted-foreground text-sm mb-4">
             Find appointments, records, and more.
           </Text>
 
@@ -99,7 +100,7 @@ export default function SearchScreen(): JSX.Element {
         </View>
 
         <View className="px-5 mb-6">
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">
+          <Text className="text-muted-foreground dark:text-muted-foreground text-sm mb-3 ml-1">
             Browse by Category
           </Text>
           <View className="flex-row flex-wrap gap-3">
@@ -107,7 +108,7 @@ export default function SearchScreen(): JSX.Element {
               <Pressable
                 key={cat.label}
                 onPress={() => router.push(cat.route as any)}
-                className="flex-row items-center gap-2 bg-surface border border-default rounded-xl px-4 py-3 active:bg-surface-secondary shadow-xs"
+                className="flex-row items-center gap-2 bg-surface border border-default rounded-xl px-4 py-3 active:bg-surface-secondary shadow-none"
               >
                 <View
                   className="size-8 rounded-full items-center justify-center"
@@ -122,12 +123,12 @@ export default function SearchScreen(): JSX.Element {
         </View>
 
         <View className="px-5">
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3 ml-1">
+          <Text className="text-muted-foreground dark:text-muted-foreground text-sm mb-3 ml-1">
             Recent Searches
           </Text>
           <Card
             variant="secondary"
-            className="bg-surface border border-default rounded-xl p-0 overflow-hidden shadow-xs"
+            className="bg-surface border border-default rounded-xl p-0 overflow-hidden shadow-none"
           >
             {recentSearches.map((item, index) => (
               <Pressable
@@ -147,7 +148,7 @@ export default function SearchScreen(): JSX.Element {
             ))}
             {recentSearches.length === 0 && (
               <View className="px-4 py-4 items-center">
-                <Text className="text-zinc-500 dark:text-zinc-400 text-sm">No recent searches</Text>
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm">No recent searches</Text>
               </View>
             )}
           </Card>

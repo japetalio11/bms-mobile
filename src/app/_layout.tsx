@@ -5,14 +5,16 @@ import { HeroUINativeProvider } from "heroui-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   useFonts,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+} from "@expo-google-fonts/manrope";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Platform } from "react-native";
+import { useUniwind } from "uniwind";
 
 import "../global.css";
 import { UserProvider, useAuth } from "../context/UserContext";
@@ -26,7 +28,7 @@ import { PushNotificationSubscriber } from "../components/PushNotificationSubscr
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator(): JSX.Element {
-  const { isAuthenticated, isLoadingStorage } = useAuth();
+  const { user, isAuthenticated, isLoadingStorage, logout } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -34,13 +36,20 @@ function RootNavigator(): JSX.Element {
     if (isLoadingStorage) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const isMotherAccount = user.role?.trim().toLowerCase() === "mother";
+
+    if (isAuthenticated && !isMotherAccount) {
+      void logout();
+      router.replace("/(auth)/login");
+      return;
+    }
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/login");
     } else if (isAuthenticated && inAuthGroup) {
       router.replace("/(tabs)");
     }
-  }, [isAuthenticated, isLoadingStorage, segments, router]);
+  }, [user.role, isAuthenticated, isLoadingStorage, segments, router, logout]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -51,12 +60,17 @@ function RootNavigator(): JSX.Element {
   );
 }
 
+function ThemedStatusBar(): JSX.Element {
+  const { theme } = useUniwind();
+  return <StatusBar style={theme === "dark" ? "light" : "dark"} />;
+}
+
 export default function RootLayout(): JSX.Element | null {
   const [loaded, error] = useFonts({
-    Inter: Inter_400Regular,
-    "Inter-Medium": Inter_500Medium,
-    "Inter-SemiBold": Inter_600SemiBold,
-    "Inter-Bold": Inter_700Bold,
+    Manrope: Manrope_400Regular,
+    "Manrope-Medium": Manrope_500Medium,
+    "Manrope-SemiBold": Manrope_600SemiBold,
+    "Manrope-Bold": Manrope_700Bold,
   });
 
   useEffect(() => {
@@ -77,7 +91,7 @@ export default function RootLayout(): JSX.Element | null {
             <UserProvider>
               <SocketProvider>
                 <ConfirmationProvider>
-                  <PushNotificationSubscriber />
+                  {Platform.OS !== "web" && <PushNotificationSubscriber />}
                   <SafeAreaView
                     className="flex-1 bg-background"
                     style={{ flex: 1 }}
@@ -85,7 +99,7 @@ export default function RootLayout(): JSX.Element | null {
                   >
                     <OfflineBanner />
                     <RootNavigator />
-                    <StatusBar style="auto" />
+                    <ThemedStatusBar />
                   </SafeAreaView>
                 </ConfirmationProvider>
               </SocketProvider>

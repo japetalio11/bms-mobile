@@ -1,7 +1,7 @@
 import { View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { Card, Text } from "heroui-native";
 import { Header } from "../../components/Header";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
@@ -19,7 +19,7 @@ import {
 
 const DataRow = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row items-start justify-between py-3 border-b border-separator last:border-0 gap-4 w-full">
-    <Text className="text-zinc-400 text-sm shrink-0" style={{ maxWidth: "42%" }}>
+    <Text className="text-muted-foreground text-sm shrink-0" style={{ maxWidth: "42%" }}>
       {label}
     </Text>
     <View className="flex-1 shrink items-end justify-start">
@@ -46,7 +46,10 @@ export default function AppointmentDetailScreen(): JSX.Element {
 
   useEffect(() => {
     const fetchAppointment = async () => {
-      if (!id) return;
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       try {
         const localItem = await getAppointmentByIdLocal(id);
@@ -136,7 +139,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
       <Header
         showBackButton
         title="Appointment Details"
-        onBack={() => router.back()}
+        onBack={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/history")}
         rightIcon={null}
       />
 
@@ -147,16 +150,16 @@ export default function AppointmentDetailScreen(): JSX.Element {
         {isLoading ? (
           <View className="py-20 items-center justify-center">
             <ActivityIndicator size="large" color="#3b82f6" />
-            <Text className="text-zinc-400 text-sm mt-3">Loading appointment details...</Text>
+            <Text className="text-muted-foreground text-sm mt-3">Loading appointment details...</Text>
           </View>
         ) : appointment ? (
           <>
             <View className="px-5 pt-3 mb-5">
-              <View className="bg-surface border border-white/10 rounded-2xl p-5">
+              <View className="bg-surface border border-border rounded-xl p-5">
                 <View className="flex-row items-center justify-between mb-4">
                   <View className="flex-row items-center gap-2 flex-1 mr-2">
                     <Ionicons name={statusCfg.icon} size={22} color={statusCfg.color} />
-                    <Text className="text-foreground text-lg font-bold flex-1" numberOfLines={1}>
+                    <Text className="text-foreground text-base font-semibold flex-1" numberOfLines={1}>
                       {appointment.appointment_type || "Clinic Appointment"}
                     </Text>
                   </View>
@@ -203,7 +206,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
                 <Pressable
                   onPress={handleCancelAppointment}
                   disabled={isCancelling}
-                  className="bg-blue-500/15 border border-blue-500/30 rounded-2xl py-3.5 px-4 flex-row items-center justify-center gap-2 active:bg-blue-500/25"
+                  className="bg-muted border border-blue-500/30 rounded-xl py-3.5 px-4 flex-row items-center justify-center gap-2 active:bg-muted"
                 >
                   {isCancelling ? (
                     <ActivityIndicator size="small" color="#3b82f6" />
@@ -219,14 +222,14 @@ export default function AppointmentDetailScreen(): JSX.Element {
 
             <View className="px-5 mb-5">
               <Text className="text-foreground text-base font-semibold mb-1">Maternal Vitals</Text>
-              <Text className="text-zinc-400 text-sm mb-3">
+              <Text className="text-muted-foreground text-sm mb-3">
                 Latest recorded vitals for this pregnancy.
               </Text>
 
               {latestVisit ? (
                 <Card
                   variant="secondary"
-                  className="bg-surface border border-white/10 rounded-xl px-4 py-1"
+                  className="bg-surface border border-border rounded-xl px-4 py-1"
                 >
                   <DataRow
                     label="Blood Pressure"
@@ -239,9 +242,9 @@ export default function AppointmentDetailScreen(): JSX.Element {
               ) : (
                 <Card
                   variant="secondary"
-                  className="bg-surface border border-white/10 rounded-xl p-4 items-center"
+                  className="bg-surface border border-border rounded-xl p-4 items-center"
                 >
-                  <Text className="text-zinc-400 text-sm">
+                  <Text className="text-muted-foreground text-sm">
                     No vital signs recorded for this visit yet.
                   </Text>
                 </Card>
@@ -252,14 +255,14 @@ export default function AppointmentDetailScreen(): JSX.Element {
               <Text className="text-foreground text-base font-semibold mb-1">
                 Fetal & Visit Metrics
               </Text>
-              <Text className="text-zinc-400 text-sm mb-3">
+              <Text className="text-muted-foreground text-sm mb-3">
                 Key indicators from your clinic records.
               </Text>
 
               {latestVisit ? (
                 <Card
                   variant="secondary"
-                  className="bg-surface border border-white/10 rounded-xl px-4 py-1"
+                  className="bg-surface border border-border rounded-xl px-4 py-1"
                 >
                   <DataRow
                     label="Gestational Age"
@@ -283,9 +286,9 @@ export default function AppointmentDetailScreen(): JSX.Element {
               ) : (
                 <Card
                   variant="secondary"
-                  className="bg-surface border border-white/10 rounded-xl p-4 items-center"
+                  className="bg-surface border border-border rounded-xl p-4 items-center"
                 >
-                  <Text className="text-zinc-400 text-sm">No visit metrics recorded yet.</Text>
+                  <Text className="text-muted-foreground text-sm">No visit metrics recorded yet.</Text>
                 </Card>
               )}
             </View>
@@ -293,14 +296,14 @@ export default function AppointmentDetailScreen(): JSX.Element {
         ) : (
           <View className="py-20 px-6 items-center justify-center">
             <Ionicons name="calendar-outline" size={48} color="#71717a" />
-            <Text className="text-foreground font-bold text-base mt-4 text-center">
+            <Text className="text-foreground font-semibold text-base mt-4 text-center">
               Appointment Not Found
             </Text>
-            <Text className="text-zinc-400 text-sm mt-1 text-center max-w-xs">
+            <Text className="text-muted-foreground text-sm mt-1 text-center max-w-xs">
               This appointment could not be located or may have been removed.
             </Text>
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/history")}
               className="mt-5 bg-primary px-5 py-2.5 rounded-full"
             >
               <Text className="text-white text-sm font-semibold">Back to Appointments</Text>

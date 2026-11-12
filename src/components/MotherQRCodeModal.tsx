@@ -1,9 +1,13 @@
-import React, { useState } from "react";
-import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { useRef, useState } from "react";
+import { ActivityIndicator, Platform, Share, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { Ionicons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
-import { useAuth, type User } from "../context/UserContext";
+import { BottomSheet, useToast } from "heroui-native";
+import { AppButton as Button } from "./FormControls";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { AppIcon } from "./AppIcon";
+import { BottomSheetHeader } from "./BottomSheetHeader";
+import type { User } from "../context/UserContext";
 import type { MotherRecord } from "../config/api";
 
 type MotherQRCodeModalProps = {
@@ -13,19 +17,17 @@ type MotherQRCodeModalProps = {
   motherRecord: MotherRecord | null;
 };
 
-export function MotherQRCodeModal({
-  visible,
-  onClose,
-  user,
-  motherRecord,
-}: MotherQRCodeModalProps) {
-  const [copied, setCopied] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { refreshProfile, isOnline } = useAuth();
+type QRCodeRef = {
+  toDataURL: (callback: (data: string) => void) => void;
+};
+
+export function MotherQRCodeModal({ visible, onClose, user, motherRecord }: MotherQRCodeModalProps) {
+  const { toast } = useToast();
+  const [isSharing, setIsSharing] = useState(false);
+  const qrRef = useRef<QRCodeRef | null>(null);
 
   const rawId = motherRecord?.mother_id || user.user_id || "BMS-UNKNOWN";
   const displayCode = `MTH-${rawId.substring(0, 8).toUpperCase()}`;
-
   const qrPayload = JSON.stringify({
     type: "BMS_MOTHER_QR",
     mother_id: motherRecord?.mother_id || rawId,
@@ -34,138 +36,102 @@ export function MotherQRCodeModal({
     code: displayCode,
   });
 
-  const handleCopyCode = async () => {
+  const handleShare = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
     try {
-      await Clipboard.setStringAsync(displayCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy to clipboard:", err);
-    }
-  };
-
-  const handleRefreshStatus = async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await refreshProfile();
-    } catch (err) {
-      console.log("Could not refresh profile:", err);
+      if (Platform.OS === "web") {
+        const qrData = await new Promise<string>((resolve, reject) => {
+          if (!qrRef.current) {
+            reject(new Error("QR code is still loading."));
+            return;
+          }
+          qrRef.current.toDataURL(resolve);
+        });
+        const imageBlob = await fetch(`data:image/png;base64,${qrData}`).then((response) => response.blob());
+        const qrFile = new File([imageBlob], `Mother-QR-${displayCode}.png`, { type: "image/png" });
+        if (navigator.share && navigator.canShare?.({ files: [qrFile] })) {
+          await navigator.share({
+            title: "Mother QR code",
+            text: `Mother code: ${displayCode}`,
+            files: [qrFile],
+          });
+        } else {
+          await Share.share({ title: "Mother QR code", message: `Mother code: ${displayCode}\nQR data: ${qrPayload}` });
+        }
+      } else {
+        const qrData = await new Promise<string>((resolve, reject) => {
+          if (!qrRef.current) {
+            reject(new Error("QR code is still loading."));
+            return;
+          }
+          qrRef.current.toDataURL(resolve);
+        });
+        const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;text-align:center;padding:36px;color:#171717"><h2>Mother QR Code</h2><img alt="Mother QR code" width="280" height="280" src="data:image/png;base64,${qrData}"/><p style="font-size:13px;color:#737373;margin:20px 0 6px">Mother code</p><strong style="font-size:20px;letter-spacing:2px">${displayCode}</strong></body></html>`;
+        const { uri } = await Print.printToFileAsync({ html });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: "application/pdf",
+            dialogTitle: "Share QR code and mother code",
+            UTI: "com.adobe.pdf",
+          });
+        } else {
+          await Share.share({ title: "Mother QR code", message: `Mother code: ${displayCode}\nQR data: ${qrPayload}` });
+        }
+      }
+    } catch (error) {
+      toast.show({
+        label: "Could not share QR code",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "danger",
+      });
     } finally {
-      setIsRefreshing(false);
+      setIsSharing(false);
     }
   };
-
-  const facilityName = user.facility_name || user.facility?.facility_name;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 justify-end">
-        <View className="bg-background rounded-t-3xl border-t border-white/10 px-6 pt-6 pb-10 max-h-[88%]">
-          <View className="flex-row items-center justify-between mb-4">
-            <View>
-              <Text className="text-foreground text-lg font-bold">My Health Card QR</Text>
-              <Text className="text-zinc-400 text-sm mt-0.5">
-                Show code to connect to a facility
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              className="size-9 rounded-full bg-default items-center justify-center"
-            >
-              <Ionicons name="close" size={20} color="#a1a1aa" />
-            </Pressable>
-          </View>
+    <BottomSheet isOpen={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <BottomSheet.Portal>
+        <BottomSheet.Overlay className="bg-black/60" />
+        <BottomSheet.Content
+          snapPoints={["58%"]}
+          enableDynamicSizing={false}
+          enableOverDrag={false}
+          backgroundClassName="rounded-t-[24px] bg-background"
+          handleIndicatorClassName="bg-muted"
+        >
+          <View className="items-center px-5 pb-5 pt-1">
+            <BottomSheetHeader title="Mother QR code" description="Share this code with your care team." onClose={onClose} closeLabel="Close QR code" className="w-full" />
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ alignItems: "center", paddingBottom: 20 }}
-          >
-            <View className="w-full bg-surface border border-white/10 rounded-2xl p-4 items-center mb-6">
-              <Text className="text-foreground text-lg font-bold text-center">{user.name}</Text>
-              <Text className="text-zinc-400 text-sm mb-3">
-                {user.email || user.phone_number || "Self-Registered Mother"}
-              </Text>
-
-              <View className="flex-row items-center gap-2">
-                <View
-                  className={`flex-row items-center gap-1.5 px-3 py-1 rounded-full ${facilityName ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-amber-500/15 border border-amber-500/30"}`}
-                >
-                  <Ionicons
-                    name={facilityName ? "checkmark-circle" : "alert-circle-outline"}
-                    size={14}
-                    color={facilityName ? "#10b981" : "#f59e0b"}
-                  />
-                  <Text
-                    className={`text-sm font-semibold ${facilityName ? "text-emerald-400" : "text-amber-400"}`}
-                  >
-                    {facilityName ? `Connected: ${facilityName}` : "Not Connected"}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={handleRefreshStatus}
-                  disabled={isRefreshing || !isOnline}
-                  className="size-7 rounded-full bg-default/60 items-center justify-center active:bg-default"
-                >
-                  {isRefreshing ? (
-                    <ActivityIndicator size="small" color="#6366f1" />
-                  ) : (
-                    <Ionicons name="refresh-outline" size={14} color="#a1a1aa" />
-                  )}
-                </Pressable>
-              </View>
-            </View>
-
-            <View className="bg-white p-5 rounded-2xl shadow-lg items-center justify-center mb-5 border border-gray-200">
+            <View className="overflow-hidden rounded-2xl bg-white p-3">
               <QRCode
                 value={qrPayload}
-                size={220}
-                color="#0f172a"
+                size={216}
+                color="#111111"
                 backgroundColor="#ffffff"
                 quietZone={8}
+                getRef={(ref) => { qrRef.current = ref as QRCodeRef | null; }}
               />
             </View>
 
-            <View className="w-full flex-row items-center justify-between bg-surface border border-white/10 rounded-xl p-3.5 mb-5">
-              <View>
-                <Text className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
-                  Mother QR Code
-                </Text>
-                <Text className="text-foreground text-lg font-mono font-bold mt-0.5">
-                  {displayCode}
-                </Text>
-              </View>
-              <Pressable
-                onPress={handleCopyCode}
-                className="flex-row items-center gap-1.5 bg-primary/20 border border-primary/30 px-3 py-2 rounded-lg"
-              >
-                <Ionicons
-                  name={copied ? "checkmark-outline" : "copy-outline"}
-                  size={16}
-                  color="#6366f1"
-                />
-                <Text className="text-primary text-sm font-semibold">
-                  {copied ? "Copied!" : "Copy Code"}
-                </Text>
-              </Pressable>
-            </View>
+            <Text className="mt-4 text-sm text-muted-foreground">Mother code</Text>
+            <Text className="mt-1 text-base font-semibold tracking-wide text-foreground">{displayCode}</Text>
 
-            <View className="w-full bg-default/40 rounded-xl p-3.5 flex-row items-start gap-3">
-              <Ionicons
-                name="information-circle-outline"
-                size={20}
-                color="#818cf8"
-                style={{ marginTop: 2 }}
-              />
-              <Text className="text-zinc-400 text-sm leading-5 flex-1">
-                When visiting a health center, present this QR code or provide your Mother Code to
-                facility staff. They can scan/input it to register your profile under their
-                facility.
-              </Text>
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+            <Button
+              variant="primary"
+              onPress={handleShare}
+              isDisabled={isSharing}
+              className="mt-4 min-h-11 w-full rounded-md bg-[#fffe8c]"
+            >
+              {isSharing ? <ActivityIndicator size="small" color="#171717" /> : <AppIcon name="share-social-outline" size={18} weight="bold" color="#171717" />}
+              <Button.Label className="font-semibold text-[#171717]">
+                {isSharing ? "Preparing share…" : "Share QR & Code"}
+              </Button.Label>
+            </Button>
+          </View>
+        </BottomSheet.Content>
+      </BottomSheet.Portal>
+    </BottomSheet>
   );
 }

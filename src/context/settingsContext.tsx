@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Uniwind, useUniwind } from "uniwind";
+import { Uniwind } from "uniwind";
 
 const SETTINGS_STORAGE_KEY = "@bms_user_settings_v1";
+Uniwind.setTheme("light");
 
 export type TextSize = "small" | "medium" | "large";
 
@@ -35,7 +36,7 @@ const defaultNotifications: NotificationPreferences = {
 };
 
 const defaultSettingsContext: SettingsContextType = {
-  theme: "system",
+  theme: "light",
   textSize: "medium",
   shareHealthData: true,
   analyticsEnabled: true,
@@ -50,8 +51,7 @@ const defaultSettingsContext: SettingsContextType = {
 const SettingsContext = createContext<SettingsContextType>(defaultSettingsContext);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const { theme: currentUniwindTheme } = useUniwind();
-  const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
+  const [theme, setThemeState] = useState<"light" | "dark" | "system">("light");
   const [textSize, setTextSizeState] = useState<TextSize>("medium");
   const [shareHealthData, setShareHealthDataState] = useState<boolean>(true);
   const [analyticsEnabled, setAnalyticsEnabledState] = useState<boolean>(true);
@@ -64,10 +64,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.theme) {
-            setThemeState(parsed.theme);
-            Uniwind.setTheme(parsed.theme);
-          }
           if (parsed.textSize) setTextSizeState(parsed.textSize);
           if (parsed.shareHealthData !== undefined) setShareHealthDataState(parsed.shareHealthData);
           if (parsed.analyticsEnabled !== undefined)
@@ -101,10 +97,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setTheme = async (newTheme: "light" | "dark" | "system") => {
-    setThemeState(newTheme);
-    Uniwind.setTheme(newTheme);
-    await saveSettings({ theme: newTheme });
+  const setTheme = async (_newTheme: "light" | "dark" | "system") => {
+    setThemeState("light");
+    Uniwind.setTheme("light");
+    await saveSettings({ theme: "light" });
   };
 
   const setTextSize = async (size: TextSize) => {

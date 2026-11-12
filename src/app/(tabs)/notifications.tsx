@@ -1,373 +1,128 @@
-import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
-import { useState, useEffect, useCallback } from "react";
-import type { JSX } from "react";
-import { Card, Text, Switch } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
-import { Header } from "../../components/Header";
-import { useSettings } from "../../context/settingsContext";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { View, ScrollView, Pressable, RefreshControl, ActivityIndicator, BackHandler } from "react-native";
+import { Text } from "heroui-native";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "../../components/AppIcon";
 import { useAuth } from "../../context/UserContext";
-import { useRouter } from "expo-router";
-import {
-  getNotificationsApi,
-  updateNotificationReadApi,
-  type NotificationRecord,
-} from "../../config/api";
-import {
-  getNotificationsLocal,
-  saveNotificationsLocal,
-  markNotificationReadLocal,
-} from "../../db/repository";
+import { getNotificationsApi, updateNotificationReadApi, type NotificationRecord } from "../../config/api";
+import { getNotificationsLocal, saveNotificationsLocal, markNotificationReadLocal } from "../../db/repository";
 
-export default function NotificationCenterScreen(): JSX.Element {
+type Category = "All" | "Appointments" | "Reminders" | "Care";
+const categories: Category[] = ["All", "Appointments", "Reminders", "Care"];
+
+function categoryFor(item: NotificationRecord): Exclude<Category, "All"> {
+  const type = `${item.notification_type} ${item.category || ""}`.toLowerCase();
+  if (type.includes("appointment") || type.includes("booking")) return "Appointments";
+  if (type.includes("reminder") || type.includes("supplement") || type.includes("medicine")) return "Reminders";
+  return "Care";
+}
+
+function notificationTitle(item: NotificationRecord) {
+  const message = item.notification_message?.trim() || "";
+  const firstSentence = message.split(/[.!?]/)[0]?.trim();
+  return item.sender?.trim() || (firstSentence && firstSentence.length <= 48 ? firstSentence : categoryFor(item) === "Appointments" ? "Appointment update" : categoryFor(item) === "Reminders" ? "Care reminder" : "Health update");
+}
+
+function isToday(value: string) {
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toDateString() === new Date().toDateString();
+}
+
+export default function NotificationCenterScreen() {
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const returnTo = from === "settings" ? "/(tabs)/profile" : "/(tabs)";
+  const goBack = useCallback(() => {
+    if (from === "settings" || from === "dashboard") router.replace(returnTo);
+    else if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
+  }, [from, returnTo, router]);
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      goBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [goBack]));
+  const insets = useSafeAreaInsets();
   const { user, token, isOnline, markAllNotificationsRead } = useAuth();
-  const { notifications: prefSettings, setNotificationSetting } = useSettings();
+  const [items, setItems] = useState<NotificationRecord[]>([]);
+  const [active, setActive] = useState<Category>("All");
+  const [loading, setLoading] = useState(Boolean(user?.user_id));
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"notifications" | "preferences">("notifications");
-  const [notificationList, setNotificationList] = useState<NotificationRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const loadNotifications = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!user?.user_id) return;
-
     try {
       const cached = await getNotificationsLocal(user.user_id);
-      if (cached && cached.length > 0) {
-        setNotificationList(cached as any);
-      }
-    } catch (e) {
-      console.warn("Local notifications fetch error:", e);
-    }
-
+      if (Array.isArray(cached)) setItems(cached as NotificationRecord[]);
+    } catch (error) { console.warn("Local notifications unavailable:", error); }
     if (isOnline && token) {
-      setIsLoading(true);
       try {
         const fresh = await getNotificationsApi(user.user_id, token);
-        if (Array.isArray(fresh)) {
-          setNotificationList(fresh);
-          await saveNotificationsLocal(fresh as any);
-        }
-      } catch (err) {
-        console.warn("Backend notifications fetch error, preserving local cache:", err);
-      } finally {
-        setIsLoading(false);
-      }
+        if (Array.isArray(fresh)) { setItems(fresh); await saveNotificationsLocal(fresh as any); }
+      } catch (error) { console.warn("Notifications unavailable, showing cached items:", error); }
     }
-  }, [user?.user_id, token, isOnline]);
+    setLoading(false);
+  }, [user, token, isOnline]);
 
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+    const timeout = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timeout);
+  }, [load]);
+  const visible = useMemo(() => items.filter(item => active === "All" || categoryFor(item) === active).sort((a, b) => new Date(b.notification_date).getTime() - new Date(a.notification_date).getTime()), [items, active]);
+  const today = visible.filter(item => isToday(item.notification_date));
+  const earlier = visible.filter(item => !isToday(item.notification_date));
 
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    await loadNotifications();
-    setIsRefreshing(false);
-  };
-
-  const handleMarkAllRead = async () => {
-    await markAllNotificationsRead();
-    setNotificationList((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  };
-
-  const handleItemPress = async (item: NotificationRecord) => {
-    if (item.is_read) return;
-
-    setNotificationList((prev) =>
-      prev.map((n) => (n.notification_id === item.notification_id ? { ...n, is_read: true } : n))
-    );
-
-    await markNotificationReadLocal(item.notification_id);
-
-    if (isOnline && token) {
-      try {
-        await updateNotificationReadApi(item.notification_id, true, token);
-      } catch (err) {
-        console.warn("Failed to mark notification read on backend:", err);
+  const openItem = async (item: NotificationRecord) => {
+    if (!item.is_read) {
+      setItems(current => current.map(entry => entry.notification_id === item.notification_id ? { ...entry, is_read: true } : entry));
+      await markNotificationReadLocal(item.notification_id);
+      if (isOnline && token) {
+        try { await updateNotificationReadApi(item.notification_id, true, token); }
+        catch (error) { console.warn("Could not sync notification read state:", error); }
       }
     }
+    const category = categoryFor(item);
+    if (category === "Appointments") router.push("/(tabs)/history");
+    else if (category === "Reminders") router.push({ pathname: "/(tabs)/records", params: { tab: "prescriptions" } });
+    else router.push("/(tabs)/records");
+  };
+  const markAllRead = async () => {
+    await markAllNotificationsRead();
+    setItems(current => current.map(item => ({ ...item, is_read: true })));
   };
 
-  const getCategoryConfig = (typeStr: string) => {
-    const t = (typeStr || "").toLowerCase();
-    if (t.includes("vitals") || t.includes("risk") || t.includes("cdss")) {
-      return {
-        icon: "heart-dislike-outline" as const,
-        color: "#ef4444",
-        bg: "bg-red-500/15",
-        border: "border-red-500/30",
-        label: "Clinical Alert",
-      };
-    }
-    if (t.includes("appointment")) {
-      return {
-        icon: "calendar-outline" as const,
-        color: "#0284c7",
-        bg: "bg-sky-500/15",
-        border: "border-sky-500/30",
-        label: "Appointment",
-      };
-    }
-    if (t.includes("referral")) {
-      return {
-        icon: "git-branch-outline" as const,
-        color: "#a78bfa",
-        bg: "bg-purple-500/15",
-        border: "border-purple-500/30",
-        label: "Referral",
-      };
-    }
-    return {
-      icon: "notifications-outline" as const,
-      color: "#10b981",
-      bg: "bg-emerald-500/15",
-      border: "border-emerald-500/30",
-      label: "Care Notice",
-    };
-  };
-
-  return (
-    <View className="flex-1 bg-background">
-      <Header
-        showBackButton
-        title="Notification Center"
-        onBack={() => router.push("/(tabs)")}
-        rightIcon={null}
-      />
-
-      <View className="px-5 pt-2 pb-4">
-        <View className="flex-row bg-surface border border-default rounded-2xl p-1 shadow-xs">
-          <Pressable
-            onPress={() => setActiveTab("notifications")}
-            className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${
-              activeTab === "notifications" ? "bg-default" : "bg-transparent"
-            }`}
-          >
-            <Ionicons
-              name="notifications"
-              size={16}
-              color={activeTab === "notifications" ? "#3b82f6" : "#71717a"}
-            />
-            <Text
-              className={`text-sm ${
-                activeTab === "notifications"
-                  ? "text-foreground font-bold"
-                  : "text-zinc-500 dark:text-zinc-400 font-medium"
-              }`}
-            >
-              Notifications
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setActiveTab("preferences")}
-            className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${
-              activeTab === "preferences" ? "bg-default" : "bg-transparent"
-            }`}
-          >
-            <Ionicons
-              name="options-outline"
-              size={16}
-              color={activeTab === "preferences" ? "#3b82f6" : "#71717a"}
-            />
-            <Text
-              className={`text-sm ${
-                activeTab === "preferences"
-                  ? "text-foreground font-bold"
-                  : "text-zinc-500 dark:text-zinc-400 font-medium"
-              }`}
-            >
-              Preferences
-            </Text>
-          </Pressable>
+  const renderGroup = (label: string, entries: NotificationRecord[]) => entries.length > 0 && <View className="mt-6">
+    <Text className="mb-2 px-5 text-sm font-semibold text-foreground">{label}</Text>
+    {entries.map(item => {
+      const category = categoryFor(item);
+      const icon = category === "Appointments" ? "calendar-outline" : category === "Reminders" ? "notifications-outline" : "heart-outline";
+      const date = new Date(item.notification_date);
+      const time = Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      return <Pressable key={item.notification_id} onPress={() => void openItem(item)} className="mx-5 flex-row gap-3 border-b border-[#e8e8e8] py-4 active:opacity-70">
+        <View className="size-11 items-center justify-center rounded-full bg-[#f2f2f2]"><AppIcon name={icon} size={20} weight="regular" color="#303030" /></View>
+        <View className="min-w-0 flex-1">
+          <View className="flex-row items-start justify-between gap-2"><Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={2}>{notificationTitle(item)}</Text><Text className="text-sm text-muted-foreground">{time}</Text></View>
+          <Text className="mt-1 text-sm text-muted-foreground" numberOfLines={3}>{item.notification_message}</Text>
         </View>
-      </View>
+        {!item.is_read && <View className="absolute right-0 top-10 size-2 rounded-full bg-[#a9a733]" />}
+      </Pressable>;
+    })}
+  </View>;
 
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
-        }
-      >
-        {activeTab === "notifications" ? (
-          <View className="px-5">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium ml-1">
-                Recent Alerts & Notifications
-              </Text>
-              {notificationList.some((n) => !n.is_read) && (
-                <Pressable onPress={handleMarkAllRead}>
-                  <Text className="text-sky-600 dark:text-sky-400 text-sm font-semibold">
-                    Mark All as Read
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-
-            {isLoading && notificationList.length === 0 ? (
-              <ActivityIndicator size="small" color="#3b82f6" className="py-12" />
-            ) : notificationList.length > 0 ? (
-              <View className="gap-3">
-                {notificationList.map((item) => {
-                  const catConfig = getCategoryConfig(item.notification_type);
-                  const dateStr = item.notification_date
-                    ? new Date(item.notification_date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "";
-
-                  return (
-                    <Pressable
-                      key={item.notification_id}
-                      onPress={() => handleItemPress(item)}
-                      className={`p-4 rounded-2xl border flex-row items-start gap-3.5 shadow-xs ${
-                        item.is_read
-                          ? "bg-surface border-default"
-                          : "bg-primary/5 border-primary/30"
-                      }`}
-                    >
-                      <View
-                        className={`size-10 rounded-xl items-center justify-center border ${catConfig.bg} ${catConfig.border}`}
-                      >
-                        <Ionicons name={catConfig.icon} size={20} color={catConfig.color} />
-                      </View>
-
-                      <View className="flex-1">
-                        <View className="flex-row items-center justify-between mb-1">
-                          <Text
-                            className="text-foreground text-sm font-bold flex-1 mr-2"
-                            numberOfLines={1}
-                          >
-                            {item.sender || catConfig.label}
-                          </Text>
-                          <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] font-medium">
-                            {dateStr}
-                          </Text>
-                        </View>
-
-                        <Text className="text-foreground/80 dark:text-zinc-300 text-sm leading-5">
-                          {item.notification_message}
-                        </Text>
-                      </View>
-
-                      {!item.is_read && (
-                        <View className="size-2.5 rounded-full bg-sky-500 mt-1.5" />
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : (
-              <View className="p-8 bg-surface border border-default rounded-2xl items-center my-4 shadow-xs">
-                <View className="size-12 rounded-full bg-surface-secondary items-center justify-center mb-3">
-                  <Ionicons name="notifications-off-outline" size={24} color="#a1a1aa" />
-                </View>
-                <Text className="text-foreground font-semibold text-sm mb-1">
-                  No notifications yet
-                </Text>
-                <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center leading-4">
-                  You are all caught up! Automated care reminders and health alerts will appear
-                  here.
-                </Text>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View className="px-5 gap-6 pt-2">
-            <View>
-              <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-2 ml-1">
-                Maternal Care Reminders
-              </Text>
-              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-1 mr-4">
-                    <Text className="text-foreground text-base font-medium">
-                      Prenatal Visit Reminders
-                    </Text>
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
-                      Receive alerts for scheduled checkups and trimester milestones.
-                    </Text>
-                  </View>
-                  <Switch
-                    isSelected={prefSettings.prenatalReminders}
-                    {...({
-                      onValueChange: (val: boolean) =>
-                        setNotificationSetting("prenatalReminders", val),
-                    } as any)}
-                  />
-                </View>
-
-                <View className="h-px bg-default mb-4" />
-
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-1 mr-4">
-                    <Text className="text-foreground text-base font-medium">
-                      Supplement & Iron Reminders
-                    </Text>
-                    <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
-                      Daily reminder notifications to log and take prescribed vitamins.
-                    </Text>
-                  </View>
-                  <Switch
-                    isSelected={prefSettings.supplementReminders}
-                    {...({
-                      onValueChange: (val: boolean) =>
-                        setNotificationSetting("supplementReminders", val),
-                    } as any)}
-                  />
-                </View>
-
-                <View className="h-px bg-default mb-4" />
-
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 mr-4">
-                    <Text className="text-foreground text-base font-medium">
-                      Upcoming Appointment Alerts
-                    </Text>
-                    <Text className="text-zinc-400 text-sm mt-0.5">
-                      Alerts 24 hours and 1 hour before facility appointments.
-                    </Text>
-                  </View>
-                  <Switch
-                    isSelected={prefSettings.appointmentAlerts}
-                    {...({
-                      onValueChange: (val: boolean) =>
-                        setNotificationSetting("appointmentAlerts", val),
-                    } as any)}
-                  />
-                </View>
-              </Card>
-            </View>
-
-            <View>
-              <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">General Updates</Text>
-              <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 mr-4">
-                    <Text className="text-foreground text-base font-medium">
-                      Health & Wellness Tips
-                    </Text>
-                    <Text className="text-zinc-400 text-sm mt-0.5">
-                      Receive weekly pregnancy advice and nutrition guides.
-                    </Text>
-                  </View>
-                  <Switch
-                    isSelected={prefSettings.healthTips}
-                    {...({
-                      onValueChange: (val: boolean) => setNotificationSetting("healthTips", val),
-                    } as any)}
-                  />
-                </View>
-              </Card>
-            </View>
-          </View>
-        )}
-      </ScrollView>
+  return <View className="flex-1 bg-background">
+    <View className="h-16 flex-row items-center justify-between px-5">
+      <Pressable onPress={goBack} accessibilityLabel="Back" className="size-11 items-center justify-center"><AppIcon name="chevron-back" size={23} weight="bold" color="#171717" /></Pressable>
+      <Text className="text-2xl font-semibold text-foreground">Notifications</Text>
+      <Pressable onPress={() => void markAllRead()} accessibilityLabel="Mark all as read" className="size-11 items-center justify-center"><AppIcon name="checkmark-done" size={20} weight="regular" color={items.some(item => !item.is_read) ? "#171717" : "#a3a3a3"} /></Pressable>
     </View>
-  );
+    <View className="pt-3"><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+      {categories.map(category => <Pressable key={category} onPress={() => setActive(category)} className={`rounded-xl border px-4 py-2.5 ${active === category ? "border-[#202020] bg-[#202020]" : "border-[#e5e5e5] bg-white"}`}><Text className={`text-sm font-medium ${active === category ? "text-white" : "text-foreground"}`}>{category}</Text></Pressable>)}
+    </ScrollView></View>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
+      {loading && items.length === 0 ? <ActivityIndicator className="mt-16" color="#171717" /> : visible.length === 0 ? <View className="mt-24 items-center px-8"><View className="mb-4 size-14 items-center justify-center rounded-xl bg-[#f2f2f2]"><AppIcon name="notifications-outline" size={26} weight="regular" color="#555" /></View><Text className="text-base font-semibold text-foreground">No notifications yet</Text><Text className="mt-2 text-center text-sm text-muted-foreground">Care updates and appointment reminders will appear here.</Text></View> : <>{renderGroup("Today", today)}{renderGroup("Earlier", earlier)}</>}
+    </ScrollView>
+  </View>;
 }

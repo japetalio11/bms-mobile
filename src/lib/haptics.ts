@@ -22,25 +22,3 @@ export function triggerLightHaptic(): void {
     Vibration.vibrate(15);
   }
 }
-
-export function triggerMediumHaptic(): void {
-  try {
-    if (Platform.OS === "web") return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {
-      Vibration.vibrate(25);
-    });
-  } catch {
-    Vibration.vibrate(25);
-  }
-}
-
-export function triggerSuccessHaptic(): void {
-  try {
-    if (Platform.OS === "web") return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
-      Vibration.vibrate([0, 15, 60, 20]);
-    });
-  } catch {
-    Vibration.vibrate([0, 15, 60, 20]);
-  }
-}

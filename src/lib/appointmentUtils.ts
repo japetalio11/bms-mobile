@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+
 
 export type AppointmentStatusConfig = {
   label: string;
@@ -6,7 +6,7 @@ export type AppointmentStatusConfig = {
   bgStyle: string;
   borderStyle: string;
   textStyle: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
 };
 
 export function getAppointmentStatusConfig(statusStr: string): AppointmentStatusConfig {

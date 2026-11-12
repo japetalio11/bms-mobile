@@ -1,242 +1,64 @@
 import { useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
-import { Text, Avatar, Button, Card } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Avatar, Text, Switch } from "heroui-native";
 import { useRouter } from "expo-router";
-import type { JSX } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppIcon } from "../../components/AppIcon";
 import { useAuth } from "../../context/UserContext";
+import { useSettings } from "../../context/settingsContext";
 import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
 import { MotherShareJourneyModal } from "../../components/MotherShareJourneyModal";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-function SettingRow({
-  icon,
-  title,
-  subtitle,
-  onPress,
-  showChevron = true,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle?: string;
-  onPress?: () => void;
-  showChevron?: boolean;
-}) {
-  return (
-    <Pressable onPress={onPress} className="flex-row items-center gap-4 py-3.5 px-1">
-      <View className="size-9 rounded-full bg-default items-center justify-center">
-        <Ionicons name={icon} size={18} color="#a1a1aa" />
-      </View>
-      <View className="flex-1">
-        <Text className="text-foreground text-base font-medium">{title}</Text>
-        {subtitle && <Text className="text-zinc-400 text-sm mt-0.5">{subtitle}</Text>}
-      </View>
-      {showChevron && <Ionicons name="chevron-forward" size={16} color="#71717a" />}
-    </Pressable>
-  );
+function SettingsRow({ icon, title, onPress, trailing }: { icon: string; title: string; onPress?: () => void; trailing?: React.ReactNode }) {
+  return <Pressable onPress={onPress} accessibilityRole={onPress ? "button" : undefined} className="min-h-14 flex-row items-center gap-3 px-4 active:opacity-70">
+    <View className="size-9 items-center justify-center rounded-full bg-[#ededed]"><AppIcon name={icon} size={18} weight="regular" color="#242424" /></View>
+    <Text className="flex-1 text-sm font-medium text-foreground">{title}</Text>
+    {trailing ?? <AppIcon name="chevron-forward" size={17} weight="bold" color="#737373" />}
+  </Pressable>;
 }
 
-export default function ProfileScreen(): JSX.Element {
+export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, motherRecord, logout } = useAuth();
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [shareJourneyModalOpen, setShareJourneyModalOpen] = useState(false);
+  const { notifications, setNotificationSetting } = useSettings();
+  const [qrOpen, setQrOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const avatar = user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url;
+  const handleLogout = async () => { await logout(); router.replace("/(auth)/login"); };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (err) {
-      console.warn("Logout error:", err);
-    } finally {
-      router.replace("/(auth)/login");
-    }
-  };
-
-  const facilityName = user.facility_name || user.facility?.facility_name;
-
-  return (
-    <View className="flex-1 bg-background">
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="items-center px-5 pt-8 pb-6">
-          <Avatar size="lg" className="mb-4">
-            {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
-              <Avatar.Image
-                source={{
-                  uri:
-                    user.profile_url ||
-                    (user as any).profile_picture_url ||
-                    (user as any).avatar_url,
-                }}
-              />
-            ) : (
-              <Avatar.Fallback delayMs={0}>
-                <View className="w-full h-full bg-[#212129] items-center justify-center border border-white/10">
-                  <Text className="text-white text-lg font-bold">
-                    {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
-                  </Text>
-                </View>
-              </Avatar.Fallback>
-            )}
-          </Avatar>
-          <Text className="text-foreground text-lg font-bold">{user.name || "Mother Profile"}</Text>
-          <Text className="text-zinc-400 text-sm mb-4">
-            {user.email || user.phone_number || ""}
-          </Text>
-
-          <Button
-            variant="secondary"
-            className="w-full bg-default border-0 rounded-xl"
-            onPress={() => router.push("/(tabs)/edit-profile")}
-          >
-            <Button.Label className="text-foreground font-medium">Edit Profile</Button.Label>
-          </Button>
-        </View>
-
-        <View className="px-5 mb-4">
-          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Assigned Care Team</Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-3.5">
-            {motherRecord?.assignedWorker ? (
-              <View className="flex-row items-center gap-3">
-                <View className="size-11 rounded-full bg-blue-500/15 items-center justify-center">
-                  <Ionicons name="medical" size={20} color="#3b82f6" />
-                </View>
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-foreground text-base font-bold">
-                      {motherRecord.assignedWorker.first_name}{" "}
-                      {motherRecord.assignedWorker.last_name}
-                    </Text>
-                    <View className="bg-blue-500/15 px-2 py-0.5 rounded-full">
-                      <Text className="text-[#3b82f6] text-xs font-semibold">
-                        {motherRecord.assignedWorker.role}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text className="text-zinc-400 text-xs mt-0.5">
-                    Assigned Primary Care Provider · {facilityName || "Primary Facility"}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => router.push("/(tabs)/chat")}
-                  className="size-9 rounded-full bg-blue-500/20 items-center justify-center"
-                >
-                  <Ionicons name="chatbubble-ellipses" size={18} color="#3b82f6" />
-                </Pressable>
-              </View>
-            ) : (
-              <View className="flex-row items-center gap-3">
-                <View className="size-11 rounded-full bg-default items-center justify-center">
-                  <Ionicons name="business-outline" size={20} color="#a1a1aa" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-foreground text-base font-semibold">
-                    {facilityName || "Primary Health Facility"}
-                  </Text>
-                  <Text className="text-zinc-400 text-xs mt-0.5">
-                    Facility Care Team (Direct staff assignment pending)
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => router.push("/(tabs)/chat")}
-                  className="size-9 rounded-full bg-default items-center justify-center"
-                >
-                  <Ionicons name="chatbubble-ellipses" size={18} color="#a1a1aa" />
-                </Pressable>
-              </View>
-            )}
-          </Card>
-        </View>
-
-        <View className="px-5 mb-4">
-          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">
-            Clinical Sharing & Facility
-          </Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
-            <SettingRow
-              icon="share-social-outline"
-              title="Share Pregnancy Journey & Vitals"
-              subtitle="Generate QR code & 6-digit PIN for doctor web view"
-              onPress={() => setShareJourneyModalOpen(true)}
-            />
-            <View className="h-px bg-separator mx-1" />
-            <SettingRow
-              icon="qr-code-outline"
-              title="Mother Health Card & Facility QR"
-              subtitle="Scan code to connect to your health facility"
-              onPress={() => setQrModalOpen(true)}
-            />
-          </Card>
-        </View>
-
-        <View className="px-5 mb-4">
-          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Preferences</Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
-            <SettingRow
-              icon="notifications-outline"
-              title="Notification Preferences"
-              subtitle="Reminders for supplements, appointments"
-              onPress={() => router.push("/(tabs)/notifications")}
-            />
-            <View className="h-px bg-separator mx-1" />
-            <SettingRow
-              icon="color-palette-outline"
-              title="App Appearance"
-              subtitle="Theme and display settings"
-              onPress={() => router.push("/(tabs)/app-appearance")}
-            />
-          </Card>
-        </View>
-
-        <View className="px-5 mb-4">
-          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Privacy & Security</Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
-            <SettingRow
-              icon="lock-closed-outline"
-              title="Security"
-              subtitle="Manage password & authentication"
-              onPress={() => router.push("/(tabs)/security")}
-            />
-            <View className="h-px bg-default mx-1" />
-            <SettingRow
-              icon="shield-checkmark-outline"
-              title="Data Privacy"
-              subtitle="Manage your personal data"
-              onPress={() => router.push("/(tabs)/privacy")}
-            />
-          </Card>
-        </View>
-
-        <View className="px-5">
-          <Text className="text-zinc-400 text-sm font-medium mb-1 ml-1">Account</Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl px-3 py-1">
-            <SettingRow
-              icon="log-out-outline"
-              title="Sign Out"
-              showChevron={false}
-              onPress={handleLogout}
-            />
-          </Card>
-        </View>
-      </ScrollView>
-
-      <MotherQRCodeModal
-        visible={qrModalOpen}
-        onClose={() => setQrModalOpen(false)}
-        user={user}
-        motherRecord={motherRecord}
-      />
-
-      <MotherShareJourneyModal
-        visible={shareJourneyModalOpen}
-        onClose={() => setShareJourneyModalOpen(false)}
-        user={user}
-        motherRecord={motherRecord}
-      />
+  return <View className="flex-1 bg-background">
+    <View className="h-16 flex-row items-center justify-between px-5">
+      <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} accessibilityLabel="Back" className="size-11 items-center justify-center"><AppIcon name="chevron-back" size={23} weight="bold" color="#171717" /></Pressable>
+      <Text className="text-2xl font-semibold text-foreground">Settings</Text>
+      <View className="size-10" />
     </View>
-  );
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 100 }}>
+      <Pressable onPress={() => router.push("/(tabs)/edit-profile")} className="mt-3 mb-7 flex-row items-center rounded-xl bg-[#f2f2f2] p-4 active:opacity-80">
+        <Avatar size="md">{avatar ? <Avatar.Image source={{ uri: avatar }} /> : <Avatar.Fallback delayMs={0}><Text className="text-base font-semibold">{user.first_name?.[0] || "M"}</Text></Avatar.Fallback>}</Avatar>
+        <View className="ml-3 flex-1"><Text className="text-base font-semibold text-foreground" numberOfLines={1}>{user.name || "My account"}</Text><Text className="text-sm text-muted-foreground" numberOfLines={1}>{user.email || user.phone_number || "Edit your profile"}</Text></View>
+        <Text className="text-sm font-medium text-[#454545]">Edit</Text>
+      </Pressable>
+      <Text className="mb-2 px-1 text-sm font-semibold text-foreground">Account</Text>
+      <View className="mb-6 overflow-hidden rounded-xl bg-[#f6f6f6]">
+        <SettingsRow icon="lock-closed-outline" title="Change password" onPress={() => router.push("/(tabs)/security")} />
+        <SettingsRow icon="person" title="Account details" onPress={() => router.push("/(tabs)/edit-profile")} />
+        <SettingsRow icon="shield-checkmark-outline" title="Privacy and data" onPress={() => router.push("/(tabs)/privacy")} />
+      </View>
+      <Text className="mb-2 px-1 text-sm font-semibold text-foreground">Care and notifications</Text>
+      <View className="mb-6 overflow-hidden rounded-xl bg-[#f6f6f6]">
+        <SettingsRow icon="notifications-outline" title="Notifications" onPress={() => router.push({ pathname: "/(tabs)/notifications", params: { from: "settings" } })} />
+        <SettingsRow icon="calendar-outline" title="Appointment reminders" trailing={<Switch isSelected={notifications.appointmentAlerts} onSelectedChange={(value: boolean) => setNotificationSetting("appointmentAlerts", value)} />} />
+        <SettingsRow icon="medical" title="Medicine reminders" trailing={<Switch isSelected={notifications.supplementReminders} onSelectedChange={(value: boolean) => setNotificationSetting("supplementReminders", value)} />} />
+      </View>
+      <Text className="mb-2 px-1 text-sm font-semibold text-foreground">Health sharing</Text>
+      <View className="mb-6 overflow-hidden rounded-xl bg-[#f6f6f6]">
+        <SettingsRow icon="qr-code-outline" title="My health QR code" onPress={() => setQrOpen(true)} />
+        <SettingsRow icon="share-social-outline" title="Share pregnancy journey" onPress={() => setShareOpen(true)} />
+      </View>
+      <Pressable onPress={handleLogout} className="min-h-14 flex-row items-center gap-3 rounded-xl bg-[#f6f6f6] px-4 active:opacity-70"><AppIcon name="log-out-outline" size={18} weight="regular" color="#b42318" /><Text className="text-sm font-medium text-[#b42318]">Sign out</Text></Pressable>
+    </ScrollView>
+    <MotherQRCodeModal visible={qrOpen} onClose={() => setQrOpen(false)} user={user} motherRecord={motherRecord} />
+    <MotherShareJourneyModal visible={shareOpen} onClose={() => setShareOpen(false)} user={user} motherRecord={motherRecord} />
+  </View>;
 }

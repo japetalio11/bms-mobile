@@ -5,62 +5,10 @@ import { auth } from "../lib/firebase";
 import {
   formatToE164,
   isValidE164,
-  isTestPhoneNumber,
   getFirebaseErrorMessage,
 } from "../lib/phoneAuthUtils";
 import { sendOtpApi } from "../config/api";
-
-function getNativePhoneAuthHandler() {
-  if (Platform.OS === "web") return null;
-  try {
-    try {
-      require("@react-native-firebase/app");
-    } catch (e) {}
-
-    const firebaseAuthMod = require("@react-native-firebase/auth");
-
-    let authObj: any = null;
-    if (typeof firebaseAuthMod === "function") {
-      try {
-        authObj = firebaseAuthMod();
-      } catch (e) {}
-    } else if (typeof firebaseAuthMod?.default === "function") {
-      try {
-        authObj = firebaseAuthMod.default();
-      } catch (e) {}
-    }
-
-    if (authObj && typeof authObj.signInWithPhoneNumber === "function") {
-      console.log("✅ [Native Firebase Auth] Using auth().signInWithPhoneNumber instance");
-      return (phone: string) => authObj.signInWithPhoneNumber(phone);
-    }
-
-    if (typeof firebaseAuthMod?.getAuth === "function") {
-      try {
-        const authInst = firebaseAuthMod.getAuth();
-        if (authInst && typeof authInst.signInWithPhoneNumber === "function") {
-          console.log("✅ [Native Firebase Auth] Using getAuth().signInWithPhoneNumber instance");
-          return (phone: string) => authInst.signInWithPhoneNumber(phone);
-        }
-      } catch (e) {}
-    }
-
-    if (typeof firebaseAuthMod?.signInWithPhoneNumber === "function") {
-      console.log("✅ [Native Firebase Auth] Using modular signInWithPhoneNumber function");
-      return (phone: string) => {
-        if (typeof firebaseAuthMod.getAuth === "function") {
-          try {
-            return firebaseAuthMod.signInWithPhoneNumber(firebaseAuthMod.getAuth(), phone);
-          } catch (e) {}
-        }
-        return firebaseAuthMod.signInWithPhoneNumber(phone);
-      };
-    }
-  } catch (err: any) {
-    console.error("❌ [Native Phone Auth Load Error]:", err);
-  }
-  return null;
-}
+import { getNativePhoneAuthHandler } from "../lib/nativePhoneAuth";
 
 export interface UsePhoneAuthOptions {
   containerId?: string;
@@ -88,7 +36,7 @@ export interface UsePhoneAuthReturn {
   statusMessage: string;
   statusType: "info" | "success" | "error" | "";
   formattedPhone: string;
-  activeMethod: "firebase" | "backend" | "test";
+  activeMethod: "firebase" | "backend";
 }
 
 declare global {
@@ -119,7 +67,7 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [statusType, setStatusType] = useState<"info" | "success" | "error" | "">("");
   const [formattedPhone, setFormattedPhone] = useState<string>("");
-  const [activeMethod, setActiveMethod] = useState<"firebase" | "backend" | "test">("firebase");
+  const [activeMethod, setActiveMethod] = useState<"firebase" | "backend">("firebase");
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -261,18 +209,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
       setStatusType("info");
       setStatusMessage(`Initiating SMS verification for ${formatted}...`);
 
-      const isTestNum = isTestPhoneNumber(formatted);
-
-      if (isTestNum) {
-        setActiveMethod("test");
-        setIsOtpSent(true);
-        setStatusType("success");
-        setStatusMessage(`📲 Dev Test Number! Enter test code "123456" for ${formatted}.`);
-        setCooldown(cooldownDuration);
-        setIsSubmitting(false);
-        return true;
-      }
-
       if (Platform.OS === "web") {
         if (recaptchaSize === "normal" && !isRecaptchaSolved) {
           console.warn("[PhoneAuth Diagnostic] ⚠️ reCAPTCHA checkbox is not solved yet.");
@@ -365,7 +301,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
 • [Firebase Console] Authorized Domains: Go to Authentication > Settings > Authorized Domains. Ensure "${currentHostname}" is listed.
 • [Firebase Console] SMS Region Policy: Go to Authentication > Settings > SMS Region Policy. Make sure "Philippines (+63)" is ALLOWED (Firebase now restricts countries by default to prevent toll fraud).
 • [Key Type Mismatch]: You are running in a Web browser (Chrome/Edge). An Android reCAPTCHA key (restricted to package com.bms.mobile) CANNOT verify web requests; it causes Google Identity Toolkit to reject the credentials with 400 Bad Request.
-• [Quick Dev Test Solution]: You can test immediately using Firebase Test Phone Numbers (e.g. +639170000000 with code 123456) configured in Firebase Console > Authentication > Sign-in method > Phone > "Phone numbers for testing".
 --------------------------------------------------`
           );
           console.groupEnd();
@@ -474,22 +409,6 @@ export function usePhoneAuth(options: UsePhoneAuthOptions = {}): UsePhoneAuthRet
       setIsSubmitting(true);
       setStatusType("info");
       setStatusMessage("Verifying code...");
-
-      if (activeMethod === "test") {
-        if (cleanCode === "123456") {
-          setIsVerified(true);
-          setStatusType("success");
-          setStatusMessage("✅ Test OTP code verified successfully!");
-          setIsSubmitting(false);
-          return { success: true, finalOtpCode: "FIREBASE_VERIFIED" };
-        } else {
-          const errorMsg = "Incorrect test code. Please enter '123456'.";
-          setStatusType("error");
-          setStatusMessage(errorMsg);
-          setIsSubmitting(false);
-          return { success: false, finalOtpCode: "", error: errorMsg };
-        }
-      }
 
       if (activeMethod === "firebase" && confirmationResultRef.current) {
         try {

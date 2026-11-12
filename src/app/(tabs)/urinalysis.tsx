@@ -1,170 +1,54 @@
-import { View, ScrollView, ActivityIndicator } from "react-native";
-import { useState, useEffect } from "react";
-import { Text, Card } from "heroui-native";
-import { Header } from "../../components/Header";
-import type { JSX } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Text } from "heroui-native";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
-import { getLabScreeningsByMotherApi } from "../../config/api";
-import type { LabScreeningRecord } from "../../config/api";
+import { getLabScreeningsByMotherApi, type LabScreeningRecord } from "../../config/api";
 import { getLabScreeningsLocal, saveLabScreeningsLocal } from "../../db/repository";
+import { AppIcon } from "../../components/AppIcon";
+import { MobileEmptyState } from "../../components/MobileEmptyState";
 
-const Result = ({
-  label,
-  value,
-  unit,
-  status,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  status: "normal" | "abnormal" | "borderline";
-}) => {
-  const statusConfig = {
-    normal: { color: "#10b981", bg: "bg-[#10b981]/15", label: "Normal" },
-    abnormal: { color: "#ef4444", bg: "bg-[#ef4444]/15", label: "Abnormal" },
-    borderline: { color: "#f59e0b", bg: "bg-[#f59e0b]/15", label: "Borderline" },
-  }[status];
-
-  return (
-    <View className="flex-row justify-between items-center py-3 border-b border-separator last:border-0">
-      <View className="flex-1">
-        <Text className="text-foreground text-sm font-medium">{label}</Text>
-        <Text className="text-zinc-400 text-sm">{unit}</Text>
-      </View>
-      <Text className="text-foreground text-sm font-semibold mx-4">{value}</Text>
-      <View className={`px-2 py-0.5 rounded-full ${statusConfig.bg}`}>
-        <Text className="text-sm font-medium" style={{ color: statusConfig.color }}>
-          {statusConfig.label}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-export default function UrinalysisScreen(): JSX.Element {
-  const { token, motherRecord, user } = useAuth();
+export default function UrinalysisScreen() {
+  const router = useRouter();
+  const { token, motherRecord } = useAuth();
   const { isOnline } = useNetwork();
-  const [record, setRecord] = useState<LabScreeningRecord | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [records, setRecords] = useState<LabScreeningRecord[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    const targetMotherId = motherRecord?.mother_id || user?.user_id;
-
-    async function loadScreenings() {
-      if (targetMotherId) {
-        try {
-          const localRecords = await getLabScreeningsLocal(targetMotherId);
-          if (isMounted && localRecords.length > 0) {
-            const u = localRecords.find((r) =>
-              r.screening_type.toLowerCase().includes("urinalysis")
-            );
-            if (u) setRecord(u);
-          }
-        } catch (e) {
-          console.warn("Failed to load local urinalysis record:", e);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const motherId = motherRecord?.mother_id;
+    if (!motherId) return () => { active = false; };
+    const selectUrinalysis = (items: LabScreeningRecord[]) => items.filter(item => item.screening_type?.toLowerCase().includes("urinalysis"));
+    void getLabScreeningsLocal(motherId).then(items => { if (active) setRecords(selectUrinalysis(items)); }).catch(() => {});
+    if (isOnline && token) {
+      setLoading(true);
+      void getLabScreeningsByMotherApi(motherId, token).then(async items => {
+        if (Array.isArray(items)) {
+          if (active) setRecords(selectUrinalysis(items));
+          await saveLabScreeningsLocal(items, true, motherId, true);
         }
-      }
-
-      if (targetMotherId && token && isOnline) {
-        setIsLoading(true);
-        try {
-          const fresh = await getLabScreeningsByMotherApi(targetMotherId, token);
-          if (isMounted && Array.isArray(fresh)) {
-            const u = fresh.find((r) => r.screening_type.toLowerCase().includes("urinalysis"));
-            if (u) setRecord(u);
-            await saveLabScreeningsLocal(fresh, true, targetMotherId, true);
-          }
-        } catch (err) {
-          console.warn("Failed to fetch lab screenings:", err);
-        } finally {
-          if (isMounted) setIsLoading(false);
-        }
-      }
+      }).catch(() => {}).finally(() => { if (active) setLoading(false); });
     }
+    return () => { active = false; };
+  }, [motherRecord?.mother_id, token, isOnline]));
 
-    loadScreenings();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [motherRecord?.mother_id, user?.user_id, token, isOnline]);
-
-  const dateStr = record?.date_of_screening
-    ? new Date(record.date_of_screening).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "";
-
-  return (
-    <View className="flex-1 bg-background">
-      <Header showBackButton title="Urinalysis" rightIcon={null} />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="px-5 mb-5 pt-2">
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#6366f1" className="py-4" />
-          ) : record ? (
-            <View className="bg-[#10b981]/15 rounded-xl p-4 flex-row items-center gap-3">
-              <View className="size-10 rounded-full bg-[#10b981]/20 items-center justify-center">
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[#10b981] font-semibold text-base">{record.result}</Text>
-                <Text className="text-[#10b981] opacity-70 text-sm">Submitted {dateStr}</Text>
-              </View>
-            </View>
-          ) : (
-            <Card className="p-6 bg-surface rounded-xl border-0 items-center py-6">
-              <Ionicons name="document-text-outline" size={28} color="#71717a" className="mb-2" />
-              <Text className="text-foreground font-semibold text-base mb-1">
-                No Urinalysis Record
-              </Text>
-              <Text className="text-zinc-400 text-sm text-center">
-                No urinalysis lab screening record has been submitted yet.
-              </Text>
-            </Card>
-          )}
-        </View>
-
-        {record && (
-          <>
-            <View className="px-5 mb-5">
-              <Text className="text-foreground text-lg font-semibold mb-1">
-                Physical Examination
-              </Text>
-              <Text className="text-zinc-400 text-sm mb-4">
-                Color, clarity, and specific gravity.
-              </Text>
-              <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
-                <Result label="Color" value="Yellow" unit="Visual" status="normal" />
-                <Result label="Clarity" value="Clear" unit="Visual" status="normal" />
-                <Result label="Specific Gravity" value="1.015" unit="Numeric" status="normal" />
-              </Card>
-            </View>
-
-            <View className="px-5">
-              <Text className="text-foreground text-lg font-semibold mb-1">
-                Chemical Examination
-              </Text>
-              <Text className="text-zinc-400 text-sm mb-4">
-                Protein, glucose, and other markers.
-              </Text>
-              <Card variant="secondary" className="bg-surface border-0 rounded-xl px-4 py-1">
-                <Result label="Protein" value="None" unit="Qualitative" status="normal" />
-                <Result label="Glucose" value="None" unit="Qualitative" status="normal" />
-                <Result label="pH Level" value="6.0" unit="Numeric" status="normal" />
-              </Card>
-            </View>
-          </>
-        )}
-      </ScrollView>
+  return <View className="flex-1 bg-background">
+    <View className="mt-4 h-12 flex-row items-center justify-center px-4">
+      <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/records")} accessibilityRole="button" accessibilityLabel="Go back" className="absolute left-4 size-10 items-center justify-center">
+        <AppIcon name="chevron-back" size={20} weight="bold" color="#262626" />
+      </Pressable>
+      <Text className="text-2xl font-semibold text-foreground">Urinalysis</Text>
     </View>
-  );
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 }}>
+      <Text className="mb-4 text-base font-semibold text-foreground">Screening results</Text>
+      {loading && records.length === 0 ? <ActivityIndicator color="#171717" /> : records.length === 0 ? <View className="rounded-[18px] bg-[#262626]"><MobileEmptyState icon="document-text-outline" title="No urinalysis records yet" description="Your care team's screening results will appear here." /></View> : records.map((record, index) => <View key={record.screening_id || index} className="mb-3 rounded-[18px] bg-[#262626] p-4">
+        <Text className="text-base font-semibold text-white">{record.screening_type}</Text>
+        <Text className="mt-1 text-sm text-[#a3a3a3]">{record.date_of_screening ? new Date(record.date_of_screening).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Date not recorded"}</Text>
+        {record.result ? <View className="mt-4"><Text className="text-sm text-[#a3a3a3]">Result</Text><Text className="mt-1 text-base font-medium text-white">{record.result}</Text></View> : null}
+        {record.remarks ? <View className="mt-3"><Text className="text-sm text-[#a3a3a3]">Remarks</Text><Text className="mt-1 text-sm text-white">{record.remarks}</Text></View> : null}
+      </View>)}
+    </ScrollView>
+  </View>;
 }

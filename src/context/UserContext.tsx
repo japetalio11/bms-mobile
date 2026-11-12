@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -12,7 +12,6 @@ import type { AuthUser, MotherRecord, PregnancyRecord } from "../config/api";
 import {
   saveMotherProfileLocal,
   getMotherProfileLocal,
-  getNotificationsLocal,
   getUnreadNotificationCountLocal,
   saveNotificationsLocal,
   markAllNotificationsReadLocal,
@@ -95,6 +94,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoadingStorage, setIsLoadingStorage] = useState<boolean>(true);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const hasLoadedAuth = useRef(false);
+
+  const logout = useCallback(async () => {
+    setUser(formatUser(emptyUserData));
+    setToken(null);
+    setMotherRecord(null);
+    setActivePregnancy(null);
+    setUnreadCount(0);
+
+    try {
+      await signOutNativeGoogle();
+      await deleteSecureToken();
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.TOKEN,
+        STORAGE_KEYS.USER,
+        STORAGE_KEYS.MOTHER_RECORD,
+        STORAGE_KEYS.ACTIVE_PREGNANCY,
+      ]);
+      await clearAllTablesLocal();
+    } catch (err) {
+      console.error("Failed to clear auth storage:", err);
+    }
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!user.user_id) return;
@@ -225,6 +247,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    if (hasLoadedAuth.current) return;
+    hasLoadedAuth.current = true;
+
     const loadStoredAuth = async () => {
       try {
         let storedToken = await getSecureToken();
@@ -241,20 +266,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const storedPregnancyJson = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_PREGNANCY);
 
         if (storedToken) {
+          const rawUser = storedUserJson ? (JSON.parse(storedUserJson) as AuthUser) : null;
+
+          // A cached token without its user identity cannot be safely scoped to a mother.
+          // Clear it before exposing any authenticated routes or cached patient data.
+          if (
+            !rawUser?.user_id ||
+            rawUser.role?.trim().toLowerCase() !== "mother"
+          ) {
+            await logout();
+            return;
+          }
+
           setToken(storedToken);
-          let currentUserId = "";
+          const currentUserId = rawUser.user_id;
+          setUser(formatUser(rawUser));
 
-          if (storedUserJson) {
-            const rawUser = JSON.parse(storedUserJson);
-            currentUserId = rawUser.user_id;
-            setUser(formatUser(rawUser));
-
-            const sqliteData = await getMotherProfileLocal(rawUser.user_id);
-            if (sqliteData?.motherRecord) {
-              setMotherRecord(sqliteData.motherRecord);
-              if (sqliteData.motherRecord.pregnancies?.length) {
-                setActivePregnancy(sqliteData.motherRecord.pregnancies[0]);
-              }
+          const sqliteData = await getMotherProfileLocal(rawUser.user_id);
+          if (sqliteData?.motherRecord) {
+            setMotherRecord(sqliteData.motherRecord);
+            if (sqliteData.motherRecord.pregnancies?.length) {
+              setActivePregnancy(sqliteData.motherRecord.pregnancies[0]);
             }
           }
 
@@ -282,7 +314,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
 
     loadStoredAuth();
-  }, [fetchProfile, refreshNotifications]);
+  }, [fetchProfile, refreshNotifications, logout]);
 
   const login = async (userData: AuthUser, authToken: string) => {
     const formatted = formatUser(userData);
@@ -297,29 +329,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       refreshNotifications();
     } catch (err) {
       console.error("Failed to store user session:", err);
-    }
-  };
-
-  const logout = async () => {
-    const currentUserId = user.user_id;
-    setUser(formatUser(emptyUserData));
-    setToken(null);
-    setMotherRecord(null);
-    setActivePregnancy(null);
-    setUnreadCount(0);
-
-    try {
-      await signOutNativeGoogle();
-      await deleteSecureToken();
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.TOKEN,
-        STORAGE_KEYS.USER,
-        STORAGE_KEYS.MOTHER_RECORD,
-        STORAGE_KEYS.ACTIVE_PREGNANCY,
-      ]);
-      await clearAllTablesLocal(currentUserId);
-    } catch (err) {
-      console.error("Failed to clear auth storage:", err);
     }
   };
 

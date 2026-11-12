@@ -1,8 +1,9 @@
 import { View, ScrollView, Pressable, ActivityIndicator, Image, Modal } from "react-native";
 import type { JSX } from "react";
-import { Text, Button } from "heroui-native";
+import { Text } from "heroui-native";
+import { AppButton as Button } from "../../components/FormControls";
 import { Header } from "../../components/Header";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { useState, useCallback } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -241,21 +242,21 @@ export default function UploadRecordScreen(): JSX.Element {
 
         <View className="px-5 mb-6 pt-2">
           <Text className="text-foreground text-base font-semibold mb-1">Record Type</Text>
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-3">
+          <Text className="text-muted-foreground dark:text-muted-foreground text-sm mb-3">
             Select the type of document or test you are submitting.
           </Text>
 
           <Pressable
             onPress={() => setIsDropdownOpen(true)}
-            className="bg-surface border border-default rounded-2xl p-3.5 flex-row items-center justify-between active:bg-surface-secondary shadow-xs"
+            className="bg-surface border border-default rounded-xl p-3.5 flex-row items-center justify-between active:bg-surface-secondary shadow-none"
           >
             <View className="flex-row items-center gap-3 flex-1">
               <View className="size-9 rounded-xl items-center justify-center bg-primary/10 border border-primary/20">
                 <Ionicons name={selectedTypeObj.icon as any} size={18} color="#3b82f6" />
               </View>
               <View className="flex-1">
-                <Text className="text-foreground text-sm font-bold">{selectedTypeObj.label}</Text>
-                <Text className="text-zinc-500 dark:text-zinc-400 text-[11px] mt-0.5">
+                <Text className="text-foreground text-sm font-semibold">{selectedTypeObj.label}</Text>
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm mt-0.5">
                   Tap to change record type
                 </Text>
               </View>
@@ -268,12 +269,12 @@ export default function UploadRecordScreen(): JSX.Element {
           <Text className="text-foreground text-base font-semibold mb-1">
             Upload Document Attachment
           </Text>
-          <Text className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">
+          <Text className="text-muted-foreground dark:text-muted-foreground text-sm mb-4">
             Upload a lab scan, image, or report document.
           </Text>
 
           {selectedFile ? (
-            <View className="bg-surface border border-sky-500/40 rounded-2xl p-4 flex-row items-center gap-3 shadow-xs">
+            <View className="bg-surface border border-sky-500/40 rounded-xl p-4 flex-row items-center gap-3 shadow-none">
               {selectedFile.mimeType?.startsWith("image/") ||
               selectedFile.uri.match(/\.(jpg|jpeg|png)$/i) ? (
                 <Image
@@ -290,7 +291,7 @@ export default function UploadRecordScreen(): JSX.Element {
                 <Text className="text-foreground font-semibold text-sm" numberOfLines={1}>
                   {selectedFile.name}
                 </Text>
-                <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-0.5">
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm mt-0.5">
                   {selectedFile.size
                     ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
                     : "Document attached"}
@@ -307,7 +308,7 @@ export default function UploadRecordScreen(): JSX.Element {
           ) : (
             <Pressable
               onPress={handlePickDocument}
-              className="bg-surface border-2 border-dashed border-default rounded-2xl items-center justify-center py-8 mb-4 active:bg-surface-secondary"
+              className="bg-surface border-2 border-dashed border-default rounded-xl items-center justify-center py-8 mb-4 active:bg-surface-secondary"
             >
               <View className="size-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 items-center justify-center mb-3">
                 <Ionicons name="cloud-upload-outline" size={28} color="#6366f1" />
@@ -315,7 +316,7 @@ export default function UploadRecordScreen(): JSX.Element {
               <Text className="text-foreground font-semibold text-base mb-1">
                 Tap to select document
               </Text>
-              <Text className="text-zinc-500 dark:text-zinc-400 text-sm">
+              <Text className="text-muted-foreground dark:text-muted-foreground text-sm">
                 PDF, PNG, or JPG (max 10MB)
               </Text>
             </Pressable>
@@ -325,17 +326,17 @@ export default function UploadRecordScreen(): JSX.Element {
         <View className="px-5 mt-2 mb-6">
           <Button
             variant="primary"
-            className="w-full rounded-2xl h-12 bg-[#3b82f6]"
+            className="w-full rounded-xl h-12 bg-primary"
             onPress={handleSubmit}
             isDisabled={!recordType || isLoading}
           >
             <View className="flex-row items-center justify-center gap-2">
               {isLoading ? (
-                <ActivityIndicator color="white" size="small" />
+                <ActivityIndicator color="#171717" size="small" />
               ) : (
-                <Ionicons name="checkmark-circle" size={18} color="white" />
+                <Ionicons name="checkmark-circle" size={18} color="#171717" />
               )}
-              <Button.Label className="text-white font-bold text-sm">
+              <Button.Label className="text-[#171717] font-medium text-base">
                 {isLoading ? "Submitting..." : "Submit Record"}
               </Button.Label>
             </View>
@@ -353,11 +354,11 @@ export default function UploadRecordScreen(): JSX.Element {
           onPress={() => setIsDropdownOpen(false)}
           className="flex-1 bg-black/60 justify-center items-center p-5"
         >
-          <Pressable className="w-full max-w-sm bg-surface border border-default rounded-3xl p-5 gap-3 shadow-2xl">
+          <Pressable className="w-full max-w-sm bg-surface border border-default rounded-xl p-5 gap-3 shadow-none">
             <View className="flex-row items-center justify-between pb-3 border-b border-default">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="list" size={18} color="#3b82f6" />
-                <Text className="text-foreground font-bold text-base">Select Record Type</Text>
+                <Text className="text-foreground font-semibold text-base">Select Record Type</Text>
               </View>
               <Pressable
                 onPress={() => setIsDropdownOpen(false)}
@@ -378,7 +379,7 @@ export default function UploadRecordScreen(): JSX.Element {
                       setIsDropdownOpen(false);
                       setError(null);
                     }}
-                    className={`p-3.5 rounded-2xl border flex-row items-center justify-between ${
+                    className={`p-3.5 rounded-xl border flex-row items-center justify-between ${
                       isSelected
                         ? "bg-primary/10 border-primary"
                         : "bg-surface-secondary border-default active:bg-default/50"
@@ -395,7 +396,7 @@ export default function UploadRecordScreen(): JSX.Element {
                         />
                       </View>
                       <Text
-                        className={`text-sm ${isSelected ? "text-primary font-bold" : "text-foreground font-medium"}`}
+                        className={`text-sm ${isSelected ? "text-primary font-semibold" : "text-foreground font-medium"}`}
                       >
                         {type.label}
                       </Text>

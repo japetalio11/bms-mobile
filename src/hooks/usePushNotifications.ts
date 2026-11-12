@@ -1,17 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Platform, PermissionsAndroid, Alert } from "react-native";
-import {
-  getMessaging,
-  getToken,
-  onMessage,
-  onTokenRefresh,
-  requestPermission,
-  getInitialNotification,
-  onNotificationOpenedApp,
-  registerDeviceForRemoteMessages,
-  AuthorizationStatus,
-  type RemoteMessage,
-} from "@react-native-firebase/messaging";
+import { useCallback, useEffect, useRef } from "react";
+import { Platform, PermissionsAndroid, Alert, TurboModuleRegistry } from "react-native";
+import type { RemoteMessage } from "@react-native-firebase/messaging";
 import { useRouter } from "expo-router";
 import { updatePushTokenApi } from "../config/api";
 
@@ -30,7 +19,10 @@ export function usePushNotifications({
   const currentTokenRef = useRef<string | null>(null);
   const syncedTokenRef = useRef<string | null>(null);
 
-  const requestUserPermission = async (): Promise<boolean> => {
+  const requestUserPermission = useCallback(async (
+    messaging: typeof import("@react-native-firebase/messaging"),
+    messagingInstance: ReturnType<typeof messaging.getMessaging>
+  ): Promise<boolean> => {
     try {
       if (Platform.OS === "android") {
         if (Number(Platform.Version) >= 33) {
@@ -43,8 +35,7 @@ export function usePushNotifications({
         return true;
       }
 
-      const messagingInstance = getMessaging();
-      const authStatus = await requestPermission(messagingInstance, {
+      const authStatus = await messaging.requestPermission(messagingInstance, {
         alert: true,
         badge: true,
         sound: true,
@@ -52,16 +43,16 @@ export function usePushNotifications({
       });
 
       return (
-        authStatus === AuthorizationStatus.AUTHORIZED ||
-        authStatus === AuthorizationStatus.PROVISIONAL
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL
       );
     } catch (error) {
       console.error("[FCM] Failed to request notification permission:", error);
       return false;
     }
-  };
+  }, []);
 
-  const syncTokenWithBackend = async (fcmToken: string) => {
+  const syncTokenWithBackend = useCallback(async (fcmToken: string) => {
     if (!authToken || !userId) {
       console.log("[FCM] Token stored locally; awaiting user login before backend sync.");
       return;
@@ -78,9 +69,9 @@ export function usePushNotifications({
     } catch (err) {
       console.error("[FCM] Failed to register push token with backend:", err);
     }
-  };
+  }, [authToken, userId]);
 
-  const handleNotificationNavigation = (remoteMessage: RemoteMessage | null) => {
+  const handleNotificationNavigation = useCallback((remoteMessage: RemoteMessage | null) => {
     if (!remoteMessage || !remoteMessage.data) return;
 
     const { screen, ...extraData } = remoteMessage.data;
@@ -93,17 +84,39 @@ export function usePushNotifications({
         console.error(`[FCM] Error navigating to ${screen}:`, navError);
       }
     }
-  };
+  }, [router]);
 
   useEffect(() => {
+    // RNFirebase can only be evaluated when its native modules exist in the
+    // installed binary. Expo Go and stale dev clients do not register them.
+    if (
+      Platform.OS === "web" ||
+      !TurboModuleRegistry.get("NativeRNFBTurboApp") ||
+      !TurboModuleRegistry.get("NativeRNFBTurboMessaging")
+    ) {
+      return;
+    }
+
     let isMounted = true;
-    const messagingInstance = getMessaging();
+    let messaging: typeof import("@react-native-firebase/messaging");
+    let messagingInstance: ReturnType<typeof import("@react-native-firebase/messaging").getMessaging>;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("@react-native-firebase/app");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      messaging = require("@react-native-firebase/messaging");
+      if (!messaging) return;
+      messagingInstance = messaging.getMessaging();
+    } catch (error) {
+      console.warn("[FCM] Native Firebase Messaging is unavailable:", error);
+      return;
+    }
 
     const initialize = async () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (!isMounted) return;
 
-      const hasPermission = await requestUserPermission();
+      const hasPermission = await requestUserPermission(messaging, messagingInstance);
       if (!hasPermission || !isMounted) {
         console.log("[FCM] Notification permission was not granted.");
         return;
@@ -111,10 +124,10 @@ export function usePushNotifications({
 
       try {
         if (Platform.OS === "ios") {
-          await registerDeviceForRemoteMessages(messagingInstance);
+          await messaging.registerDeviceForRemoteMessages(messagingInstance);
         }
 
-        const token = await getToken(messagingInstance);
+        const token = await messaging.getToken(messagingInstance);
         if (token && isMounted) {
           console.log("[FCM] Device Token obtained:", token);
           currentTokenRef.current = token;
@@ -127,13 +140,13 @@ export function usePushNotifications({
 
     initialize();
 
-    const unsubscribeTokenRefresh = onTokenRefresh(messagingInstance, async (newToken: string) => {
+    const unsubscribeTokenRefresh = messaging.onTokenRefresh(messagingInstance, async (newToken: string) => {
       console.log("[FCM] Token refreshed by Firebase:", newToken);
       currentTokenRef.current = newToken;
       await syncTokenWithBackend(newToken);
     });
 
-    const unsubscribeForeground = onMessage(messagingInstance, (remoteMessage: RemoteMessage) => {
+    const unsubscribeForeground = messaging.onMessage(messagingInstance, (remoteMessage: RemoteMessage) => {
       console.log("[FCM] Foreground notification received:", remoteMessage);
 
       if (onNotificationReceived) {
@@ -152,7 +165,7 @@ export function usePushNotifications({
       ]);
     });
 
-    const unsubscribeNotificationOpened = onNotificationOpenedApp(
+    const unsubscribeNotificationOpened = messaging.onNotificationOpenedApp(
       messagingInstance,
       (remoteMessage: RemoteMessage) => {
         console.log("[FCM] App opened from background by notification:", remoteMessage);
@@ -160,7 +173,7 @@ export function usePushNotifications({
       }
     );
 
-    getInitialNotification(messagingInstance)
+    messaging.getInitialNotification(messagingInstance)
       .then((remoteMessage: RemoteMessage | null) => {
         if (remoteMessage && isMounted) {
           console.log("[FCM] App launched from quit state by notification:", remoteMessage);
@@ -177,13 +190,13 @@ export function usePushNotifications({
       unsubscribeForeground();
       unsubscribeNotificationOpened();
     };
-  }, []);
+  }, [requestUserPermission, syncTokenWithBackend, handleNotificationNavigation, onNotificationReceived]);
 
   useEffect(() => {
     if (authToken && userId && currentTokenRef.current) {
       syncTokenWithBackend(currentTokenRef.current);
     }
-  }, [authToken, userId]);
+  }, [authToken, userId, syncTokenWithBackend]);
 
   return {
     getCurrentToken: () => currentTokenRef.current,

@@ -1,22 +1,14 @@
-import {
-  View,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Platform,
-  Image,
-  KeyboardAvoidingView,
-} from "react-native";
-import { useState, useEffect } from "react";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView, } from "react-native";
+import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
-import { Text, TextField, Label, Input, Button } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text, Label } from "heroui-native";
+import { AppTextField as TextField, AppInput as Input, AppButton as Button } from "../../components/FormControls";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { getNativeGoogleSignin } from "../../lib/googleAuthUtils";
-import { makeRedirectUri } from "expo-auth-session";
 import {
   loginApi,
   sendOtpApi,
@@ -27,6 +19,7 @@ import {
 import { useAuth } from "../../context/UserContext";
 import { usePhoneAuth } from "../../hooks/usePhoneAuth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GoogleMark } from "../../components/GoogleMark";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -59,7 +52,7 @@ export default function LoginScreen(): JSX.Element {
     cooldownDuration: 60,
   });
 
-  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+  const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
@@ -82,6 +75,10 @@ export default function LoginScreen(): JSX.Element {
   const [otpLoading, setOtpLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const googleResponseError = googleResponse?.type === "error"
+    ? (googleResponse as any).error?.message || "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console."
+    : null;
+  const visibleError = error || googleResponseError;
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -97,22 +94,6 @@ export default function LoginScreen(): JSX.Element {
       }
     }
   }, []);
-
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const responseAny = googleResponse as any;
-      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
-      const accessToken =
-        responseAny.authentication?.accessToken || responseAny.params?.access_token;
-      handleGoogleBackendLogin(idToken, accessToken);
-    } else if (googleResponse?.type === "error") {
-      const errRes = googleResponse as any;
-      setError(
-        errRes.error?.message ||
-          "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console."
-      );
-    }
-  }, [googleResponse]);
 
   const handleGooglePress = async () => {
     if (Platform.OS === "web") {
@@ -158,7 +139,7 @@ export default function LoginScreen(): JSX.Element {
     }
   };
 
-  const handleGoogleBackendLogin = async (
+  const handleGoogleBackendLogin = useCallback(async (
     idToken?: string,
     accessToken?: string,
     nativeUser?: any
@@ -215,7 +196,15 @@ export default function LoginScreen(): JSX.Element {
     } finally {
       setGoogleLoading(false);
     }
-  };
+  }, [login, router]);
+
+  useEffect(() => {
+    if (googleResponse?.type !== "success") return;
+    const responseAny = googleResponse as any;
+    const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
+    const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
+    void handleGoogleBackendLogin(idToken, accessToken);
+  }, [googleResponse, handleGoogleBackendLogin]);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -392,329 +381,226 @@ export default function LoginScreen(): JSX.Element {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        className="flex-1 bg-background"
+        className="flex-1"
+        style={{ backgroundColor: "#ffffff" }}
         contentContainerStyle={{
           flexGrow: 1,
-          padding: 24,
-          paddingTop: 48,
-          paddingBottom: Math.max(insets.bottom + 48, 64),
+          justifyContent: "center",
+          paddingHorizontal: 24,
+          paddingVertical: 24,
+          paddingBottom: Math.max(insets.bottom + 24, 36),
         }}
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={true}
+        automaticallyAdjustKeyboardInsets
       >
-        <View className="items-center mb-8">
-          <Image
-            source={require("../../../assets/images/logo.png")}
-            style={{ width: 88, height: 88, borderRadius: 20, marginBottom: 16 }}
-            resizeMode="contain"
-          />
-          <Text
-            className="text-foreground font-semibold text-center text-base"
-            style={{ lineHeight: 22 }}
-          >
-            {mode === "login"
-              ? "Welcome back.\nLet's check on your journey."
-              : mode === "setup_otp"
-                ? "Account Verification"
-                : "Create Account Password"}
-          </Text>
-        </View>
-
-        {mode !== "login" && (
-          <Text className="text-lg font-bold text-foreground mb-6">
-            {mode === "setup_otp" ? "Enter Verification Code" : "Create Password"}
-          </Text>
-        )}
-
-        {error && (
-          <View className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
-            <StyledIonicons name="alert-circle-outline" size={22} className="text-red-500" />
-            <Text className="text-red-500 text-sm flex-1">{error}</Text>
+        <View style={{ width: "100%", maxWidth: 350, alignSelf: "center" }}>
+          <View className="mb-7">
+            <Text
+              style={{
+                color: "#171717",
+                fontFamily: "Manrope-SemiBold",
+                fontSize: 24,
+                lineHeight: 30,
+                letterSpacing: -0.35,
+              }}
+            >
+              {mode === "login"
+                ? "Log in to Silang"
+                : mode === "setup_otp"
+                  ? "Verify your account"
+                  : "Create your password"}
+            </Text>
+            {mode !== "login" && (
+              <Text className="text-base mt-2 leading-5" style={{ color: "#737373" }}>
+                {mode === "setup_otp"
+                  ? `Enter the code sent to ${identifier.trim()}.`
+                  : "Set a password to access your health information."}
+              </Text>
+            )}
           </View>
-        )}
 
-        {infoMessage && (
-          <View className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
-            <StyledIonicons name="checkmark-circle-outline" size={22} className="text-green-500" />
-            <Text className="text-green-600 dark:text-green-400 text-sm flex-1">{infoMessage}</Text>
-          </View>
-        )}
-
-        {mode === "login" ? (
-          <>
-            <View className="gap-5 mb-8">
-              <TextField>
-                <Label>Email or Phone Number</Label>
-                <View className="w-full justify-center">
+          {mode === "login" ? (
+            <>
+              <View className="gap-3">
+                <TextField>
+                  <Label><Label.Text style={{ color: "#262626", fontFamily: "Manrope", fontSize: 14, lineHeight: 20, fontWeight: "500" }}>Email</Label.Text></Label>
                   <Input
                     value={identifier}
                     onChangeText={setIdentifier}
-                    placeholder="Enter email or phone number"
-                    placeholderTextColor="#9ca3af"
+                    placeholder="hello@company.com"
+                    placeholderTextColor="#737373"
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    className="pr-12"
-                    style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
+                    autoCorrect={false}
+                    autoComplete="username"
+                    className="h-10 rounded-md border text-base"
+                    style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }}
                   />
-                  <StyledIonicons
-                    name="person-outline"
-                    size={20}
-                    color="#9ca3af"
-                    className="absolute right-4"
-                    pointerEvents="none"
-                  />
-                </View>
-              </TextField>
+                </TextField>
 
-              <TextField>
-                <View className="flex-row justify-between w-full items-center">
-                  <Label>Password</Label>
-                  <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
-                    <Text className="text-primary font-medium text-sm">Forgot?</Text>
-                  </Pressable>
-                </View>
-                <View className="w-full justify-center">
-                  <Input
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="••••••••••••"
-                    placeholderTextColor="#9ca3af"
-                    secureTextEntry={!isPasswordVisible}
-                    className="pr-12"
-                    style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
-                  />
-                  <Pressable
-                    className="absolute right-4"
-                    onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-                  >
-                    <StyledIonicons
-                      name={isPasswordVisible ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      color="#9ca3af"
+                <TextField>
+                  <Label><Label.Text style={{ color: "#262626", fontFamily: "Manrope", fontSize: 14, lineHeight: 20, fontWeight: "500" }}>Password</Label.Text></Label>
+                  <View className="justify-center">
+                    <Input
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Your password"
+                      placeholderTextColor="#737373"
+                      secureTextEntry={!isPasswordVisible}
+                      autoComplete="current-password"
+                      className="h-10 rounded-md border text-base pr-12"
+                      style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }}
                     />
+                    <Pressable
+                      onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                      accessibilityRole="button"
+                      accessibilityLabel={isPasswordVisible ? "Hide password" : "Show password"}
+                      className="absolute right-1 h-9 w-9 items-center justify-center"
+                    >
+                      <StyledIonicons
+                        name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
+                        size={19}
+                        color="#737373"
+                      />
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    onPress={() => router.push("/(auth)/forgot-password")}
+                    accessibilityRole="link"
+                    accessibilityLabel="Forgot password?"
+                    className="self-end pt-2"
+                  >
+                    <Text style={{ color: "#003f2c", fontFamily: "Manrope-Medium", fontSize: 16, lineHeight: 20 }}>Forgot Password?</Text>
                   </Pressable>
-                </View>
-              </TextField>
-            </View>
-
-            <Button
-              variant="primary"
-              onPress={handleLogin}
-              className="mb-5"
-              isDisabled={isLoading || googleLoading}
-            >
-              <View className="flex-row items-center justify-center gap-2">
-                {isLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <StyledIonicons name="arrow-forward" size={20} color="white" />
-                )}
-                <Button.Label>{isLoading ? "Logging in..." : "Log In"}</Button.Label>
+                </TextField>
               </View>
-            </Button>
 
-            <View className="flex-row items-center my-5">
-              <View
-                className="flex-1 h-[1px]"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-              />
-              <Text className="mx-4 text-sm font-semibold uppercase" style={{ color: "#6b7280" }}>
-                OR
-              </Text>
-              <View
-                className="flex-1 h-[1px]"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-              />
-            </View>
-
-            <Pressable
-              onPress={handleGooglePress}
-              disabled={googleLoading || isLoading}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                backgroundColor: "#ffffff",
-                borderRadius: 12,
-                height: 52,
-                paddingHorizontal: 16,
-                marginBottom: 32,
-                opacity: googleLoading || isLoading ? 0.5 : 1,
-              }}
-              className="active:opacity-90"
-            >
-              {googleLoading ? (
-                <ActivityIndicator size="small" color="#4285F4" />
-              ) : (
-                <StyledIonicons name="logo-google" size={20} color="#4285F4" />
+              {visibleError && (
+                <Text className="mt-3 text-danger" style={{ fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }} accessibilityRole="alert">
+                  {visibleError}
+                </Text>
               )}
-              <Text style={{ color: "#1f1f1f", fontWeight: "600", fontSize: 15 }}>
-                {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
-              </Text>
-            </Pressable>
 
-            <View className="flex-row justify-center items-center">
-              <Text style={{ color: "#9ca3af" }}>Beginning your journey? </Text>
-              <Link href="/(auth)/signup" asChild>
-                <Pressable>
-                  <Text className="text-primary font-semibold">Sign up here</Text>
-                </Pressable>
-              </Link>
-            </View>
-          </>
-        ) : mode === "setup_otp" ? (
-          <>
-            {Platform.OS === "web" && (
-              <View className="my-2 w-full items-center justify-center overflow-visible">
-                <View
-                  id="recaptcha-container-login"
-                  nativeID="recaptcha-container-login"
-                  style={{
-                    minHeight: 78,
-                    minWidth: 304,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                />
+              <Button
+                variant="primary"
+                onPress={handleLogin}
+                isDisabled={isLoading || googleLoading}
+                className="mt-4 h-10 rounded-md"
+                style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#171717" size="small" />
+                ) : (
+                  <Button.Label style={{ color: "#171717", fontFamily: "Manrope-Medium", fontSize: 16 }}>Login</Button.Label>
+                )}
+              </Button>
+
+              <View className="flex-row items-center my-4 gap-3">
+                <View className="h-px flex-1" style={{ backgroundColor: "#e5e5e5" }} />
+                <Text style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>OR</Text>
+                <View className="h-px flex-1" style={{ backgroundColor: "#e5e5e5" }} />
               </View>
-            )}
 
-            <View className="gap-6 mb-8">
-              <Text className="text-foreground text-base">
-                Verification code sent to{" "}
-                <Text className="font-bold text-primary">{identifier.trim()}</Text>
+              <View>
+                <Button
+                  variant="outline"
+                  onPress={handleGooglePress}
+                  isDisabled={googleLoading || isLoading}
+                  className="relative h-10 rounded-md border"
+                  style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff" }}
+                >
+                  {googleLoading ? <ActivityIndicator size="small" color="#171717" /> : (
+                    <>
+                      <View className="absolute left-3"><GoogleMark size={18} /></View>
+                      <Button.Label className="w-full text-center" style={{ color: "#171717", fontFamily: "Manrope-Medium", fontSize: 16 }}>Continue with Google</Button.Label>
+                    </>
+                  )}
+                </Button>
+              </View>
+
+              {infoMessage && !visibleError && (
+                <Text className="mt-3 text-center text-base" style={{ color: "#737373" }}>
+                  {infoMessage}
+                </Text>
+              )}
+
+              <View className="mt-6 flex-row items-center justify-center">
+                <Text style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16 }}>New to Silang? </Text>
+                <Link href="/(auth)/signup" asChild>
+                  <Pressable accessibilityRole="link" className="py-2">
+                    <Text style={{ color: "#003f2c", fontFamily: "Manrope-Medium", fontSize: 16 }}>Create an account</Text>
+                  </Pressable>
+                </Link>
+              </View>
+              <Text className="mt-8 text-center" style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>
+                By signing in, you agree to Silang&apos;s Terms of Service and Privacy Policy.
               </Text>
-
+            </>
+          ) : mode === "setup_otp" ? (
+            <>
+              {Platform.OS === "web" && (
+                <View className="my-2 w-full items-center justify-center overflow-visible">
+                  <View
+                    id="recaptcha-container-login"
+                    nativeID="recaptcha-container-login"
+                    style={{ minHeight: 78, minWidth: 304 }}
+                  />
+                </View>
+              )}
               <TextField isRequired>
-                <Label>Verification Code (OTP)</Label>
+                <Label><Label.Text style={{ color: "#171717", fontSize: 16, lineHeight: 20 }}>Verification code</Label.Text></Label>
                 <Input
                   value={otp}
                   onChangeText={setOtp}
-                  placeholder="123456"
+                  placeholder="6-digit code"
+                  placeholderTextColor="#737373"
                   keyboardType="number-pad"
                   maxLength={6}
-                  className="text-center text-lg font-bold tracking-widest h-14"
+                  className="h-10 rounded-md border text-center text-base"
+                  style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717" }}
                 />
               </TextField>
-
-              <View className="flex-row justify-between items-center mt-2">
-                <Pressable
-                  onPress={() => {
-                    setMode("login");
-                    setError(null);
-                    setInfoMessage(null);
-                  }}
-                  className="flex-row items-center gap-1"
-                >
-                  <StyledIonicons name="arrow-back" size={16} className="text-primary" />
-                  <Text className="text-primary font-medium text-sm">Back to Log In</Text>
+              {visibleError && <Text className="mt-3 text-danger text-base" accessibilityRole="alert">{visibleError}</Text>}
+              {infoMessage && !visibleError && <Text className="mt-3 text-base" style={{ color: "#737373" }}>{infoMessage}</Text>}
+              <Button variant="primary" onPress={handleVerifyOtpStep} isDisabled={isLoading} className="mt-5 h-10 rounded-md" style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}>
+                {isLoading ? <ActivityIndicator color="#171717" size="small" /> : <Button.Label className="text-base font-medium" style={{ color: "#171717" }}>Verify code</Button.Label>}
+              </Button>
+              <View className="mt-5 flex-row items-center justify-between">
+                <Pressable onPress={() => { setMode("login"); setError(null); setInfoMessage(null); }} accessibilityRole="button" className="py-2 pr-2">
+                  <Text className="text-base font-medium" style={{ color: "#003f2c" }}>Back to sign in</Text>
                 </Pressable>
-
-                <Pressable
-                  onPress={() => handleSendSetupOtp(identifier)}
-                  disabled={otpLoading || timer > 0}
-                >
-                  <Text
-                    className={`text-sm font-medium ${timer > 0 || otpLoading ? "text-zinc-400-foreground" : "text-primary underline"}`}
-                  >
-                    {otpLoading ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
-                  </Text>
+                <Pressable onPress={() => handleSendSetupOtp(identifier)} disabled={otpLoading || timer > 0} accessibilityRole="button" className="py-2 pl-2">
+                  <Text className="text-base font-medium" style={{ color: "#003f2c" }}>{otpLoading ? "Sending…" : timer > 0 ? `Resend in ${timer}s` : "Resend code"}</Text>
                 </Pressable>
               </View>
-            </View>
-
-            <Button
-              variant="primary"
-              onPress={handleVerifyOtpStep}
-              className="mb-8"
-              isDisabled={isLoading}
-            >
-              <View className="flex-row items-center justify-center gap-2">
-                {isLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <StyledIonicons name="checkmark-circle" size={20} color="white" />
-                )}
-                <Button.Label>{isLoading ? "Verifying..." : "Verify & Continue"}</Button.Label>
+            </>
+          ) : (
+            <>
+              <View className="gap-4">
+                <TextField isRequired>
+                  <Label><Label.Text style={{ color: "#171717", fontSize: 16, lineHeight: 20 }}>New password</Label.Text></Label>
+                  <View className="justify-center">
+                    <Input value={newPassword} onChangeText={setNewPassword} placeholder="Your password" placeholderTextColor="#737373" secureTextEntry={!isNewPasswordVisible} autoComplete="new-password" className="h-10 rounded-md border pr-12 text-base" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717" }} />
+                    <Pressable onPress={() => setIsNewPasswordVisible(!isNewPasswordVisible)} accessibilityRole="button" accessibilityLabel={isNewPasswordVisible ? "Hide password" : "Show password"} className="absolute right-1 h-9 w-9 items-center justify-center">
+                      <StyledIonicons name={isNewPasswordVisible ? "eye-off-outline" : "eye-outline"} size={16} color="#737373" />
+                    </Pressable>
+                  </View>
+                </TextField>
+                <TextField isRequired>
+                  <Label><Label.Text style={{ color: "#171717", fontSize: 16, lineHeight: 20 }}>Confirm password</Label.Text></Label>
+                  <Input value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm your password" placeholderTextColor="#737373" secureTextEntry={!isNewPasswordVisible} autoComplete="new-password" className="h-10 rounded-md border text-base" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717" }} />
+                </TextField>
               </View>
-            </Button>
-          </>
-        ) : (
-          <>
-            <View className="gap-5 mb-8">
-              <Text className="text-foreground text-base">
-                Set a secure password for your account (
-                <Text className="font-bold text-primary">{identifier.trim()}</Text>).
-              </Text>
-
-              <TextField isRequired>
-                <Label>New Password</Label>
-                <View className="w-full justify-center">
-                  <Input
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="••••••••••••"
-                    secureTextEntry={!isNewPasswordVisible}
-                    className="pr-12"
-                  />
-                  <Pressable
-                    className="absolute right-4"
-                    onPress={() => setIsNewPasswordVisible(!isNewPasswordVisible)}
-                  >
-                    <StyledIonicons
-                      name={isNewPasswordVisible ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      className="text-zinc-400-foreground"
-                    />
-                  </Pressable>
-                </View>
-              </TextField>
-
-              <TextField isRequired>
-                <Label>Confirm New Password</Label>
-                <Input
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="••••••••••••"
-                  secureTextEntry={!isNewPasswordVisible}
-                />
-              </TextField>
-
-              <View className="flex-row justify-between items-center mt-2">
-                <Pressable
-                  onPress={() => {
-                    setMode("setup_otp");
-                    setError(null);
-                    setInfoMessage(null);
-                  }}
-                  className="flex-row items-center gap-1"
-                >
-                  <StyledIonicons name="arrow-back" size={16} className="text-primary" />
-                  <Text className="text-primary font-medium text-sm">Back to OTP Verification</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <Button
-              variant="primary"
-              onPress={handleSetupPasswordSubmit}
-              className="mb-8"
-              isDisabled={isLoading}
-            >
-              <View className="flex-row items-center justify-center gap-2">
-                {isLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <StyledIonicons name="key-outline" size={20} color="white" />
-                )}
-                <Button.Label>
-                  {isLoading ? "Setting Password..." : "Set Password & Log In"}
-                </Button.Label>
-              </View>
-            </Button>
-          </>
-        )}
+              {visibleError && <Text className="mt-3 text-danger text-base" accessibilityRole="alert">{visibleError}</Text>}
+              <Button variant="primary" onPress={handleSetupPasswordSubmit} isDisabled={isLoading} className="mt-5 h-10 rounded-md" style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}>
+                {isLoading ? <ActivityIndicator color="#171717" size="small" /> : <Button.Label className="text-base font-medium" style={{ color: "#171717" }}>Finish setup</Button.Label>}
+              </Button>
+              <Pressable onPress={() => { setMode("setup_otp"); setError(null); setInfoMessage(null); }} accessibilityRole="button" className="mt-5 self-start py-2">
+                <Text className="text-base font-medium" style={{ color: "#003f2c" }}>Back to verification</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

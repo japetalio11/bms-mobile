@@ -1,25 +1,14 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  Modal,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  Linking,
-} from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, View } from "react-native";
+import { BottomSheet, Text, useToast } from "heroui-native";
+import { AppButton as Button } from "./FormControls";
 import QRCode from "react-native-qrcode-svg";
-import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
+import { AppIcon } from "./AppIcon";
+import { BottomSheetHeader } from "./BottomSheetHeader";
 import { useAuth, type User } from "../context/UserContext";
-import {
-  getMotherShareTokenApi,
-  regenerateMotherShareTokenApi,
-  type MotherRecord,
-  type MotherShareTokenResponse,
-} from "../config/api";
+import { getMotherShareTokenApi, regenerateMotherShareTokenApi, type MotherRecord, type MotherShareTokenResponse } from "../config/api";
 
 type MotherShareJourneyModalProps = {
   visible: boolean;
@@ -28,276 +17,109 @@ type MotherShareJourneyModalProps = {
   motherRecord: MotherRecord | null;
 };
 
-export function MotherShareJourneyModal({
-  visible,
-  onClose,
-  user,
-  motherRecord,
-}: MotherShareJourneyModalProps) {
+export function MotherShareJourneyModal({ visible, onClose, motherRecord }: MotherShareJourneyModalProps) {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [shareData, setShareData] = useState<MotherShareTokenResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [copiedPin, setCopiedPin] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
 
-  const fetchToken = async () => {
-    if (!token) return;
+  const fetchToken = useCallback(async () => {
+    if (!token) {
+      toast.show({ label: "Sign in to share your records", variant: "warning" });
+      return;
+    }
     setLoading(true);
-    setErrorMsg("");
     try {
-      const data = await getMotherShareTokenApi(token, motherRecord?.mother_id);
-      setShareData(data);
-    } catch (err: any) {
-      console.warn("Failed to load share token:", err);
-      setErrorMsg(err.message || "Failed to load share code");
+      setShareData(await getMotherShareTokenApi(token, motherRecord?.mother_id));
+    } catch (error) {
+      toast.show({ label: "Could not load sharing details", description: error instanceof Error ? error.message : "Please try again.", variant: "danger" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, motherRecord, toast]);
 
   useEffect(() => {
-    if (visible) {
-      fetchToken();
-    }
-  }, [visible, token]);
+    if (!visible) return;
+    const timer = setTimeout(() => void fetchToken(), 0);
+    return () => clearTimeout(timer);
+  }, [visible, fetchToken]);
 
-  const handleCopyPin = async () => {
-    if (!shareData?.pin_code) return;
+  const copy = async (value: string, label: string) => {
     try {
-      await Clipboard.setStringAsync(shareData.pin_code);
-      setCopiedPin(true);
-      setTimeout(() => setCopiedPin(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy PIN:", err);
+      await Clipboard.setStringAsync(value);
+      toast.show({ label, variant: "success" });
+    } catch {
+      toast.show({ label: "Could not copy", variant: "danger" });
     }
   };
 
-  const handleCopyLink = async () => {
+  const preview = async () => {
     if (!shareData?.web_url) return;
+    const url = /^https?:\/\//.test(shareData.web_url) ? shareData.web_url : `https://${shareData.web_url}`;
     try {
-      await Clipboard.setStringAsync(shareData.web_url);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy Link:", err);
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      try {
+        await Linking.openURL(url);
+      } catch {
+        toast.show({ label: "Could not open sharing link", variant: "danger" });
+      }
     }
   };
 
-  const handlePreviewWebView = async () => {
-    if (!shareData?.web_url) return;
-    try {
-      let rawUrl = shareData.web_url.trim();
-      if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-        rawUrl = `https://${rawUrl}`;
-      }
-      const urlWithPin = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}pin=${shareData.pin_code}`;
-      await WebBrowser.openBrowserAsync(urlWithPin);
-    } catch (err) {
-      console.warn("Failed to open web browser, attempting device Linking fallback:", err);
-      let fallbackUrl = shareData.web_url.trim();
-      if (!fallbackUrl.startsWith("http://") && !fallbackUrl.startsWith("https://")) {
-        fallbackUrl = `https://${fallbackUrl}`;
-      }
-      Linking.openURL(fallbackUrl).catch((linkErr) => {
-        console.warn("Linking fallback also failed:", linkErr);
-      });
-    }
+  const regenerate = () => {
+    Alert.alert("Reset access code?", "The previous code will stop working immediately.", [
+      { text: "Keep code", style: "cancel" },
+      { text: "Reset code", style: "destructive", onPress: async () => {
+        if (!token) return;
+        setRegenerating(true);
+        try {
+          setShareData(await regenerateMotherShareTokenApi(token, motherRecord?.mother_id));
+          toast.show({ label: "New access code ready", variant: "success" });
+        } catch (error) {
+          toast.show({ label: "Could not reset access code", description: error instanceof Error ? error.message : "Please try again.", variant: "danger" });
+        } finally {
+          setRegenerating(false);
+        }
+      } },
+    ]);
   };
 
-  const handleRegeneratePin = () => {
-    Alert.alert(
-      "Reset Security PIN?",
-      "Generating a new PIN will immediately invalidate the previous PIN. Any clinician viewing the old link will need the new PIN code.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Generate New PIN",
-          style: "destructive",
-          onPress: async () => {
-            if (!token) return;
-            setRegenerating(true);
-            try {
-              const freshData = await regenerateMotherShareTokenApi(token, motherRecord?.mother_id);
-              setShareData(freshData);
-              Alert.alert("Success", "New 6-digit access PIN and QR link generated!");
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "Failed to reset PIN");
-            } finally {
-              setRegenerating(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const rawPin = shareData?.pin_code || "••••••";
-  const formattedPin =
-    rawPin.length === 6 ? `${rawPin.slice(0, 3)}  •  ${rawPin.slice(3)}` : rawPin;
-  const qrUrl =
-    shareData?.web_url || `https://birthcare.network/shared-journey/${user.user_id || "demo"}`;
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/75 justify-end">
-        <View className="bg-background rounded-t-3xl border-t border-white/10 px-6 pt-6 pb-10 max-h-[92%]">
-          <View className="flex-row items-start justify-between mb-4">
-            <View className="flex-1 pr-3">
-              <View className="flex-row flex-wrap items-center gap-2 mb-1">
-                <Text className="text-foreground text-lg font-bold">Share Pregnancy Journey</Text>
-                <View className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40">
-                  <Text className="text-emerald-400 text-[10px] font-bold">PIN-Protected</Text>
+  return <BottomSheet isOpen={visible} onOpenChange={open => { if (!open) onClose(); }}>
+    <BottomSheet.Portal>
+      <BottomSheet.Overlay className="bg-black/60" />
+      <BottomSheet.Content snapPoints={["58%"]} enableDynamicSizing={false} enableOverDrag={false} contentContainerClassName="h-full" backgroundClassName="rounded-t-[24px] bg-background" handleIndicatorClassName="bg-muted">
+        <View className="flex-1 px-5 pb-5 pt-1">
+          <BottomSheetHeader title="Share pregnancy journey" description="Share a secure link with your care team." onClose={onClose} closeLabel="Close sharing sheet" />
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+            {loading ? <View className="min-h-48 items-center justify-center"><ActivityIndicator color="#171717" /></View> : shareData ? <>
+              <View className="items-center py-2">
+                <View className="rounded-xl bg-white p-2.5">
+                  <QRCode value={shareData.web_url} size={164} color="#171717" backgroundColor="#ffffff" quietZone={3} />
                 </View>
               </View>
-              <Text className="text-zinc-400 text-sm">
-                Let clinicians scan to view records and past vitals
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              className="size-9 rounded-full bg-default items-center justify-center shrink-0 mt-0.5"
-            >
-              <Ionicons name="close" size={20} color="#a1a1aa" />
-            </Pressable>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ alignItems: "center", paddingBottom: 20 }}
-          >
-            {loading ? (
-              <View className="py-20 items-center justify-center">
-                <ActivityIndicator size="large" color="#6366f1" />
-                <Text className="text-zinc-400 text-sm mt-3">
-                  Generating secure share link & PIN...
-                </Text>
+              <View className="mt-2 flex-row items-center justify-between rounded-xl bg-surface px-4 py-3">
+                <View className="flex-1">
+                  <Text className="text-sm text-muted-foreground">Access code</Text>
+                  <Text className="mt-1 text-base font-semibold tracking-widest text-foreground">{shareData.pin_code}</Text>
+                </View>
+                <Pressable onPress={() => void copy(shareData.pin_code, "Code copied")} accessibilityLabel="Copy access code" className="size-11 items-center justify-center rounded-full bg-default"><AppIcon name="copy-outline" size={19} color="#171717" /></Pressable>
               </View>
-            ) : errorMsg ? (
-              <View className="py-12 items-center justify-center px-4">
-                <Ionicons name="alert-circle-outline" size={40} color="#ef4444" className="mb-2" />
-                <Text className="text-foreground font-semibold text-sm mb-1 text-center">
-                  Unable to Load Share Code
-                </Text>
-                <Text className="text-zinc-400 text-sm text-center mb-4">{errorMsg}</Text>
-                <Pressable
-                  onPress={fetchToken}
-                  className="bg-primary px-4 py-2 rounded-xl flex-row items-center gap-2"
-                >
-                  <Ionicons name="refresh" size={16} color="white" />
-                  <Text className="text-white text-sm font-semibold">Retry</Text>
-                </Pressable>
+              <View className="mt-3 flex-row gap-2">
+                <Button onPress={() => void copy(shareData.web_url, "Link copied")} className="min-h-11 flex-1 rounded-md bg-[#fffe8c]"><AppIcon name="link-outline" size={17} color="#171717" /><Button.Label className="text-sm font-medium text-[#171717]">Copy link</Button.Label></Button>
+                <Button variant="outline" onPress={() => void preview()} className="min-h-11 flex-1 rounded-md"><Button.Label className="text-sm font-medium">Open preview</Button.Label></Button>
               </View>
-            ) : (
-              <>
-                <View className="bg-white p-5 rounded-3xl shadow-xl items-center justify-center mb-5 border border-gray-100">
-                  <QRCode
-                    value={qrUrl}
-                    size={210}
-                    color="#09090b"
-                    backgroundColor="#ffffff"
-                    quietZone={8}
-                  />
-                  <View className="flex-row items-center gap-1.5 mt-2.5">
-                    <Ionicons name="shield-checkmark" size={13} color="#10b981" />
-                    <Text className="text-gray-600 text-[10px] font-semibold">
-                      Encrypted Clinical Handoff
-                    </Text>
-                  </View>
-                </View>
-
-                <View className="w-full bg-surface border border-white/15 rounded-2xl p-4 mb-4">
-                  <Text className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider text-center mb-1">
-                    Clinician Access PIN Code
-                  </Text>
-
-                  <View className="bg-black/40 border border-white/10 rounded-xl py-3 px-4 my-2 items-center justify-center">
-                    <Text className="text-indigo-400 text-3xl font-mono font-black tracking-[0.25em] text-center">
-                      {formattedPin}
-                    </Text>
-                  </View>
-
-                  <Text className="text-zinc-400 text-[11px] text-center mb-3.5">
-                    Provide this 6-digit PIN to the attending health worker to unlock your full
-                    medical history.
-                  </Text>
-
-                  <View className="flex-row items-center gap-2.5">
-                    <Pressable
-                      onPress={handleCopyPin}
-                      className="flex-1 flex-row items-center justify-center gap-2 bg-indigo-600 active:bg-indigo-700 py-3 rounded-xl shadow-sm"
-                    >
-                      <Ionicons
-                        name={copiedPin ? "checkmark" : "copy-outline"}
-                        size={16}
-                        color="#ffffff"
-                      />
-                      <Text className="text-white text-sm font-bold">
-                        {copiedPin ? "PIN Copied!" : "Copy PIN"}
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={handleCopyLink}
-                      className="flex-1 flex-row items-center justify-center gap-2 bg-[#27272a] active:bg-[#3f3f46] border border-white/15 py-3 rounded-xl"
-                    >
-                      <Ionicons
-                        name={copiedLink ? "checkmark" : "link-outline"}
-                        size={16}
-                        color="#e4e4e7"
-                      />
-                      <Text className="text-white text-sm font-bold">
-                        {copiedLink ? "Link Copied!" : "Copy Link"}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                <View className="w-full flex-row items-center gap-2.5 mb-4">
-                  <Pressable
-                    onPress={handlePreviewWebView}
-                    className="flex-1 flex-row items-center justify-center gap-2 bg-[#27272a] active:bg-[#3f3f46] border border-white/15 py-3 rounded-xl"
-                  >
-                    <Ionicons name="eye-outline" size={16} color="#e4e4e7" />
-                    <Text className="text-white text-sm font-semibold">Preview Web View</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={handleRegeneratePin}
-                    disabled={regenerating}
-                    className="flex-row items-center justify-center gap-1.5 px-3.5 bg-red-500/15 active:bg-red-500/25 border border-red-500/30 py-3 rounded-xl"
-                  >
-                    {regenerating ? (
-                      <ActivityIndicator size="small" color="#ef4444" />
-                    ) : (
-                      <>
-                        <Ionicons name="refresh-outline" size={16} color="#f87171" />
-                        <Text className="text-red-400 text-sm font-semibold">Reset PIN</Text>
-                      </>
-                    )}
-                  </Pressable>
-                </View>
-
-                <View className="w-full bg-[#27272a]/60 border border-white/5 rounded-xl p-3.5 flex-row items-start gap-3">
-                  <Ionicons
-                    name="information-circle-outline"
-                    size={18}
-                    color="#818cf8"
-                    style={{ marginTop: 2 }}
-                  />
-                  <Text className="text-zinc-400 text-sm leading-5 flex-1">
-                    When visiting another clinic, hospital, or emergency facility, let the clinician
-                    scan this QR code using their camera or barcode scanner, then provide your
-                    6-digit PIN. They will see your complete prenatal visits, past vitals, and
-                    diagnostic scans.
-                  </Text>
-                </View>
-              </>
-            )}
+              <Pressable onPress={regenerate} disabled={regenerating} className="mt-1 min-h-10 items-center justify-center">
+                <Text className="text-sm font-medium text-muted-foreground">{regenerating ? "Resetting code…" : "Reset access code"}</Text>
+              </Pressable>
+            </> : <View className="min-h-56 items-center justify-center">
+              <Text className="text-sm text-muted-foreground">Sharing details are unavailable.</Text>
+              <Button variant="outline" onPress={() => void fetchToken()} className="mt-4 rounded-md"><Button.Label>Try again</Button.Label></Button>
+            </View>}
           </ScrollView>
         </View>
-      </View>
-    </Modal>
-  );
+      </BottomSheet.Content>
+    </BottomSheet.Portal>
+  </BottomSheet>;
 }

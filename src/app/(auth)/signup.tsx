@@ -1,28 +1,20 @@
-import {
-  View,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Platform,
-  Modal,
-  Image,
-  KeyboardAvoidingView,
-} from "react-native";
-import { useState, useEffect } from "react";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, KeyboardAvoidingView, } from "react-native";
+import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
-import { Text, TextField, Label, Input, Button, Checkbox } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text, Label, Checkbox } from "heroui-native";
+import { AppTextField as TextField, AppInput as Input, AppButton as Button } from "../../components/FormControls";
+import { BottomSheetHeader } from "../../components/BottomSheetHeader";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { getNativeGoogleSignin } from "../../lib/googleAuthUtils";
-import { makeRedirectUri } from "expo-auth-session";
 import { sendOtpApi, registerApi, googleAuthApi } from "../../config/api";
 import { useAuth } from "../../context/UserContext";
 import { usePhoneAuth } from "../../hooks/usePhoneAuth";
-import { formatToE164, isTestPhoneNumber } from "../../lib/phoneAuthUtils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GoogleMark } from "../../components/GoogleMark";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -55,12 +47,12 @@ export default function SignupScreen(): JSX.Element {
     cooldownDuration: 60,
   });
 
-  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+  const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -80,6 +72,10 @@ export default function SignupScreen(): JSX.Element {
   const [otpLoading, setOtpLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const googleResponseError = googleResponse?.type === "error"
+    ? (googleResponse as any).error?.message || "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console."
+    : null;
+  const visibleError = error || googleResponseError;
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -95,22 +91,6 @@ export default function SignupScreen(): JSX.Element {
       }
     }
   }, []);
-
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const responseAny = googleResponse as any;
-      const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
-      const accessToken =
-        responseAny.authentication?.accessToken || responseAny.params?.access_token;
-      handleGoogleBackendRegister(idToken, accessToken);
-    } else if (googleResponse?.type === "error") {
-      const errRes = googleResponse as any;
-      setError(
-        errRes.error?.message ||
-          "Google Authentication failed. Ensure your Web Client ID & SHA-1 are registered in Google Cloud Console."
-      );
-    }
-  }, [googleResponse]);
 
   const handleGooglePress = async () => {
     if (Platform.OS === "web") {
@@ -156,7 +136,7 @@ export default function SignupScreen(): JSX.Element {
     }
   };
 
-  const handleGoogleBackendRegister = async (
+  const handleGoogleBackendRegister = useCallback(async (
     idToken?: string,
     accessToken?: string,
     nativeUser?: any
@@ -213,7 +193,15 @@ export default function SignupScreen(): JSX.Element {
     } finally {
       setGoogleLoading(false);
     }
-  };
+  }, [login, router]);
+
+  useEffect(() => {
+    if (googleResponse?.type !== "success") return;
+    const responseAny = googleResponse as any;
+    const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
+    const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
+    void handleGoogleBackendRegister(idToken, accessToken);
+  }, [googleResponse, handleGoogleBackendRegister]);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -361,8 +349,22 @@ export default function SignupScreen(): JSX.Element {
 
     const success = await handleRequestOtp();
     if (success) {
-      setStep(2);
+      setStep(3);
     }
+  };
+
+  const handleEmailContinue = () => {
+    setError(null);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      setError("Email address is required");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setStep(2);
   };
 
   const handleRegister = async () => {
@@ -414,337 +416,124 @@ export default function SignupScreen(): JSX.Element {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        className="flex-1 bg-background"
+        className="flex-1"
+        style={{ backgroundColor: "#ffffff" }}
         contentContainerStyle={{
           flexGrow: 1,
-          padding: 24,
-          paddingTop: 48,
-          paddingBottom: Math.max(insets.bottom + 48, 64),
+          justifyContent: "center",
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          paddingBottom: Math.max(insets.bottom + 24, 36),
         }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}
       >
-        <View className="items-center mb-8">
-          <Image
-            source={require("../../../assets/images/logo.png")}
-            style={{ width: 88, height: 88, borderRadius: 20, marginBottom: 16 }}
-            resizeMode="contain"
-          />
-          <Text
-            className="text-foreground font-semibold text-center text-base"
-            style={{ lineHeight: 22 }}
-          >
-            {step === 1
-              ? "Begin your maternal care journey."
-              : "Verify your account\nto complete registration."}
+        <View style={{ width: "100%", maxWidth: 350, alignSelf: "center" }}>
+        <Pressable
+          onPress={() => {
+            if (step === 3) setStep(2);
+            else if (step === 2) setStep(1);
+            else if (router.canGoBack()) router.back();
+            else router.replace("/(auth)/login");
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={step === 1 ? "Go back" : "Previous step"}
+          className="mb-5 h-7 w-7 items-center justify-center"
+        >
+          <StyledIonicons name="arrow-back" size={15} weight="regular" color="#171717" />
+        </Pressable>
+        <View className="mb-7">
+          <Text style={{ color: "#171717", fontFamily: "Manrope-SemiBold", fontSize: 24, lineHeight: 30, letterSpacing: -0.35 }}>
+            {step === 1 ? "Get your free account" : step === 2 ? "Your details" : "Verify your account"}
           </Text>
         </View>
 
-        {step !== 1 && (
-          <Text className="text-lg font-bold text-foreground mb-6">Enter Verification Code</Text>
-        )}
-
-        {error && (
-          <View className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center gap-3">
-            <StyledIonicons name="alert-circle-outline" size={22} className="text-red-500" />
-            <Text className="text-red-500 text-sm flex-1">{error}</Text>
-          </View>
+        {visibleError && (
+          <Text className="mb-4" style={{ color: "#f87171", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }} accessibilityRole="alert">
+            {visibleError}
+          </Text>
         )}
 
         {infoMessage && (
-          <View className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
-            <StyledIonicons name="checkmark-circle-outline" size={22} className="text-green-500" />
-            <Text className="text-green-600 dark:text-green-400 text-sm flex-1">{infoMessage}</Text>
-          </View>
+          <Text className="mb-4" style={{ color: "#003f2c", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>
+            {infoMessage}
+          </Text>
         )}
 
         {step === 1 ? (
           <>
-            <Pressable
-              onPress={handleGooglePress}
-              disabled={googleLoading || otpLoading}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                backgroundColor: "#ffffff",
-                borderRadius: 12,
-                height: 52,
-                paddingHorizontal: 16,
-                marginBottom: 20,
-                opacity: googleLoading || otpLoading ? 0.5 : 1,
-              }}
-              className="active:opacity-90"
-            >
-              {googleLoading ? (
-                <ActivityIndicator size="small" color="#4285F4" />
-              ) : (
-                <StyledIonicons name="logo-google" size={20} color="#4285F4" />
-              )}
-              <Text style={{ color: "#1f1f1f", fontWeight: "600", fontSize: 15 }}>
-                {googleLoading ? "Signing in with Google..." : "Continue with Google"}
-              </Text>
-            </Pressable>
-
-            <View className="flex-row items-center mb-6">
-              <View
-                className="flex-1 h-[1px]"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-              />
-              <Text className="px-4 text-sm uppercase font-semibold" style={{ color: "#6b7280" }}>
-                Or register with details
-              </Text>
-              <View
-                className="flex-1 h-[1px]"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-              />
-            </View>
-
-            <View className="gap-5 mb-6">
-              <TextField>
-                <Label>First Name</Label>
-                <Input
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="Jane"
-                  placeholderTextColor="#9ca3af"
-                  style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
-                />
-              </TextField>
-
-              <TextField>
-                <Label>Last Name</Label>
-                <Input
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Doe"
-                  placeholderTextColor="#9ca3af"
-                  style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
-                />
-              </TextField>
-
-              <TextField>
-                <Label>Email Address</Label>
-                <View className="w-full justify-center">
-                  <Input
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="name@email.com"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    className="pr-12"
-                    style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
-                  />
-                  <StyledIonicons
-                    name="mail-outline"
-                    size={20}
-                    color="#9ca3af"
-                    className="absolute right-4"
-                    pointerEvents="none"
-                  />
-                </View>
-              </TextField>
-
-              <TextField>
-                <Label>Phone Number (Optional)</Label>
-                <View
-                  className="w-full flex-row items-center bg-surface rounded-xl px-4 h-12"
-                  style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
-                >
-                  <View
-                    className="flex-row items-center gap-1 pr-3 mr-3 h-full"
-                    style={{ borderRightWidth: 1, borderRightColor: "rgba(255,255,255,0.15)" }}
-                  >
-                    <Text className="text-foreground">+63</Text>
-                  </View>
-                  <Input
-                    value={phone}
-                    onChangeText={(val) => {
-                      setPhone(val);
-                      if (val.trim().length >= 10) {
-                        phoneAuth.initRecaptcha();
-                      }
-                    }}
-                    placeholder="9123456789"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="phone-pad"
-                    className="flex-1 px-0 border-0 bg-transparent h-full"
-                  />
-                </View>
-              </TextField>
-
-              <TextField>
-                <Label>Password</Label>
-                <View className="w-full justify-center">
-                  <Input
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="••••••••••••"
-                    placeholderTextColor="#9ca3af"
-                    secureTextEntry={!isPasswordVisible}
-                    className="pr-12"
-                    style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }}
-                  />
-                  <Pressable
-                    className="absolute right-4"
-                    onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-                  >
-                    <StyledIonicons
-                      name={isPasswordVisible ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      color="#9ca3af"
-                    />
-                  </Pressable>
-                </View>
-              </TextField>
-
-              {Platform.OS === "web" && !email.trim() && (
-                <View className="my-2 w-full items-center justify-center overflow-visible">
-                  <View
-                    id="recaptcha-container"
-                    nativeID="recaptcha-container"
-                    style={{
-                      minHeight: 78,
-                      minWidth: 304,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  />
-                </View>
-              )}
-            </View>
-
-            <View className="flex-row items-start gap-3 mb-6">
-              <Checkbox isSelected={agreed} onSelectedChange={setAgreed} className="mt-0.5" />
-              <View className="flex-1 pr-2">
-                <Text className="text-foreground text-sm leading-5">
-                  I agree to the{" "}
-                  <Text
-                    onPress={() => {
-                      setTermsTab("terms");
-                      setIsTermsModalOpen(true);
-                    }}
-                    className="text-primary font-semibold underline"
-                  >
-                    Terms of Service
-                  </Text>{" "}
-                  and{" "}
-                  <Text
-                    onPress={() => {
-                      setTermsTab("privacy");
-                      setIsTermsModalOpen(true);
-                    }}
-                    className="text-primary font-semibold underline"
-                  >
-                    Privacy Policy
-                  </Text>
-                  , and consent to the processing of my{" "}
-                  <Text
-                    onPress={() => {
-                      setTermsTab("data");
-                      setIsTermsModalOpen(true);
-                    }}
-                    className="text-primary font-semibold underline"
-                  >
-                    health data
-                  </Text>
-                  .
-                </Text>
-              </View>
-            </View>
-
-            <Button
-              variant="primary"
-              onPress={handleProceedToOtp}
-              className="mb-6"
-              isDisabled={!agreed || otpLoading || googleLoading}
-            >
-              <View className="flex-row items-center justify-center gap-2">
-                {otpLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <StyledIonicons name="arrow-forward" size={20} color="white" />
+            <View>
+              <Button
+                variant="outline"
+                onPress={handleGooglePress}
+                isDisabled={googleLoading}
+                className="relative h-10 rounded-md border"
+                style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff" }}
+              >
+                {googleLoading ? <ActivityIndicator size="small" color="#171717" /> : (
+                  <>
+                    <View className="absolute left-3"><GoogleMark size={18} /></View>
+                    <Button.Label className="w-full text-center" style={{ color: "#171717", fontFamily: "Manrope-Medium", fontSize: 16 }}>Continue with Google</Button.Label>
+                  </>
                 )}
-                <Button.Label>
-                  {otpLoading ? "Sending Verification Code..." : "Proceed to Verification"}
-                </Button.Label>
-              </View>
+              </Button>
+            </View>
+            <View className="my-4 flex-row items-center gap-3">
+              <View className="h-px flex-1" style={{ backgroundColor: "#e5e5e5" }} />
+              <Text style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>OR</Text>
+              <View className="h-px flex-1" style={{ backgroundColor: "#e5e5e5" }} />
+            </View>
+            <TextField>
+              <Label isRequired>
+                <Label.Text
+                  style={{ color: "#262626", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}
+                  styles={{ asterisk: { color: "#003f2c", fontFamily: "Manrope", fontSize: 16 } }}
+                >
+                  Work Email
+                </Label.Text>
+              </Label>
+              <Input value={email} onChangeText={setEmail} placeholder="hello@company.com" placeholderTextColor="#737373" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} className="h-10 rounded-md border" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} />
+            </TextField>
+            <Button variant="primary" onPress={handleEmailContinue} className="mt-4 h-10 rounded-md" style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}>
+              <Button.Label style={{ color: "#171717", fontFamily: "Manrope-Medium", fontSize: 16 }}>Continue with Email</Button.Label>
+            </Button>
+            <View className="mt-6 flex-row items-center justify-center">
+              <Text style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16 }}>Already have an account? </Text>
+              <Link href="/(auth)/login" asChild><Pressable><Text style={{ color: "#003f2c", fontFamily: "Manrope-Medium", fontSize: 16 }}>Login</Text></Pressable></Link>
+            </View>
+          </>
+        ) : step === 2 ? (
+          <>
+            <View className="mb-5 flex-row items-center justify-between">
+              <Text style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16 }}>{email}</Text>
+              <Pressable onPress={() => setStep(1)}><Text style={{ color: "#003f2c", fontFamily: "Manrope-Medium", fontSize: 16 }}>Change</Text></Pressable>
+            </View>
+            <View className="gap-4">
+              <TextField isRequired><Label isRequired><Label.Text style={{ color: "#262626", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>First Name</Label.Text></Label><Input value={firstName} onChangeText={setFirstName} placeholder="Jane" placeholderTextColor="#737373" className="h-10 rounded-md border" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} /></TextField>
+              <TextField isRequired><Label isRequired><Label.Text style={{ color: "#262626", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>Last Name</Label.Text></Label><Input value={lastName} onChangeText={setLastName} placeholder="Doe" placeholderTextColor="#737373" className="h-10 rounded-md border" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} /></TextField>
+              <TextField><Label><Label.Text style={{ color: "#262626", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>Phone Number (Optional)</Label.Text></Label><View className="h-10 flex-row items-center rounded-md border px-3" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff" }}><Text className="mr-3 border-r pr-3" style={{ color: "#171717", borderColor: "#d4d4d4", fontFamily: "Manrope", fontSize: 16 }}>+63</Text><Input value={phone} onChangeText={(value) => { setPhone(value); if (value.trim().length >= 10) phoneAuth.initRecaptcha(); }} placeholder="9123456789" placeholderTextColor="#737373" keyboardType="phone-pad" className="h-full flex-1 border-0 bg-transparent px-0" style={{ height: "100%", borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} /></View></TextField>
+              <TextField isRequired><Label isRequired><Label.Text style={{ color: "#262626", fontFamily: "Manrope", fontSize: 14, lineHeight: 20, fontWeight: "500" }}>Password</Label.Text></Label><View className="justify-center"><Input value={password} onChangeText={setPassword} placeholder="Your password" placeholderTextColor="#737373" secureTextEntry={!isPasswordVisible} className="h-10 rounded-md border pr-10" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} /><Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)} className="absolute right-1 h-9 w-9 items-center justify-center"><StyledIonicons name={isPasswordVisible ? "eye-outline" : "eye-off-outline"} size={16} color="#737373" /></Pressable></View></TextField>
+            </View>
+            {Platform.OS === "web" && !email.trim() && <View className="my-2 w-full items-center justify-center"><View id="recaptcha-container" nativeID="recaptcha-container" style={{ minHeight: 78, minWidth: 304 }} /></View>}
+            <View className="mt-5 flex-row items-start gap-2">
+              <Checkbox isSelected={agreed} onSelectedChange={setAgreed} className="mt-0.5" />
+              <Text className="flex-1 text-base leading-5" style={{ color: "#525252" }}>I agree to the <Text onPress={() => { setTermsTab("terms"); setIsTermsModalOpen(true); }} style={{ color: "#003f2c" }}>Terms of Service</Text> and <Text onPress={() => { setTermsTab("privacy"); setIsTermsModalOpen(true); }} style={{ color: "#003f2c" }}>Privacy Policy</Text>, and consent to the processing of my <Text onPress={() => { setTermsTab("data"); setIsTermsModalOpen(true); }} style={{ color: "#003f2c" }}>health data</Text>.</Text>
+            </View>
+            <Button variant="primary" onPress={handleProceedToOtp} className="mt-5 h-10 rounded-md" isDisabled={!agreed || otpLoading || googleLoading} style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}>
+              {otpLoading ? <ActivityIndicator color="#171717" size="small" /> : <Button.Label className="text-base font-medium" style={{ color: "#171717" }}>Continue</Button.Label>}
             </Button>
           </>
         ) : (
           <>
-            <View className="mb-6">
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-foreground font-medium">Verification Code</Text>
-                <Pressable onPress={() => setStep(1)} className="p-1">
-                  <Text className="text-primary text-sm font-semibold">Change Info</Text>
-                </Pressable>
-              </View>
-              <Text className="text-zinc-400 text-sm mb-4">
-                Enter the 6-digit code sent to{" "}
-                <Text className="text-foreground font-semibold">
-                  {email.trim() ? email.trim() : `+63 ${phone.trim()}`}
-                </Text>
-              </Text>
-
-              <TextField isRequired>
-                <Input
-                  value={otp}
-                  onChangeText={setOtp}
-                  placeholder="123456"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  className="text-center text-lg tracking-[8px] font-bold h-14"
-                  autoFocus
-                />
-              </TextField>
+            <View className="mb-5 flex-row items-center justify-between">
+              <Text className="text-base" style={{ color: "#737373" }}>Code sent to {email}</Text>
+              <Pressable onPress={() => setStep(1)}><Text className="text-base font-medium" style={{ color: "#003f2c" }}>Change</Text></Pressable>
             </View>
-
-            <View className="flex-row justify-between items-center mb-8">
-              <Text className="text-zinc-400 text-sm">{"Didn't receive code?"}</Text>
-              <Pressable
-                onPress={handleRequestOtp}
-                disabled={timer > 0 || otpLoading}
-                className="p-1"
-              >
-                <Text
-                  className={`text-sm font-semibold ${timer > 0 ? "text-zinc-400" : "text-primary underline"}`}
-                >
-                  {timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
-                </Text>
-              </Pressable>
-            </View>
-
-            <Button
-              variant="primary"
-              onPress={handleRegister}
-              className="mb-8"
-              isDisabled={isLoading}
-            >
-              <View className="flex-row items-center justify-center gap-2">
-                {isLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <StyledIonicons name="checkmark-circle" size={20} color="white" />
-                )}
-                <Button.Label>
-                  {isLoading ? "Verifying & Registering..." : "Complete Registration"}
-                </Button.Label>
-              </View>
-            </Button>
+            <TextField isRequired><Label isRequired><Label.Text style={{ color: "#171717", fontFamily: "Manrope-Medium", fontSize: 16, lineHeight: 20 }}>Verification Code</Label.Text></Label><Input value={otp} onChangeText={setOtp} placeholder="123456" placeholderTextColor="#737373" keyboardType="number-pad" maxLength={6} autoFocus className="h-10 rounded-md border text-center" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", letterSpacing: 3, fontFamily: "Manrope-Medium", fontSize: 16 }} /></TextField>
+            <View className="mt-4 flex-row items-center justify-between"><Text className="text-base" style={{ color: "#737373" }}>Didn&apos;t receive code?</Text><Pressable onPress={handleRequestOtp} disabled={timer > 0 || otpLoading}><Text className="text-base font-medium" style={{ color: timer > 0 ? "#737373" : "#003f2c" }}>{timer > 0 ? `Resend in ${timer}s` : "Resend Code"}</Text></Pressable></View>
+            <Button variant="primary" onPress={handleRegister} className="mt-5 h-10 rounded-md" isDisabled={isLoading} style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}>{isLoading ? <ActivityIndicator color="#171717" size="small" /> : <Button.Label className="text-base font-medium" style={{ color: "#171717" }}>Complete Registration</Button.Label>}</Button>
           </>
         )}
-
-        <View className="flex-row justify-center items-center">
-          <Text style={{ color: "#9ca3af" }}>Already have an account? </Text>
-          <Link href="/(auth)/login" asChild>
-            <Pressable>
-              <Text className="text-primary font-semibold">Log in</Text>
-            </Pressable>
-          </Link>
-        </View>
 
         <Modal
           visible={isTermsModalOpen}
@@ -756,88 +545,70 @@ export default function SignupScreen(): JSX.Element {
             <Pressable className="flex-1" onPress={() => setIsTermsModalOpen(false)} />
 
             <View
-              className="bg-background rounded-t-3xl border-t border-border px-6 pt-4 max-h-[82%] shadow-2xl"
+              className="bg-background rounded-t-[24px] px-5 pt-1 max-h-[82%] shadow-none"
               style={{ paddingBottom: Math.max(insets.bottom + 16, 28) }}
             >
-              <View className="items-center mb-3">
-                <View className="w-12 h-1.5 bg-muted/60 rounded-full" />
-              </View>
+              <View className="w-12 h-1 self-center rounded-full bg-muted/60 mb-3" />
+              <BottomSheetHeader
+                title="Terms & Data Privacy"
+                description="Review how your account and health information are used."
+                onClose={() => setIsTermsModalOpen(false)}
+                closeLabel="Close terms"
+                className="mb-4"
+              />
 
-              <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-border">
-                <View className="flex-1 pr-2">
-                  <Text className="text-lg font-bold text-foreground">Terms & Data Privacy</Text>
-                  <Text className="text-sm text-zinc-400-foreground mt-0.5">
-                    Birth Monitoring System (BMS) • Maternal Care
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => setIsTermsModalOpen(false)}
-                  className="p-2 bg-muted/30 rounded-full active:opacity-70"
-                >
-                  <StyledIonicons name="close" size={20} className="text-foreground" />
-                </Pressable>
-              </View>
-
-              <View className="flex-row bg-muted/40 p-1.5 rounded-2xl mb-4 border border-border items-center">
+              <View className="flex-row bg-muted/40 p-1 rounded-xl mb-4 items-center">
                 <Pressable
                   onPress={() => setTermsTab("terms")}
                   className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
                     termsTab === "terms"
-                      ? "bg-primary shadow border border-primary/50"
+                      ? "bg-primary"
                       : "bg-transparent active:bg-muted/30"
                   }`}
                 >
                   <Text
-                    className={`text-sm ${
+                    className={`text-base ${
                       termsTab === "terms"
-                        ? "text-primary-foreground font-bold"
-                        : "text-zinc-400-foreground font-medium"
+                        ? "text-primary-foreground font-semibold"
+                        : "text-muted-foreground-foreground font-medium"
                     }`}
                   >
                     Terms
                   </Text>
                 </Pressable>
 
-                <View
-                  className={`w-[1px] h-4 mx-0.5 ${termsTab === "terms" || termsTab === "privacy" ? "bg-transparent" : "bg-border"}`}
-                />
-
                 <Pressable
                   onPress={() => setTermsTab("privacy")}
                   className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
                     termsTab === "privacy"
-                      ? "bg-primary shadow border border-primary/50"
+                      ? "bg-primary"
                       : "bg-transparent active:bg-muted/30"
                   }`}
                 >
                   <Text
-                    className={`text-sm ${
+                    className={`text-base ${
                       termsTab === "privacy"
-                        ? "text-primary-foreground font-bold"
-                        : "text-zinc-400-foreground font-medium"
+                        ? "text-primary-foreground font-semibold"
+                        : "text-muted-foreground-foreground font-medium"
                     }`}
                   >
                     Privacy
                   </Text>
                 </Pressable>
 
-                <View
-                  className={`w-[1px] h-4 mx-0.5 ${termsTab === "privacy" || termsTab === "data" ? "bg-transparent" : "bg-border"}`}
-                />
-
                 <Pressable
                   onPress={() => setTermsTab("data")}
                   className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
                     termsTab === "data"
-                      ? "bg-primary shadow border border-primary/50"
+                      ? "bg-primary"
                       : "bg-transparent active:bg-muted/30"
                   }`}
                 >
                   <Text
-                    className={`text-sm ${
+                    className={`text-base ${
                       termsTab === "data"
-                        ? "text-primary-foreground font-bold"
-                        : "text-zinc-400-foreground font-medium"
+                        ? "text-primary-foreground font-semibold"
+                        : "text-muted-foreground-foreground font-medium"
                     }`}
                   >
                     Health Data
@@ -848,38 +619,38 @@ export default function SignupScreen(): JSX.Element {
               <ScrollView className="mb-4 px-1 max-h-[300px]" showsVerticalScrollIndicator={true}>
                 {termsTab === "terms" && (
                   <View className="gap-3">
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       1. Acceptance of Terms
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       By registering an account on the Birth Monitoring System (BMS) Mobile
                       Application, you agree to use the platform solely for managing maternal
                       healthcare, tracking pregnancy progress, scheduling clinic appointments, and
                       receiving prenatal guidelines.
                     </Text>
 
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       2. Purpose of BMS Mobile
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       BMS Mobile connects expecting mothers with authorized healthcare personnel
                       (midwives, nurses, and doctors) in public health facilities. It assists in
                       monitoring high-risk pregnancy indicators, recording vital signs, and
                       coordinating referral services.
                     </Text>
 
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       3. User Responsibilities
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       You agree to provide accurate personal and health information. You are
                       responsible for safeguarding your login credentials and verification OTPs.
                     </Text>
 
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       4. Emergency Disclaimer
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       While BMS provides automated risk alerts and appointment reminders, it does
                       not replace immediate emergency medical care. In acute medical emergencies,
                       please proceed immediately to the nearest healthcare facility.
@@ -889,35 +660,35 @@ export default function SignupScreen(): JSX.Element {
 
                 {termsTab === "privacy" && (
                   <View className="gap-3">
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       1. Data Privacy Compliance
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       In compliance with Republic Act No. 10173 (Data Privacy Act of 2012), the
                       Birth Monitoring System is committed to protecting your personal information
                       and sensitive health records.
                     </Text>
 
-                    <Text className="text-base font-bold text-foreground">2. Data We Collect</Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base font-semibold text-foreground">2. Data We Collect</Text>
+                    <Text className="text-base text-foreground/80 leading-6">
                       We collect your full name, contact number, age, pregnancy history
                       (Gravida/Parity, LMP), prenatal visit vitals (blood pressure, weight,
                       gestational age), and clinic appointment logs.
                     </Text>
 
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       3. Data Usage & Access
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       Your data is strictly restricted to assigned medical staff and health officers
                       managing your maternal care. Your records will never be sold, leased, or
                       shared with unauthorized third parties.
                     </Text>
 
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       4. Security Measures
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       All stored records and API transmissions are secured using HTTPS encryption,
                       JWT authentication, and database access controls.
                     </Text>
@@ -926,31 +697,31 @@ export default function SignupScreen(): JSX.Element {
 
                 {termsTab === "data" && (
                   <View className="gap-3">
-                    <Text className="text-base font-bold text-foreground">
+                    <Text className="text-base font-semibold text-foreground">
                       Consent for Processing Health Data
                     </Text>
-                    <Text className="text-sm text-foreground/80 leading-6">
+                    <Text className="text-base text-foreground/80 leading-6">
                       By checking the consent box, you grant explicit authorization to the Birth
                       Monitoring System and its healthcare partner facilities to process your
                       medical records for the following maternal care services:
                     </Text>
                     <View className="gap-2 pl-2">
-                      <Text className="text-sm text-foreground/80 leading-6">
+                      <Text className="text-base text-foreground/80 leading-6">
                         • Real-time risk level assessment (Normal, Moderate, High Risk) during
                         prenatal care.
                       </Text>
-                      <Text className="text-sm text-foreground/80 leading-6">
+                      <Text className="text-base text-foreground/80 leading-6">
                         • Generating automated appointment SMS reminders and vaccination schedules.
                       </Text>
-                      <Text className="text-sm text-foreground/80 leading-6">
+                      <Text className="text-base text-foreground/80 leading-6">
                         • Coordinating referral transfers between rural health units and hospital
                         facilities when high-risk complications arise.
                       </Text>
-                      <Text className="text-sm text-foreground/80 leading-6">
+                      <Text className="text-base text-foreground/80 leading-6">
                         • Recording labor and delivery outcomes for mother and newborn care records.
                       </Text>
                     </View>
-                    <Text className="text-sm text-foreground/80 leading-6 mt-2">
+                    <Text className="text-base text-foreground/80 leading-6 mt-2">
                       You retain the right to request access to your recorded health data or request
                       account deactivation through your attending healthcare provider.
                     </Text>
@@ -958,7 +729,7 @@ export default function SignupScreen(): JSX.Element {
                 )}
               </ScrollView>
 
-              <View className="pt-3 border-t border-border/60 gap-2">
+              <View className="mt-2 gap-2">
                 <Button
                   variant="primary"
                   onPress={() => {
@@ -973,12 +744,13 @@ export default function SignupScreen(): JSX.Element {
                   onPress={() => setIsTermsModalOpen(false)}
                   className="py-2.5 items-center justify-center active:opacity-70"
                 >
-                  <Text className="text-zinc-400-foreground text-sm font-semibold">Close</Text>
+                  <Text className="text-muted-foreground-foreground text-base font-semibold">Close</Text>
                 </Pressable>
               </View>
             </View>
           </View>
         </Modal>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

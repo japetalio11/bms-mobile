@@ -2,8 +2,8 @@ import { View, Text, ScrollView, Pressable } from "react-native";
 import type { JSX } from "react";
 import { Header } from "../../components/Header";
 import { Card } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 const RECORD_MODULES = [
   {
@@ -11,7 +11,7 @@ const RECORD_MODULES = [
     description: "View upcoming and past clinic visits.",
     icon: "calendar-outline" as const,
     color: "#6366f1",
-    route: "/(tabs)/appointments",
+    route: "/(tabs)/history",
   },
   {
     title: "Vitals & Biometrics",
@@ -39,7 +39,7 @@ const RECORD_MODULES = [
     description: "Past pregnancies and pre-existing conditions.",
     icon: "time-outline" as const,
     color: "#3b82f6",
-    route: "/(tabs)/history",
+    route: "/(tabs)/medical-history",
   },
   {
     title: "Upload Record",
@@ -52,6 +52,9 @@ const RECORD_MODULES = [
 
 export default function ExploreTab(): JSX.Element {
   const router = useRouter();
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  const query = (q || "").trim().toLowerCase();
+  const modules = RECORD_MODULES.filter((module) => !query || `${module.title} ${module.description}`.toLowerCase().includes(query));
 
   return (
     <View className="flex-1 bg-background pb-24">
@@ -61,13 +64,13 @@ export default function ExploreTab(): JSX.Element {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 mb-6">
-          <Text className="text-white text-lg font-semibold mb-1">Records Overview</Text>
-          <Text className="text-zinc-400 text-sm mb-6">
+          <Text className="text-white text-base font-semibold mb-1">Records Overview</Text>
+          <Text className="text-muted-foreground text-sm mb-6">
             Access all your medical information in one place.
           </Text>
 
           <View className="flex-col gap-4">
-            {RECORD_MODULES.map((mod) => (
+            {modules.map((mod) => (
               <Pressable
                 key={mod.title}
                 onPress={() => router.push(mod.route as any)}
@@ -75,7 +78,7 @@ export default function ExploreTab(): JSX.Element {
               >
                 <Card
                   variant="secondary"
-                  className="bg-[#18181b] border-0 rounded-xl p-4 flex-row items-center gap-4"
+                  className="bg-surface border-0 rounded-xl p-4 flex-row items-center gap-4"
                 >
                   <View
                     className="size-12 rounded-full items-center justify-center"
@@ -86,13 +89,19 @@ export default function ExploreTab(): JSX.Element {
 
                   <View className="flex-1">
                     <Text className="text-white text-base font-medium mb-0.5">{mod.title}</Text>
-                    <Text className="text-zinc-400 text-sm leading-5">{mod.description}</Text>
+                    <Text className="text-muted-foreground text-sm leading-5">{mod.description}</Text>
                   </View>
 
                   <Ionicons name="chevron-forward" size={20} color="#52525b" />
                 </Card>
               </Pressable>
             ))}
+            {modules.length === 0 && (
+              <View className="rounded-xl bg-surface p-5">
+                <Text className="text-base font-semibold text-foreground">No matching sections</Text>
+                <Text className="mt-1 text-sm text-muted-foreground">Try searching for appointments, prescriptions, records, or vitals.</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>

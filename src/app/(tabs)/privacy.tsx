@@ -1,14 +1,15 @@
-import { View, ScrollView, ActivityIndicator, Platform } from "react-native";
+import { View, ScrollView, ActivityIndicator, Platform, Pressable, BackHandler } from "react-native";
 import type { JSX } from "react";
-import { Card, Text, Switch, Button } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
-import { Header } from "../../components/Header";
-import { useState } from "react";
+import { Text, Switch, useToast } from "heroui-native";
+import { AppButton as Button } from "../../components/FormControls";
+import { AppIcon } from "../../components/AppIcon";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useState, useCallback } from "react";
 import { useSettings } from "../../context/settingsContext";
 import { useAuth } from "../../context/UserContext";
 import { useConfirm } from "../../context/ConfirmationContext";
 import { deleteAccountApi } from "../../config/api";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as Print from "expo-print";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -18,6 +19,15 @@ import { getMotherProfileLocal, getSupplementsLocal } from "../../db/repository"
 
 export default function PrivacyScreen(): JSX.Element {
   const router = useRouter();
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/(tabs)/profile");
+      return true;
+    });
+    return () => subscription.remove();
+  }, [router]));
+  const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const { user, token, motherRecord, activePregnancy, logout } = useAuth();
   const { shareHealthData, setShareHealthData, analyticsEnabled, setAnalyticsEnabled } =
     useSettings();
@@ -25,11 +35,9 @@ export default function PrivacyScreen(): JSX.Element {
 
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleDownloadData = async () => {
     setIsExporting(true);
-    setStatusMessage(null);
 
     try {
       // 1. Fetch comprehensive local profile and records
@@ -82,7 +90,7 @@ export default function PrivacyScreen(): JSX.Element {
             flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
             type: "application/pdf",
           });
-          setStatusMessage(`Document opened: ${fileName}`);
+          toast.show({ label: "Health summary opened", variant: "success" });
           return;
         } catch (intentErr) {
           console.warn("IntentLauncher fallback:", intentErr);
@@ -97,7 +105,7 @@ export default function PrivacyScreen(): JSX.Element {
           UTI: "com.adobe.pdf",
         });
       }
-      setStatusMessage(`Document saved: ${fileName}`);
+      toast.show({ label: "Health summary saved", variant: "success" });
     } catch (err: any) {
       confirm({
         title: "Export Failed",
@@ -149,121 +157,35 @@ export default function PrivacyScreen(): JSX.Element {
       },
     });
   };
-
-  return (
-    <View className="flex-1 bg-background">
-      <Header
-        showBackButton
-        title="Data Privacy"
-        onBack={() => router.push("/(tabs)/profile")}
-        rightIcon={null}
-      />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {statusMessage && (
-          <View className="mx-5 mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex-row items-center gap-3">
-            <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
-            <Text className="text-green-600 dark:text-green-400 text-sm flex-1">
-              {statusMessage}
-            </Text>
-          </View>
-        )}
-
-        <View className="px-5 mb-6 pt-2">
-          <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Data Sharing</Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-1 mr-4">
-                <Text className="text-foreground text-base font-medium">Share Health Data</Text>
-                <Text className="text-zinc-400 text-sm mt-0.5">
-                  Allow authorized healthcare providers to access your medical records securely.
-                </Text>
-              </View>
-              <Switch
-                isSelected={shareHealthData}
-                {...({ onValueChange: setShareHealthData } as any)}
-              />
-            </View>
-
-            <View className="h-px bg-default mb-4" />
-
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 mr-4">
-                <Text className="text-foreground text-base font-medium">
-                  Analytics & Performance
-                </Text>
-                <Text className="text-zinc-400 text-sm mt-0.5">
-                  Share anonymous usage logs to help improve the app.
-                </Text>
-              </View>
-              <Switch
-                isSelected={analyticsEnabled}
-                {...({ onValueChange: setAnalyticsEnabled } as any)}
-              />
-            </View>
-          </Card>
-        </View>
-
-        <View className="px-5 mb-6">
-          <Text className="text-zinc-400 text-sm font-medium mb-2 ml-1">Data Management</Text>
-          <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4 gap-4">
-            <View>
-              <Text className="text-foreground text-base font-medium mb-1">
-                Download Health Record
-              </Text>
-              <Text className="text-zinc-400 text-sm mb-3">
-                Save an official, printable summary of your maternal profile, prenatal vitals,
-                prescriptions, and delivery logs to your device.
-              </Text>
-              <Button
-                variant="secondary"
-                className="w-full bg-default border-0 rounded-xl"
-                onPress={handleDownloadData}
-                isDisabled={isExporting}
-              >
-                <View className="flex-row items-center justify-center gap-2">
-                  {isExporting ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Ionicons name="download-outline" size={18} color="#0284c7" />
-                  )}
-                  <Button.Label className="text-foreground font-medium">
-                    {isExporting ? "Generating Document..." : "Download Health Summary"}
-                  </Button.Label>
-                </View>
-              </Button>
-            </View>
-
-            <View className="h-px bg-default" />
-
-            <View>
-              <Text className="text-danger text-base font-medium mb-1">Delete Account</Text>
-              <Text className="text-zinc-400 text-sm mb-3">
-                Deactivate your account and revoke mobile access. Medical records remain securely
-                archived at your facility.
-              </Text>
-              <Button
-                className="w-full bg-red-500/15 border-0 rounded-xl"
-                onPress={handleDeleteAccount}
-                isDisabled={isDeleting}
-              >
-                <View className="flex-row items-center justify-center gap-2">
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color="#ef4444" />
-                  ) : (
-                    <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                  )}
-                  <Button.Label className="text-red-500 font-medium">
-                    {isDeleting ? "Deleting..." : "Delete Account"}
-                  </Button.Label>
-                </View>
-              </Button>
-            </View>
-          </Card>
-        </View>
-      </ScrollView>
+  return <View className="flex-1 bg-background">
+    <View className="h-16 flex-row items-center justify-between px-5">
+      <Pressable onPress={() => router.replace("/(tabs)/profile")} accessibilityLabel="Back to settings" className="size-11 items-center justify-center"><AppIcon name="chevron-back" size={23} weight="bold" color="#171717" /></Pressable>
+      <Text className="text-2xl font-semibold text-foreground">Privacy and Data</Text>
+      <View className="size-10" />
     </View>
-  );
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: insets.bottom + 100 }}>
+      <Text className="text-base font-semibold text-foreground">Data sharing</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">Choose how your health information is used.</Text>
+      <View className="mt-5 overflow-hidden rounded-xl bg-[#f6f6f6]">
+        <View className="min-h-20 flex-row items-center gap-4 px-4 py-3">
+          <View className="flex-1"><Text className="text-sm font-medium text-foreground">Share health data</Text><Text className="mt-1 text-sm text-muted-foreground">Allow your care team to view your records.</Text></View>
+          <Switch isSelected={shareHealthData} onSelectedChange={setShareHealthData} />
+        </View>
+        <View className="min-h-20 flex-row items-center gap-4 px-4 py-3">
+          <View className="flex-1"><Text className="text-sm font-medium text-foreground">Usage analytics</Text><Text className="mt-1 text-sm text-muted-foreground">Help improve Silang with anonymous usage data.</Text></View>
+          <Switch isSelected={analyticsEnabled} onSelectedChange={setAnalyticsEnabled} />
+        </View>
+      </View>
+      <Text className="mt-8 text-base font-semibold text-foreground">Your records</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">Keep a copy of your maternal health information.</Text>
+      <Button onPress={handleDownloadData} isDisabled={isExporting} className="mt-5 min-h-12 rounded-md bg-[#f2f2f2]">
+        {isExporting ? <ActivityIndicator color="#171717" /> : <View className="flex-row items-center gap-2"><AppIcon name="download-outline" size={18} color="#171717" /><Button.Label className="text-sm font-medium text-foreground">Download health summary</Button.Label></View>}
+      </Button>
+      <Text className="mt-8 text-base font-semibold text-foreground">Delete account</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">Your account will be deactivated. Medical records remain archived at your facility.</Text>
+      <Button onPress={handleDeleteAccount} isDisabled={isDeleting} className="mt-5 min-h-12 rounded-md bg-[#fef0ef]">
+        {isDeleting ? <ActivityIndicator color="#b42318" /> : <Button.Label className="text-sm font-medium text-[#b42318]">Delete account</Button.Label>}
+      </Button>
+    </ScrollView>
+  </View>;
 }

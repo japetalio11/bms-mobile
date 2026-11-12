@@ -2,6 +2,10 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 const getApiBaseUrl = (): string => {
+  if (Platform.OS === "web" && process.env.EXPO_PUBLIC_WEB_API_PROXY === "true" && typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
   let url = process.env.EXPO_PUBLIC_API_URL || "";
 
   if (!url) {
@@ -199,6 +203,20 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+function assertMotherAuthResponse(data: AuthResponse, action: string): AuthResponse {
+  if (!data?.token || !data.user?.user_id || !data.user.role) {
+    throw new Error(`The server returned an incomplete response while ${action}. Please try again.`);
+  }
+
+  if (data.user.role.trim().toLowerCase() !== "mother") {
+    throw new Error(
+      `This mobile app is for mother accounts. This account is registered as '${data.user.role}'.`
+    );
+  }
+
+  return data;
+}
+
 export type GoogleAuthPayload = {
   idToken?: string;
   email?: string;
@@ -222,13 +240,7 @@ export async function googleAuthApi(payload: GoogleAuthPayload): Promise<AuthRes
     throw new Error(data.error || data.message || "Google authentication failed");
   }
 
-  if (data.user && data.user.role && data.user.role.trim().toLowerCase() !== "mother") {
-    throw new Error(
-      `Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`
-    );
-  }
-
-  return data;
+  return assertMotherAuthResponse(data, "signing in with Google");
 }
 
 export async function loginApi(payload: LoginPayload): Promise<AuthResponse> {
@@ -246,13 +258,7 @@ export async function loginApi(payload: LoginPayload): Promise<AuthResponse> {
     throw err;
   }
 
-  if (data.user && data.user.role && data.user.role.trim().toLowerCase() !== "mother") {
-    throw new Error(
-      `Account found, but it is registered as '${data.user.role}'. The mobile app is restricted to Mother accounts.`
-    );
-  }
-
-  return data;
+  return assertMotherAuthResponse(data, "signing in");
 }
 
 export async function sendOtpApi(payload: SendOtpPayload): Promise<{ message: string }> {
@@ -297,7 +303,7 @@ export async function registerApi(payload: RegisterPayload): Promise<AuthRespons
     throw new Error(data.error || data.message || "Registration failed");
   }
 
-  return data;
+  return assertMotherAuthResponse(data, "creating your account");
 }
 
 export async function setupPasswordApi(payload: SetupPasswordPayload): Promise<AuthResponse> {
@@ -312,11 +318,7 @@ export async function setupPasswordApi(payload: SetupPasswordPayload): Promise<A
     throw new Error(data.error || data.message || "Password setup failed");
   }
 
-  if (data.user && data.user.role && data.user.role.toLowerCase() !== "mother") {
-    throw new Error("No account found.");
-  }
-
-  return data;
+  return assertMotherAuthResponse(data, "setting up your password");
 }
 
 export type ResetPasswordPayload = {
@@ -504,7 +506,7 @@ export async function getMotherEhrDocumentsApi(motherId: string, token: string):
     }
     const list = data.data || data.result || data;
     return Array.isArray(list) ? list : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -649,7 +651,7 @@ export async function deleteEhrDocumentApi(
   documentId: string,
   token: string
 ): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/ehr-docs/delete/${documentId}`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/ehr/delete/${documentId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -689,7 +691,7 @@ export async function deleteAccountApi(
   motherId: string,
   token: string
 ): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/mother/soft-delete/${motherId}`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mother/deactivate/${motherId}`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,

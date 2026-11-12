@@ -22,7 +22,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const socketRef = useRef<Socket | null>(null);
-  const appState = useRef<AppStateStatus>(AppState.currentState);
+  const appState = useRef<string | null | undefined>(AppState.currentState);
 
   useEffect(() => {
     if (!isAuthenticated || !token || !user?.user_id) {
@@ -85,7 +85,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === "active") {
+      if (appState.current?.match(/inactive|background/) && nextAppState === "active") {
         if (socketRef.current && !socketRef.current.connected) {
           socketRef.current.connect();
         }

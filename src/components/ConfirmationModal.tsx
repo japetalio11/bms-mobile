@@ -9,7 +9,7 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "./AppIcon";
 
 export type ConfirmationVariant = "danger" | "warning" | "info" | "success";
 
@@ -20,7 +20,7 @@ export type ConfirmationModalProps = {
   confirmText?: string;
   cancelText?: string;
   variant?: ConfirmationVariant;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   isLoading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -29,7 +29,7 @@ export type ConfirmationModalProps = {
 const VARIANT_CONFIGS: Record<
   ConfirmationVariant,
   {
-    iconName: keyof typeof Ionicons.glyphMap;
+    iconName: string;
     iconColor: string;
     badgeBg: string;
     badgeBorder: string;
@@ -181,8 +181,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   titleText: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "600",
     color: "#18181b",
     textAlign: "center",
     marginBottom: 8,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#e4e4e7",
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#3f3f46",
   },
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   confirmButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
   },

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { ConfirmationModal, ConfirmationVariant } from "../components/ConfirmationModal";
 
 export type ConfirmOptions = {
@@ -8,7 +7,7 @@ export type ConfirmOptions = {
   confirmText?: string;
   cancelText?: string;
   variant?: ConfirmationVariant;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void;
 };

@@ -1,15 +1,9 @@
-import {
-  View,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Platform,
-  KeyboardAvoidingView,
-} from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView, } from "react-native";
 import { useState, useEffect } from "react";
 import type { JSX } from "react";
-import { Text, TextField, Label, Input, Button } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text, Label } from "heroui-native";
+import { AppTextField as TextField, AppInput as Input, AppButton as Button } from "../../components/FormControls";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import { sendOtpApi, resetPasswordApi } from "../../config/api";
@@ -196,13 +190,14 @@ export default function ForgotPasswordScreen(): JSX.Element {
             onPress={() => {
               if (mode === "verify_otp") setMode("enter_identifier");
               else if (mode === "reset_password") setMode("verify_otp");
-              else router.back();
+              else if (router.canGoBack()) router.back();
+              else router.replace("/(auth)/login");
             }}
             className="p-2 -ml-2 rounded-full active:bg-muted/30"
           >
             <StyledIonicons name="arrow-back" size={24} className="text-foreground" />
           </Pressable>
-          <Text className="text-lg font-bold text-foreground ml-2">
+          <Text className="text-base font-semibold text-foreground ml-2">
             {mode === "enter_identifier" && "Forgot Password"}
             {mode === "verify_otp" && "Verify OTP"}
             {mode === "reset_password" && "Reset Password"}
@@ -229,14 +224,14 @@ export default function ForgotPasswordScreen(): JSX.Element {
                 />
               </View>
 
-              <Text className="text-lg font-bold text-foreground text-center">
+              <Text className="text-base font-semibold text-foreground text-center">
                 {mode === "enter_identifier" && "Reset Your Password"}
                 {mode === "verify_otp" && "Enter Verification Code"}
                 {mode === "reset_password" && "Create New Password"}
                 {mode === "success" && "All Set!"}
               </Text>
 
-              <Text className="text-sm text-zinc-400-foreground text-center mt-2 px-4">
+              <Text className="text-sm text-muted-foreground-foreground text-center mt-2 px-4">
                 {mode === "enter_identifier" &&
                   "Enter the email address or phone number associated with your Mother account to receive an OTP code."}
                 {mode === "verify_otp" && `Enter the 6-digit code sent to ${identifier}.`}
@@ -290,7 +285,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                     <StyledIonicons
                       name={isEmail ? "mail-outline" : "call-outline"}
                       size={20}
-                      className="absolute right-4 text-zinc-400-foreground"
+                      className="absolute right-4 text-muted-foreground-foreground"
                       pointerEvents="none"
                     />
                   </View>
@@ -324,21 +319,21 @@ export default function ForgotPasswordScreen(): JSX.Element {
                       placeholder="123456"
                       keyboardType="number-pad"
                       maxLength={6}
-                      className="tracking-widest text-center text-lg font-bold"
+                      className="tracking-widest text-center text-base font-semibold"
                     />
                   </View>
                 </TextField>
 
                 <View className="flex-row justify-between items-center px-1">
                   <Pressable onPress={() => setMode("enter_identifier")}>
-                    <Text className="text-sm text-zinc-400-foreground underline">
+                    <Text className="text-sm text-muted-foreground-foreground underline">
                       Change Identifier
                     </Text>
                   </Pressable>
 
                   <Pressable onPress={handleRequestOtp} disabled={isLoading || timer > 0}>
                     <Text
-                      className={`text-sm font-medium ${timer > 0 || isLoading ? "text-zinc-400-foreground" : "text-primary underline"}`}
+                      className={`text-sm font-medium ${timer > 0 || isLoading ? "text-muted-foreground-foreground" : "text-primary underline"}`}
                     >
                       {isLoading ? "Sending..." : timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
                     </Text>
@@ -366,7 +361,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                       <StyledIonicons
                         name={isPasswordVisible ? "eye-outline" : "eye-off-outline"}
                         size={20}
-                        className="text-zinc-400-foreground"
+                        className="text-muted-foreground-foreground"
                       />
                     </Pressable>
                   </View>
@@ -389,7 +384,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                       <StyledIonicons
                         name={isConfirmPasswordVisible ? "eye-outline" : "eye-off-outline"}
                         size={20}
-                        className="text-zinc-400-foreground"
+                        className="text-muted-foreground-foreground"
                       />
                     </Pressable>
                   </View>
@@ -446,7 +441,7 @@ export default function ForgotPasswordScreen(): JSX.Element {
                 onPress={() => router.replace("/(auth)/login")}
                 className="items-center py-2"
               >
-                <Text className="text-sm text-zinc-400-foreground">
+                <Text className="text-sm text-muted-foreground-foreground">
                   Remember your password?{" "}
                   <Text className="text-primary font-medium underline">Log In</Text>
                 </Text>

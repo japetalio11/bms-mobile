@@ -1,11 +1,11 @@
 import { View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { Text, Card, Tabs } from "heroui-native";
 import { Header } from "../../components/Header";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import type { JSX } from "react";
 import { useAuth } from "../../context/UserContext";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { AppIcon as Ionicons } from "../../components/AppIcon";
+import { useRouter, useFocusEffect } from "expo-router";
 import { getDeliveryOutcomesLocal } from "../../db/repository";
 import type { DeliveryOutcomeRecord, PrenatalVisitRecord } from "../../config/api";
 import { triggerSelectionHaptic } from "../../lib/haptics";
@@ -48,10 +48,10 @@ const InsetRow = ({
 }) => (
   <View
     className={`flex-row items-center justify-between py-3.5 px-4 ${
-      isLast ? "" : "border-b border-separator/30 dark:border-zinc-800/80"
+      isLast ? "" : "border-b border-separator/30 dark:border-border/80"
     } gap-3`}
   >
-    <Text className="text-zinc-500 dark:text-zinc-400 text-sm font-normal shrink-0">{label}</Text>
+    <Text className="text-muted-foreground dark:text-muted-foreground text-sm font-normal shrink-0">{label}</Text>
     <View className="flex-1 items-end justify-center">
       {badge ? (
         <View className="flex-row items-center gap-2">
@@ -64,7 +64,7 @@ const InsetRow = ({
         <View className="items-end">
           <Text className="text-foreground text-sm font-semibold text-right">{value ?? "—"}</Text>
           {subvalue ? (
-            <Text className="text-zinc-400 dark:text-zinc-500 text-xs text-right mt-0.5">
+            <Text className="text-muted-foreground dark:text-muted-foreground text-sm text-right mt-0.5">
               {subvalue}
             </Text>
           ) : null}
@@ -124,16 +124,16 @@ const RangeSpectrumBar = ({
           marginLeft: -7,
           backgroundColor: markerColor,
         }}
-        className="size-3.5 rounded-full border-2 border-white dark:border-zinc-950 shadow-xs"
+        className="size-3.5 rounded-full border-2 border-white dark:border-zinc-950 shadow-none"
       />
       <View className="flex-row justify-between items-center mt-2 px-0.5">
-        <Text className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+        <Text className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
           {labels[0]}
         </Text>
-        <Text className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+        <Text className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
           {labels[1]}
         </Text>
-        <Text className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+        <Text className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
           {labels[2]}
         </Text>
       </View>
@@ -152,7 +152,7 @@ const getBpAssessment = (systolic?: number | null, diastolic?: number | null) =>
       status: "Low",
       title: "Low Blood Pressure",
       note: "Mild hypotension can happen in early pregnancy. Rest and hydrate.",
-      badgeBg: "bg-blue-500/10 dark:bg-blue-500/20",
+      badgeBg: "bg-muted dark:bg-muted",
       badgeText: "text-blue-600 dark:text-blue-400",
       accentColor: "#3b82f6",
       percentage: 18,
@@ -257,7 +257,7 @@ export default function VitalsScreen(): JSX.Element {
   const [localDeliveries, setLocalDeliveries] = useState<DeliveryOutcomeRecord[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadLocalDeliveries = async () => {
+  const loadLocalDeliveries = useCallback(async () => {
     const mid = motherRecord?.mother_id || user?.user_id;
     if (mid) {
       try {
@@ -269,11 +269,11 @@ export default function VitalsScreen(): JSX.Element {
         console.warn("Failed to load local delivery outcomes:", e);
       }
     }
-  };
-
-  useEffect(() => {
-    loadLocalDeliveries();
   }, [motherRecord?.mother_id, user?.user_id]);
+
+  useFocusEffect(useCallback(() => {
+    void loadLocalDeliveries();
+  }, [loadLocalDeliveries]));
 
   const onRefresh = async () => {
     setIsRefreshing(true);
@@ -503,7 +503,7 @@ export default function VitalsScreen(): JSX.Element {
       <Header
         showBackButton
         title="Vitals & Analytics"
-        onBack={() => router.back()}
+        onBack={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")}
         rightIcon={null}
       />
       <ScrollView
@@ -515,13 +515,13 @@ export default function VitalsScreen(): JSX.Element {
       >
         <View className="px-5 mb-5 pt-2">
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} variant="primary">
-            <Tabs.List className="bg-default p-1 rounded-2xl flex-row w-full h-11 items-center">
-              <Tabs.Indicator className="bg-surface rounded-xl shadow-xs" />
+            <Tabs.List className="bg-default p-1 rounded-xl flex-row w-full h-11 items-center">
+              <Tabs.Indicator className="bg-surface rounded-xl shadow-none" />
               <Tabs.Trigger value="maternal" className="flex-1 items-center justify-center h-9">
                 {({ isSelected }) => (
                   <Tabs.Label
                     className={`font-semibold text-sm text-center ${
-                      isSelected ? "text-foreground font-bold" : "text-zinc-400"
+                      isSelected ? "text-foreground font-semibold" : "text-muted-foreground"
                     }`}
                   >
                     Maternal Vitals
@@ -533,7 +533,7 @@ export default function VitalsScreen(): JSX.Element {
                   <View className="flex-row items-center gap-1.5 justify-center">
                     <Tabs.Label
                       className={`font-semibold text-sm text-center ${
-                        isSelected ? "text-foreground font-bold" : "text-zinc-400"
+                        isSelected ? "text-foreground font-semibold" : "text-muted-foreground"
                       }`}
                     >
                       Newborn Records
@@ -553,10 +553,10 @@ export default function VitalsScreen(): JSX.Element {
                           style={{
                             includeFontPadding: false,
                             textAlignVertical: "center",
-                            lineHeight: 12,
+                            lineHeight: 18,
                           }}
-                          className={`text-[10px] font-bold text-center ${
-                            isSelected ? "text-primary" : "text-zinc-400"
+                          className={`text-sm font-semibold text-center ${
+                            isSelected ? "text-primary" : "text-muted-foreground"
                           }`}
                         >
                           {allNewborns.length}
@@ -573,9 +573,9 @@ export default function VitalsScreen(): JSX.Element {
         {activeMainTab === "maternal" && (
           <View className="px-5 gap-4">
             <View className="flex-row items-center justify-between">
-              <Text className="text-foreground text-lg font-bold">Maternal Health Log</Text>
+              <Text className="text-foreground text-base font-semibold">Maternal Health Log</Text>
               {allVisits.length > 1 && (
-                <Text className="text-zinc-400 text-xs font-medium">
+                <Text className="text-muted-foreground text-sm font-medium">
                   {allVisits.length} recorded visits
                 </Text>
               )}
@@ -583,7 +583,7 @@ export default function VitalsScreen(): JSX.Element {
 
             {allVisits.length > 1 && (
               <View className="gap-2">
-                <Text className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold uppercase tracking-wider px-1">
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm font-semibold uppercase tracking-wider px-1">
                   Visit History
                 </Text>
                 <ScrollView
@@ -608,8 +608,8 @@ export default function VitalsScreen(): JSX.Element {
                         }}
                         className={`px-3.5 py-2 rounded-xl flex-row items-center gap-2 ${
                           isSelected
-                            ? "bg-primary shadow-xs"
-                            : "bg-surface border border-separator/30 dark:border-zinc-800"
+                            ? "bg-primary shadow-none"
+                            : "bg-surface border border-separator/30 dark:border-border"
                         }`}
                       >
                         <View
@@ -619,15 +619,15 @@ export default function VitalsScreen(): JSX.Element {
                         />
                         <View>
                           <Text
-                            className={`text-xs font-bold ${
+                            className={`text-sm font-semibold ${
                               isSelected ? "text-primary-foreground" : "text-foreground"
                             }`}
                           >
                             Visit #{visitNumber}
                           </Text>
                           <Text
-                            className={`text-[11px] ${
-                              isSelected ? "text-primary-foreground/80" : "text-zinc-400"
+                            className={`text-sm ${
+                              isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
                             }`}
                           >
                             {formattedDate}
@@ -648,22 +648,22 @@ export default function VitalsScreen(): JSX.Element {
                     className={`rounded-xl px-4 py-3 ${healthStory.cardBg}`}
                   >
                     <View className="flex-row items-center gap-2.5">
-                      <View className="size-7 rounded-full bg-surface items-center justify-center shadow-2xs shrink-0">
+                      <View className="size-7 rounded-full bg-surface items-center justify-center shadow-none shrink-0">
                         <Ionicons name={healthStory.icon} size={15} color={healthStory.iconColor} />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-foreground text-sm font-bold">
+                        <Text className="text-foreground text-sm font-semibold">
                           {healthStory.title}
                         </Text>
                       </View>
                     </View>
-                    <Text className="text-foreground/80 dark:text-foreground/75 text-xs leading-4 mt-2">
+                    <Text className="text-foreground/80 dark:text-foreground/75 text-sm leading-4 mt-2">
                       {healthStory.description}
                     </Text>
                   </Card>
                 )}
 
-                <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2.5">
                       <View className="size-8 rounded-full bg-emerald-500/10 items-center justify-center">
@@ -673,14 +673,14 @@ export default function VitalsScreen(): JSX.Element {
                         <Text className="text-foreground text-sm font-semibold">
                           Blood Pressure
                         </Text>
-                        <Text className="text-zinc-400 text-xs font-normal">
+                        <Text className="text-muted-foreground text-sm font-normal">
                           Maternal circulation
                         </Text>
                       </View>
                     </View>
                     {bpAssessment ? (
                       <View className={`px-2.5 py-1 rounded-full ${bpAssessment.badgeBg}`}>
-                        <Text className={`text-xs font-bold ${bpAssessment.badgeText}`}>
+                        <Text className={`text-sm font-semibold ${bpAssessment.badgeText}`}>
                           {bpAssessment.status}
                         </Text>
                       </View>
@@ -688,10 +688,10 @@ export default function VitalsScreen(): JSX.Element {
                   </View>
 
                   <View className="flex-row items-baseline gap-1.5 mt-3">
-                    <Text className="text-foreground text-3xl font-extrabold tracking-tight">
+                    <Text className="text-foreground text-2xl font-semibold tracking-tight">
                       {activeVisit.bp_systolic}/{activeVisit.bp_diastolic}
                     </Text>
-                    <Text className="text-zinc-400 text-xs font-medium">mmHg</Text>
+                    <Text className="text-muted-foreground text-sm font-medium">mmHg</Text>
                   </View>
 
                   {bpAssessment ? (
@@ -701,7 +701,7 @@ export default function VitalsScreen(): JSX.Element {
                         markerColor={bpAssessment.accentColor}
                         labels={["<90 Low", "120/80 Target", ">140 High"]}
                       />
-                      <Text className="text-zinc-500 dark:text-zinc-400 text-xs leading-4 mt-2">
+                      <Text className="text-muted-foreground dark:text-muted-foreground text-sm leading-4 mt-2">
                         {bpAssessment.note}
                       </Text>
                     </>
@@ -709,7 +709,7 @@ export default function VitalsScreen(): JSX.Element {
                 </Card>
 
                 {activeVisit.fetal_heart_tone_bpm ? (
-                  <Card variant="secondary" className="bg-surface border-0 rounded-2xl p-4">
+                  <Card variant="secondary" className="bg-surface border-0 rounded-xl p-4">
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-2.5">
                         <View className="size-8 rounded-full bg-rose-500/10 items-center justify-center">
@@ -719,14 +719,14 @@ export default function VitalsScreen(): JSX.Element {
                           <Text className="text-foreground text-sm font-semibold">
                             Fetal Heart Tone
                           </Text>
-                          <Text className="text-zinc-400 text-xs font-normal">
+                          <Text className="text-muted-foreground text-sm font-normal">
                             Baby&apos;s heartbeat
                           </Text>
                         </View>
                       </View>
                       {fhtAssessment ? (
                         <View className={`px-2.5 py-1 rounded-full ${fhtAssessment.badgeBg}`}>
-                          <Text className={`text-xs font-bold ${fhtAssessment.badgeText}`}>
+                          <Text className={`text-sm font-semibold ${fhtAssessment.badgeText}`}>
                             {fhtAssessment.status}
                           </Text>
                         </View>
@@ -734,10 +734,10 @@ export default function VitalsScreen(): JSX.Element {
                     </View>
 
                     <View className="flex-row items-baseline gap-1.5 mt-3">
-                      <Text className="text-foreground text-3xl font-extrabold tracking-tight">
+                      <Text className="text-foreground text-2xl font-semibold tracking-tight">
                         {activeVisit.fetal_heart_tone_bpm}
                       </Text>
-                      <Text className="text-zinc-400 text-xs font-medium">bpm</Text>
+                      <Text className="text-muted-foreground text-sm font-medium">bpm</Text>
                     </View>
 
                     {fhtAssessment ? (
@@ -747,7 +747,7 @@ export default function VitalsScreen(): JSX.Element {
                           markerColor={fhtAssessment.accentColor}
                           labels={["<110 Slow", "110–160 Target", ">160 Rapid"]}
                         />
-                        <Text className="text-zinc-500 dark:text-zinc-400 text-xs leading-4 mt-2">
+                        <Text className="text-muted-foreground dark:text-muted-foreground text-sm leading-4 mt-2">
                           {fhtAssessment.note}
                         </Text>
                       </>
@@ -759,23 +759,23 @@ export default function VitalsScreen(): JSX.Element {
                   <View className="flex-1" style={{ flex: 1 }}>
                     <Card
                       variant="secondary"
-                      className="w-full bg-surface border-0 rounded-2xl p-4"
+                      className="w-full bg-surface border-0 rounded-xl p-4"
                       style={{ flex: 1 }}
                     >
                       <View className="flex-row items-center justify-between mb-2">
-                        <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+                        <Text className="text-muted-foreground dark:text-muted-foreground text-sm font-medium">
                           Weight
                         </Text>
-                        <View className="size-7 rounded-full bg-blue-500/10 items-center justify-center">
+                        <View className="size-7 rounded-full bg-muted items-center justify-center">
                           <Ionicons name="scale-outline" size={15} color="#3b82f6" />
                         </View>
                       </View>
                       <View className="flex-row items-baseline gap-1">
-                        <Text className="text-foreground text-2xl font-bold">
+                        <Text className="text-foreground text-2xl font-semibold">
                           {activeVisit.weight_kg ?? "—"}
                         </Text>
                         {activeVisit.weight_kg ? (
-                          <Text className="text-zinc-400 text-xs font-semibold">kg</Text>
+                          <Text className="text-muted-foreground text-sm font-semibold">kg</Text>
                         ) : null}
                       </View>
                       {weightChange !== null ? (
@@ -786,7 +786,7 @@ export default function VitalsScreen(): JSX.Element {
                             color={weightChange >= 0 ? "#10b981" : "#f59e0b"}
                           />
                           <Text
-                            className={`text-xs font-semibold ${
+                            className={`text-sm font-semibold ${
                               weightChange >= 0
                                 ? "text-emerald-600 dark:text-emerald-400"
                                 : "text-amber-500"
@@ -797,7 +797,7 @@ export default function VitalsScreen(): JSX.Element {
                           </Text>
                         </View>
                       ) : (
-                        <Text className="text-zinc-400 text-xs mt-2 font-medium">
+                        <Text className="text-muted-foreground text-sm mt-2 font-medium">
                           Baseline record
                         </Text>
                       )}
@@ -807,12 +807,12 @@ export default function VitalsScreen(): JSX.Element {
                   <View className="flex-1" style={{ flex: 1 }}>
                     <Card
                       variant="secondary"
-                      className="w-full bg-surface border-0 rounded-2xl p-4"
+                      className="w-full bg-surface border-0 rounded-xl p-4"
                       style={{ flex: 1 }}
                     >
                       <View className="flex-row items-center justify-between mb-2">
                         <Text
-                          className="text-zinc-500 dark:text-zinc-400 text-xs font-medium"
+                          className="text-muted-foreground dark:text-muted-foreground text-sm font-medium"
                           numberOfLines={1}
                         >
                           Maternal Pulse
@@ -822,38 +822,38 @@ export default function VitalsScreen(): JSX.Element {
                         </View>
                       </View>
                       <View className="flex-row items-baseline gap-1">
-                        <Text className="text-foreground text-2xl font-bold">
+                        <Text className="text-foreground text-2xl font-semibold">
                           {activeVisit.pulse_rate_bpm ?? "—"}
                         </Text>
                         {activeVisit.pulse_rate_bpm ? (
-                          <Text className="text-zinc-400 text-xs font-semibold">bpm</Text>
+                          <Text className="text-muted-foreground text-sm font-semibold">bpm</Text>
                         ) : null}
                       </View>
                       {pulseAssessment ? (
                         <View className="flex-row items-center gap-1.5 mt-2 flex-wrap">
                           <View className={`px-2 py-0.5 rounded-md ${pulseAssessment.badgeBg}`}>
                             <Text
-                              className={`text-[11px] font-semibold ${pulseAssessment.badgeText}`}
+                              className={`text-sm font-semibold ${pulseAssessment.badgeText}`}
                             >
                               {pulseAssessment.status}
                             </Text>
                           </View>
-                          <Text className="text-zinc-400 text-xs font-medium">resting</Text>
+                          <Text className="text-muted-foreground text-sm font-medium">resting</Text>
                         </View>
                       ) : (
-                        <Text className="text-zinc-400 text-xs mt-2 font-medium">Heart rate</Text>
+                        <Text className="text-muted-foreground text-sm mt-2 font-medium">Heart rate</Text>
                       )}
                     </Card>
                   </View>
                 </View>
 
                 <View className="gap-2">
-                  <Text className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold uppercase tracking-wider px-1">
+                  <Text className="text-muted-foreground dark:text-muted-foreground text-sm font-semibold uppercase tracking-wider px-1">
                     Clinical Examination
                   </Text>
                   <Card
                     variant="secondary"
-                    className="bg-surface border-0 rounded-2xl overflow-hidden p-0"
+                    className="bg-surface border-0 rounded-xl overflow-hidden p-0"
                   >
                     <InsetRow
                       label="Body Temperature"
@@ -887,7 +887,7 @@ export default function VitalsScreen(): JSX.Element {
                             }`}
                           >
                             <Text
-                              className={`text-xs font-semibold ${
+                              className={`text-sm font-semibold ${
                                 activeVisit.risk_level_assessed.toLowerCase().includes("high")
                                   ? "text-rose-500"
                                   : "text-emerald-500"
@@ -906,13 +906,13 @@ export default function VitalsScreen(): JSX.Element {
             ) : (
               <Card
                 variant="secondary"
-                className="bg-surface border-0 rounded-2xl p-8 items-center py-12"
+                className="bg-surface border-0 rounded-xl p-8 items-center py-12"
               >
-                <View className="size-14 rounded-2xl bg-zinc-500/10 items-center justify-center mb-3">
+                <View className="size-14 rounded-xl bg-zinc-500/10 items-center justify-center mb-3">
                   <Ionicons name="pulse" size={26} color="#71717a" />
                 </View>
-                <Text className="text-foreground font-bold text-base mb-1">No Recorded Vitals</Text>
-                <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center leading-5 max-w-xs">
+                <Text className="text-foreground font-semibold text-base mb-1">No Recorded Vitals</Text>
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm text-center leading-5 max-w-xs">
                   Prenatal vitals will be updated and synchronized after your routine clinic visits.
                 </Text>
               </Card>
@@ -923,9 +923,9 @@ export default function VitalsScreen(): JSX.Element {
         {activeMainTab === "newborn" && (
           <View className="px-5 gap-4">
             <View className="flex-row items-center justify-between">
-              <Text className="text-foreground text-lg font-bold">Newborn & Infant Records</Text>
+              <Text className="text-foreground text-base font-semibold">Newborn & Infant Records</Text>
               {allNewborns.length > 0 && (
-                <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm font-medium">
                   {allNewborns.length} {allNewborns.length === 1 ? "infant" : "infants"} total
                 </Text>
               )}
@@ -934,15 +934,15 @@ export default function VitalsScreen(): JSX.Element {
             {allNewborns.length === 0 ? (
               <Card
                 variant="secondary"
-                className="bg-surface border-0 rounded-2xl p-8 items-center py-12"
+                className="bg-surface border-0 rounded-xl p-8 items-center py-12"
               >
                 <View className="size-16 rounded-full bg-primary/10 items-center justify-center mb-3">
                   <Ionicons name="heart-outline" size={28} color="#0284c7" />
                 </View>
-                <Text className="text-foreground font-bold text-base mb-1">
+                <Text className="text-foreground font-semibold text-base mb-1">
                   Expectant Care Mode
                 </Text>
-                <Text className="text-zinc-500 dark:text-zinc-400 text-sm text-center leading-5 max-w-xs">
+                <Text className="text-muted-foreground dark:text-muted-foreground text-sm text-center leading-5 max-w-xs">
                   Infant birth and delivery records will be logged automatically by your healthcare
                   provider upon delivery.
                 </Text>
@@ -956,7 +956,7 @@ export default function VitalsScreen(): JSX.Element {
                       <Pressable
                         onPress={() => setSelectedNewbornId("all")}
                         className={`flex-1 py-1.5 px-2 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                          selectedNewbornId === "all" ? "bg-surface shadow-xs" : "bg-transparent"
+                          selectedNewbornId === "all" ? "bg-surface shadow-none" : "bg-transparent"
                         }`}
                       >
                         <Ionicons
@@ -966,10 +966,10 @@ export default function VitalsScreen(): JSX.Element {
                         />
                         <Text
                           numberOfLines={1}
-                          className={`text-xs ${
+                          className={`text-sm ${
                             selectedNewbornId === "all"
-                              ? "text-primary font-bold"
-                              : "text-zinc-500 dark:text-zinc-400 font-medium"
+                              ? "text-primary font-semibold"
+                              : "text-muted-foreground dark:text-muted-foreground font-medium"
                           }`}
                         >
                           All ({allNewborns.length})
@@ -984,7 +984,7 @@ export default function VitalsScreen(): JSX.Element {
                             key={nb.id}
                             onPress={() => setSelectedNewbornId(nb.id)}
                             className={`flex-1 py-1.5 px-2 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                              isSelected ? "bg-surface shadow-xs" : "bg-transparent"
+                              isSelected ? "bg-surface shadow-none" : "bg-transparent"
                             }`}
                           >
                             <Ionicons
@@ -994,12 +994,12 @@ export default function VitalsScreen(): JSX.Element {
                             />
                             <Text
                               numberOfLines={1}
-                              className={`text-xs ${
+                              className={`text-sm ${
                                 isSelected
                                   ? isMale
-                                    ? "text-blue-600 dark:text-blue-400 font-bold"
-                                    : "text-pink-600 dark:text-pink-400 font-bold"
-                                  : "text-zinc-500 dark:text-zinc-400 font-medium"
+                                    ? "text-blue-600 dark:text-blue-400 font-semibold"
+                                    : "text-pink-600 dark:text-pink-400 font-semibold"
+                                  : "text-muted-foreground dark:text-muted-foreground font-medium"
                               }`}
                             >
                               {nb.shortLabel || `Baby ${index + 1}`}
@@ -1019,8 +1019,8 @@ export default function VitalsScreen(): JSX.Element {
                         onPress={() => setSelectedNewbornId("all")}
                         className={`px-3 py-1.5 rounded-xl flex-row items-center gap-1.5 ${
                           selectedNewbornId === "all"
-                            ? "bg-primary shadow-xs"
-                            : "bg-surface border border-separator/40 dark:border-zinc-800"
+                            ? "bg-primary shadow-none"
+                            : "bg-surface border border-separator/40 dark:border-border"
                         }`}
                       >
                         <Ionicons
@@ -1029,7 +1029,7 @@ export default function VitalsScreen(): JSX.Element {
                           color={selectedNewbornId === "all" ? "#ffffff" : "#a1a1aa"}
                         />
                         <Text
-                          className={`text-xs font-semibold ${
+                          className={`text-sm font-semibold ${
                             selectedNewbornId === "all" ? "text-white" : "text-foreground"
                           }`}
                         >
@@ -1047,9 +1047,9 @@ export default function VitalsScreen(): JSX.Element {
                             className={`px-3 py-1.5 rounded-xl flex-row items-center gap-1.5 ${
                               isSelected
                                 ? isMale
-                                  ? "bg-blue-600 shadow-xs"
-                                  : "bg-pink-600 shadow-xs"
-                                : "bg-surface border border-separator/40 dark:border-zinc-800"
+                                  ? "bg-blue-600 shadow-none"
+                                  : "bg-pink-600 shadow-none"
+                                : "bg-surface border border-separator/40 dark:border-border"
                             }`}
                           >
                             <Ionicons
@@ -1058,7 +1058,7 @@ export default function VitalsScreen(): JSX.Element {
                               color={isSelected ? "#ffffff" : isMale ? "#3b82f6" : "#ec4899"}
                             />
                             <Text
-                              className={`text-xs font-semibold ${
+                              className={`text-sm font-semibold ${
                                 isSelected ? "text-white" : "text-foreground"
                               }`}
                             >
@@ -1071,7 +1071,7 @@ export default function VitalsScreen(): JSX.Element {
                   ))}
 
                 {/* List of Newborn Cards */}
-                {filteredNewborns.map((nb, index) => {
+                {filteredNewborns.map((nb) => {
                   const apgarInfo = getApgarAssessment(nb.apgar_score);
                   const isMale = nb.sex.toLowerCase().includes("male");
                   const formattedDate = nb.delivery_date
@@ -1089,7 +1089,7 @@ export default function VitalsScreen(): JSX.Element {
                         <View className="flex-row items-center gap-2 flex-1 mr-2">
                           <View
                             className={`size-6 rounded-full items-center justify-center shrink-0 ${
-                              isMale ? "bg-blue-500/15" : "bg-pink-500/15"
+                              isMale ? "bg-muted" : "bg-pink-500/15"
                             }`}
                           >
                             <Ionicons
@@ -1099,14 +1099,14 @@ export default function VitalsScreen(): JSX.Element {
                             />
                           </View>
                           <Text
-                            className="text-foreground font-bold text-sm flex-1"
+                            className="text-foreground font-semibold text-sm flex-1"
                             numberOfLines={1}
                             ellipsizeMode="tail"
                           >
                             {nb.nameOrLabel}
                           </Text>
                         </View>
-                        <Text className="text-zinc-500 dark:text-zinc-400 text-xs font-medium shrink-0">
+                        <Text className="text-muted-foreground dark:text-muted-foreground text-sm font-medium shrink-0">
                           {formattedDate}
                         </Text>
                       </View>
@@ -1114,7 +1114,7 @@ export default function VitalsScreen(): JSX.Element {
                       {/* Inset Grouped List Card */}
                       <Card
                         variant="secondary"
-                        className="bg-surface border-0 rounded-2xl overflow-hidden p-0"
+                        className="bg-surface border-0 rounded-xl overflow-hidden p-0"
                       >
                         <InsetRow
                           label="Biological Sex"
@@ -1122,11 +1122,11 @@ export default function VitalsScreen(): JSX.Element {
                           badge={
                             <View
                               className={`px-2 py-0.5 rounded-md ${
-                                isMale ? "bg-blue-500/15" : "bg-pink-500/15"
+                                isMale ? "bg-muted" : "bg-pink-500/15"
                               }`}
                             >
                               <Text
-                                className={`text-xs font-semibold ${
+                                className={`text-sm font-semibold ${
                                   isMale ? "text-blue-500" : "text-pink-500"
                                 }`}
                               >
@@ -1151,7 +1151,7 @@ export default function VitalsScreen(): JSX.Element {
                           value={`${nb.apgar_score} / 10`}
                           badge={
                             <View className={`px-2 py-0.5 rounded-md ${apgarInfo.badgeBg}`}>
-                              <Text className={`text-xs font-semibold ${apgarInfo.textColor}`}>
+                              <Text className={`text-sm font-semibold ${apgarInfo.textColor}`}>
                                 {apgarInfo.label}
                               </Text>
                             </View>
