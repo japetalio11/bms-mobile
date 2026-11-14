@@ -148,7 +148,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!user.user_id) return;
     setUnreadCount(0);
     try {
-      await markAllNotificationsReadLocal(user.user_id);
+      await markAllNotificationsReadLocal(user.user_id, isOnline);
       if (token && isOnline) {
         await markAllNotificationsReadApi(user.user_id, token);
       }
@@ -234,6 +234,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const targetUserId = explicitUserId || user.user_id;
         if (targetUserId) {
           const sqliteData = await getMotherProfileLocal(targetUserId);
+          if (sqliteData?.user) {
+            setUser((prev) => (!prev.user_id ? formatUser(sqliteData.user!) : prev));
+          }
           if (sqliteData?.motherRecord) {
             setMotherRecord(sqliteData.motherRecord);
             if (sqliteData.motherRecord.pregnancies?.length) {
@@ -268,8 +271,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (storedToken) {
           const rawUser = storedUserJson ? (JSON.parse(storedUserJson) as AuthUser) : null;
 
-          // A cached token without its user identity cannot be safely scoped to a mother.
-          // Clear it before exposing any authenticated routes or cached patient data.
           if (
             !rawUser?.user_id ||
             rawUser.role?.trim().toLowerCase() !== "mother"

@@ -8,10 +8,11 @@ import {
   RefreshControl,
   Linking,
   TextInput,
+  Platform,
 } from "react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { JSX } from "react";
-import { BottomSheet, Card, Text } from "heroui-native";
+import { BottomSheet, Card, Text, useToast } from "heroui-native";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { BottomSheetHeader } from "../../components/BottomSheetHeader";
 import { UploadRecordSheet } from "../../components/UploadRecordSheet";
@@ -19,6 +20,9 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as IntentLauncher from "expo-intent-launcher";
 import { MobileEmptyState } from "../../components/MobileEmptyState";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
@@ -39,10 +43,13 @@ import {
   getSupplementsLocal,
   saveSupplementsLocal,
 } from "../../db/repository";
+import { subscribeSyncEvents } from "../../services/syncEngine";
+import { getCachedOrRemoteUri, prefetchMediaFiles, isLocalUri } from "../../lib/fileCache";
 
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const { theme } = useUniwind();
   const isDark = theme === "dark";
   const { tab } = useLocalSearchParams<{ tab?: string }>();
@@ -58,6 +65,7 @@ export default function RecordsScreen(): JSX.Element {
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOpeningDocument, setIsOpeningDocument] = useState(false);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<LabScreeningRecord | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
@@ -66,25 +74,115 @@ export default function RecordsScreen(): JSX.Element {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const isPdfOrDocument = (url: string, lab?: LabScreeningRecord | null): boolean => {
+    const cleanUrl = (url || "").split("?")[0].toLowerCase();
+    const screeningType = (lab?.screening_type || "").toLowerCase();
+    const remarks = (lab?.remarks || "").toLowerCase();
+
+    if (
+      cleanUrl.endsWith(".pdf") ||
+      cleanUrl.includes("/pdf") ||
+      cleanUrl.endsWith(".doc") ||
+      cleanUrl.endsWith(".docx") ||
+      cleanUrl.endsWith(".txt")
+    ) {
+      return true;
+    }
+
+    if (
+      screeningType.includes(".pdf") ||
+      screeningType.includes(".doc") ||
+      remarks.includes(".pdf") ||
+      remarks.includes("application/pdf")
+    ) {
+      return true;
+    }
+
+    const isImageExtension = /\.(png|jpe?g|webp|gif|bmp|heic)$/i.test(cleanUrl);
+    if (!isImageExtension && (cleanUrl.startsWith("content://") || cleanUrl.startsWith("file://"))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const openDocumentSafely = async (url: string, title?: string) => {
+    setIsOpeningDocument(true);
+    try {
+      const localUri = await getCachedOrRemoteUri(url);
+
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") {
+          window.open(localUri || url, "_blank");
+        } else {
+          await Linking.openURL(localUri || url);
+        }
+        return;
+      }
+
+      if (isLocalUri(localUri)) {
+        if (Platform.OS === "android") {
+          try {
+            const contentUri = localUri.startsWith("content://")
+              ? localUri
+              : await FileSystem.getContentUriAsync(localUri);
+
+            await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+              data: contentUri,
+              flags: 1,
+              type: "application/pdf",
+            });
+            return;
+          } catch {}
+        }
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(localUri, {
+            mimeType: "application/pdf",
+            dialogTitle: title || "View EHR Document",
+            UTI: "com.adobe.pdf",
+          });
+          return;
+        }
+      }
+
+      if (isOnline && (url.startsWith("http://") || url.startsWith("https://"))) {
+        await WebBrowser.openBrowserAsync(url, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          toolbarColor: isDark ? "#171717" : "#ffffff",
+          controlsColor: isDark ? "#fffe8c" : "#171717",
+          showTitle: true,
+          enableBarCollapsing: true,
+          createTask: false,
+        });
+        return;
+      }
+
+      await Linking.openURL(localUri || url);
+    } catch {
+      toast.show({
+        label: "Unable to open document",
+        description: "Please check your PDF viewer or try again later.",
+        variant: "danger",
+      });
+    } finally {
+      setIsOpeningDocument(false);
+    }
+  };
+
   const handleOpenAttachment = async (url: string, lab?: LabScreeningRecord) => {
     if (!url) return;
-    const lowerUrl = url.toLowerCase();
-    if (
-      lowerUrl.includes(".pdf") ||
-      lowerUrl.includes("/pdf") ||
-      lowerUrl.endsWith(".doc") ||
-      lowerUrl.endsWith(".docx")
-    ) {
-      try {
-        await WebBrowser.openBrowserAsync(url);
-      } catch {
-        Linking.openURL(url).catch(() => {});
-      }
-    } else {
-      setPreviewScale(1);
-      setSelectedImageModal(url);
-      if (lab) setSelectedRecord(lab);
+
+    if (isPdfOrDocument(url, lab)) {
+      await openDocumentSafely(url, lab?.screening_type || "EHR Document");
+      return;
     }
+
+    const resolved = await getCachedOrRemoteUri(url);
+    setPreviewScale(1);
+    setSelectedImageModal(resolved || url);
+    if (lab) setSelectedRecord(lab);
   };
 
   const closeRecordPreview = () => {
@@ -113,7 +211,7 @@ export default function RecordsScreen(): JSX.Element {
     setDeleteError(null);
 
     try {
-      await deleteLabScreeningLocal(targetId);
+      await deleteLabScreeningLocal(targetId, isOnline, motherRecord?.mother_id || undefined);
 
       if (isOnline && token) {
         try {
@@ -166,6 +264,10 @@ export default function RecordsScreen(): JSX.Element {
 
       setLabScreenings(localLabs || []);
       setSupplements(localSupps || []);
+      if (localLabs?.length) {
+        const localUrls = localLabs.map((l) => l.file_url).filter(Boolean);
+        prefetchMediaFiles(localUrls);
+      }
     } catch (e) {
       console.warn("Local records load error:", e);
     }
@@ -180,7 +282,6 @@ export default function RecordsScreen(): JSX.Element {
         .then(async ([labs, supps, ehrDocs]) => {
           let allLabs: LabScreeningRecord[] = Array.isArray(labs) ? [...labs] : [];
 
-          // Track existing IDs, URLs, and filenames to prevent any duplicate entries
           const existingIds = new Set<string>();
           const existingUrls = new Set<string>();
 
@@ -204,7 +305,6 @@ export default function RecordsScreen(): JSX.Element {
               const cleanDocUrl = docUrl ? docUrl.split("?")[0].trim().toLowerCase() : "";
               const docFilename = cleanDocUrl ? cleanDocUrl.split("/").pop() : "";
 
-              // Skip if already in allLabs by ID, file URL, or filename
               if (docId && existingIds.has(docId)) continue;
               if (cleanDocUrl && existingUrls.has(cleanDocUrl)) continue;
               if (docFilename && existingUrls.has(docFilename)) continue;
@@ -244,6 +344,8 @@ export default function RecordsScreen(): JSX.Element {
           const merged = [...allLabs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
 
           setLabScreenings(merged);
+          const remoteUrls = merged.map((l) => l.file_url).filter(Boolean);
+          prefetchMediaFiles(remoteUrls);
           if (Array.isArray(labs) && labs.length > 0) {
             await saveLabScreeningsLocal(labs, true, motherRecord.mother_id, true);
           }
@@ -274,6 +376,20 @@ export default function RecordsScreen(): JSX.Element {
     }, [loadData])
   );
 
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvents((event) => {
+      if (
+        event.type === "sync_completed" ||
+        event.actionType === "CREATE_LAB_SCREENING" ||
+        event.actionType === "DELETE_LAB_SCREENING" ||
+        event.actionType === "UPDATE_SUPPLEMENT"
+      ) {
+        void loadData();
+      }
+    });
+    return () => unsubscribe();
+  }, [loadData]);
+
   const filteredLabs = labScreenings.filter((lab) => {
     const q = searchQuery.toLowerCase();
     return !searchQuery.trim() || (
@@ -287,7 +403,6 @@ export default function RecordsScreen(): JSX.Element {
     return !searchQuery.trim() || (supp.supplement_type || "").toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  // Keep the folder treatment from Appointments while using neutral file rows.
   const folderSurface = "#262626";
   const folderRail = "#1b1b1b";
   const folderMuted = "#a3a3a3";
@@ -379,9 +494,9 @@ export default function RecordsScreen(): JSX.Element {
                       })
                     : "";
                   const cleanFileUrl = (fileUrl || "").split("?")[0].toLowerCase();
-                  const isPdf = cleanFileUrl.endsWith(".pdf") || cleanFileUrl.includes("/pdf");
+                  const isDoc = fileUrl ? isPdfOrDocument(fileUrl, lab) : false;
                   const isImage = /\.(png|jpe?g|webp|gif|bmp|heic)$/.test(cleanFileUrl);
-                  const fileIcon = isPdf ? "file-pdf" : isImage ? "image" : "document-text-outline";
+                  const fileIcon = isDoc ? "file-pdf" : isImage ? "image" : "document-text-outline";
 
                   return (
                     <Pressable
@@ -505,26 +620,44 @@ export default function RecordsScreen(): JSX.Element {
         <BottomSheet.Portal>
           <BottomSheet.Overlay className="bg-black/60" />
           <BottomSheet.Content
-            snapPoints={["30%"]}
+            snapPoints={insets.bottom > 0 ? ["38%"] : ["28%"]}
             enableDynamicSizing={false}
             enableOverDrag={false}
             backgroundClassName="rounded-t-[24px] bg-background"
             handleIndicatorClassName="bg-muted"
           >
-            <View className="px-5 pb-5 pt-1">
+            <View className="px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
               <BottomSheetHeader title="Record options" description={recordMenu?.record.screening_type || "EHR record"} onClose={() => setRecordMenu(null)} />
               {recordMenu?.url ? (
-                <Pressable
-                  onPress={() => {
-                    const url = recordMenu.url;
-                    setRecordMenu(null);
-                    if (url) Linking.openURL(url).catch(() => {});
-                  }}
-                  className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
-                >
-                  <Ionicons name="download-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
-                  <Text className="text-sm font-medium text-foreground">Download file</Text>
-                </Pressable>
+                <>
+                  <Pressable
+                    onPress={() => {
+                      const url = recordMenu.url;
+                      const lab = recordMenu.record;
+                      setRecordMenu(null);
+                      if (url) {
+                        void handleOpenAttachment(url, lab);
+                      }
+                    }}
+                    className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
+                  >
+                    <Ionicons name="eye-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
+                    <Text className="text-sm font-medium text-foreground">View document</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      const url = recordMenu.url;
+                      setRecordMenu(null);
+                      if (url) {
+                        void Linking.openURL(url).catch(() => {});
+                      }
+                    }}
+                    className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
+                  >
+                    <Ionicons name="download-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
+                    <Text className="text-sm font-medium text-foreground">Download file</Text>
+                  </Pressable>
+                </>
               ) : null}
               <Pressable
                 onPress={() => {
@@ -657,13 +790,13 @@ export default function RecordsScreen(): JSX.Element {
         <BottomSheet.Portal>
           <BottomSheet.Overlay className="bg-black/60" />
           <BottomSheet.Content
-            snapPoints={["34%"]}
+            snapPoints={insets.bottom > 0 ? ["40%"] : ["32%"]}
             enableDynamicSizing={false}
             enableOverDrag={false}
             backgroundClassName="rounded-t-[24px] bg-background"
             handleIndicatorClassName="bg-muted"
           >
-            <View className="gap-4 px-5 pb-5 pt-1">
+            <View className="gap-4 px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
               <BottomSheetHeader
                 title="Delete EHR record?"
                 description={`${recordToDelete?.screening_type || "This document"} will be permanently removed.`}
@@ -697,6 +830,12 @@ export default function RecordsScreen(): JSX.Element {
           </BottomSheet.Content>
         </BottomSheet.Portal>
       </BottomSheet>
+
+      {isOpeningDocument && (
+        <View className="absolute inset-0 bg-black/40 items-center justify-center z-50">
+          <ActivityIndicator size="large" color={isDark ? "#fffe8c" : "#003f2c"} />
+        </View>
+      )}
     </View>
   );
 }

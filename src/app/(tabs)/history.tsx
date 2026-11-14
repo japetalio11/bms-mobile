@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 import type { JSX } from "react";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useUniwind } from "uniwind";
 import { AppIcon } from "../../components/AppIcon";
 import { MobileEmptyState } from "../../components/MobileEmptyState";
 import { AppointmentBookingSheet } from "../../components/AppointmentBookingSheet";
@@ -11,6 +12,7 @@ import { useAuth } from "../../context/UserContext";
 import { getAppointmentsByUserApi } from "../../config/api";
 import type { AppointmentRecord } from "../../config/api";
 import { getAppointmentsLocal, saveAppointmentsLocal } from "../../db/repository";
+import { subscribeSyncEvents } from "../../services/syncEngine";
 
 type HistoryTab = "upcoming" | "completed" | "cancelled";
 const HISTORY_TABS: { id: HistoryTab; label: string }[] = [
@@ -33,15 +35,23 @@ function statusOf(appointment: AppointmentRecord): string {
 export default function HistoryScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, token, isOnline } = useAuth();
+  const { theme } = useUniwind();
+  const isDark = theme === "dark";
+  const { user, token, isOnline, refreshProfile } = useAuth();
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [activeTab, setActiveTab] = useState<HistoryTab>("upcoming");
   const [isLoading, setIsLoading] = useState(Boolean(user?.user_id && isOnline && token));
   const [appointmentSheetOpen, setAppointmentSheetOpen] = useState(false);
 
+  const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
+
   useEffect(() => {
     let isMounted = true;
     if (!user?.user_id) return () => { isMounted = false; };
+
+    if (isOnline && token) {
+      refreshProfile().catch(() => {});
+    }
 
     getAppointmentsLocal(user.user_id)
       .then((local) => {
@@ -51,10 +61,20 @@ export default function HistoryScreen(): JSX.Element {
 
     if (isOnline && token) {
       getAppointmentsByUserApi(user.user_id, token)
-        .then((result) => {
+        .then(async (result) => {
           if (isMounted && Array.isArray(result)) {
-            saveAppointmentsLocal(result, true);
-            setAppointments(result);
+            const currentLocal = await getAppointmentsLocal(user.user_id);
+            const pendingLocal = currentLocal.filter((a: any) => a.sync_status === "pending");
+            const freshIds = new Set(result.map((a) => a.appointment_id));
+            const merged = [
+              ...pendingLocal.filter((p) => !freshIds.has(p.appointment_id)),
+              ...result.map((f) => {
+                const pendingMatch = pendingLocal.find((p) => p.appointment_id === f.appointment_id);
+                return pendingMatch || f;
+              }),
+            ];
+            setAppointments(merged);
+            await saveAppointmentsLocal(result, true);
           }
         })
         .catch(() => {})
@@ -63,7 +83,24 @@ export default function HistoryScreen(): JSX.Element {
         });
     }
     return () => { isMounted = false; };
-  }, [user?.user_id, token, isOnline]);
+  }, [user?.user_id, token, isOnline, refreshProfile]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvents((event) => {
+      if (
+        event.type === "sync_completed" ||
+        event.actionType === "CREATE_APPOINTMENT" ||
+        event.actionType === "CANCEL_APPOINTMENT"
+      ) {
+        if (user?.user_id) {
+          getAppointmentsLocal(user.user_id)
+            .then((local) => setAppointments(local || []))
+            .catch(() => {});
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.user_id]);
 
   const groupedAppointments = useMemo(() => {
     const today = new Date();
@@ -80,6 +117,46 @@ export default function HistoryScreen(): JSX.Element {
 
   const currentAppointments = groupedAppointments[activeTab];
 
+  if (!hasFacility) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="mt-4 h-12 flex-row items-center justify-center bg-background px-4">
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            className="absolute left-4 size-9 items-center justify-center active:opacity-70"
+          >
+            <AppIcon name="chevron-back" size={20} weight="bold" color={isDark ? "#f5f5f5" : "#262626"} />
+          </Pressable>
+          <Text className="text-2xl font-semibold text-foreground">Appointments</Text>
+        </View>
+
+        <View className="flex-1 items-center justify-center p-6">
+          <View className="size-20 rounded-full bg-muted border border-blue-500/20 items-center justify-center mb-4">
+            <AppIcon name="business-outline" size={36} color="#3b82f6" />
+          </View>
+          <Text className="text-foreground font-semibold text-base mb-2 text-center">
+            Not Affiliated with any Facility
+          </Text>
+          <Text className="text-muted-foreground text-sm text-center max-w-sm leading-6 mb-6">
+            You are currently not affiliated with any healthcare facility. Setting an appointment is only
+            available once your account is linked to a health center.
+          </Text>
+
+          <Pressable
+            onPress={() => router.push("/(tabs)/profile")}
+            className="px-6 py-3 rounded-full flex-row items-center gap-2 active:opacity-85 shadow-none"
+            style={{ backgroundColor: isDark ? "#fffe8c" : "#171717" }}
+          >
+            <AppIcon name="person-circle-outline" size={20} color={isDark ? "#171717" : "#ffffff"} />
+            <Text style={{ color: isDark ? "#171717" : "#ffffff" }} className="font-semibold text-sm">View Profile</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background">
       <View className="mt-4 h-12 flex-row items-center justify-center bg-background px-4">
@@ -89,7 +166,7 @@ export default function HistoryScreen(): JSX.Element {
           accessibilityLabel="Go back"
           className="absolute left-4 size-9 items-center justify-center active:opacity-70"
         >
-          <AppIcon name="chevron-back" size={20} weight="bold" color="#262626" />
+          <AppIcon name="chevron-back" size={20} weight="bold" color={isDark ? "#f5f5f5" : "#262626"} />
         </Pressable>
         <Text className="text-2xl font-semibold text-foreground">Appointments</Text>
       </View>
@@ -152,7 +229,15 @@ export default function HistoryScreen(): JSX.Element {
                         style={{ backgroundColor: "#302f22" }}
                       >
                         <View className="gap-2">
-                          <Text className="text-sm" style={{ color: "#b9b48a" }}>{time}</Text>
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-sm" style={{ color: "#b9b48a" }}>{time}</Text>
+                            {((appointment as any).sync_status === "pending" || appointment.appointment_id.startsWith("appt_local_")) && (
+                              <View className="flex-row items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                                <AppIcon name="cloud-offline-outline" size={11} color="#f59e0b" />
+                                <Text className="text-[11px] text-amber-400 font-medium">Queued to sync</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text className="text-base font-semibold leading-6" style={{ color: "#f5f1c4" }} numberOfLines={2}>
                             {appointment.appointment_type}
                           </Text>

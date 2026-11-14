@@ -1,4 +1,6 @@
 import { getDatabase } from "./db";
+import NetInfo from "@react-native-community/netinfo";
+import { triggerOutboxSync } from "../services/syncEngine";
 import type {
   AuthUser,
   MotherRecord,
@@ -67,6 +69,14 @@ export async function enqueueSyncAction(
      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending')`,
     [queueId, targetUserId, actionType, endpoint, method, encryptedPayload, now]
   );
+
+  NetInfo.fetch()
+    .then((state) => {
+      if (state.isConnected) {
+        triggerOutboxSync(null, targetUserId).catch(() => {});
+      }
+    })
+    .catch(() => {});
 
   return queueId;
 }
@@ -472,6 +482,15 @@ export async function getAppointmentByIdLocal(
   return row || null;
 }
 
+export async function getMergedAppointmentsLocal(userId: string): Promise<AppointmentRecord[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<AppointmentRecord>(
+    `SELECT * FROM appointments WHERE user_id = ? ORDER BY appointment_date DESC`,
+    [userId]
+  );
+  return rows;
+}
+
 export async function saveAppointmentsLocal(
   appointments: AppointmentRecord[],
   isFromBackend = true
@@ -480,6 +499,16 @@ export async function saveAppointmentsLocal(
   const now = new Date().toISOString();
 
   for (const appt of appointments) {
+    if (isFromBackend) {
+      const existing = await db.getFirstAsync<any>(
+        `SELECT sync_status FROM appointments WHERE appointment_id = ?`,
+        [appt.appointment_id]
+      );
+      if (existing?.sync_status === "pending") {
+        continue;
+      }
+    }
+
     await db.runAsync(
       `INSERT OR REPLACE INTO appointments (appointment_id, user_id, facility_id, appointment_date, appointment_time, appointment_type, reason, status, version, sync_status, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -541,7 +570,10 @@ export async function createAppointmentLocal(
       "CREATE_APPOINTMENT",
       "/api/v1/appointment/register",
       "POST",
-      payload,
+      {
+        ...payload,
+        appointment_id: appointmentId,
+      },
       payload.user_id
     );
   }
@@ -572,13 +604,20 @@ export async function cancelAppointmentLocal(
     );
 
     if (!isOnline) {
-      await enqueueSyncAction(
-        "CANCEL_APPOINTMENT",
-        `/api/v1/appointment/cancel/${appointmentId}`,
-        "PUT",
-        { appointmentId, version: nextVersion },
-        userId || existing.user_id
-      );
+      if (appointmentId.startsWith("appt_local_")) {
+        await db.runAsync(
+          `DELETE FROM sync_queue WHERE payload LIKE ? AND action_type = 'CREATE_APPOINTMENT'`,
+          [`%"appointment_id":"${appointmentId}"%`]
+        ).catch(() => {});
+      } else {
+        await enqueueSyncAction(
+          "CANCEL_APPOINTMENT",
+          `/api/v1/appointment/cancel/${appointmentId}`,
+          "PUT",
+          { appointmentId, appointment_id: appointmentId, version: nextVersion },
+          userId || existing.user_id
+        );
+      }
     }
   }
 }
@@ -604,6 +643,16 @@ export async function saveSupplementsLocal(supplements: SupplementRecord[], isFr
   const now = new Date().toISOString();
 
   for (const s of supplements) {
+    if (isFromBackend) {
+      const existing = await db.getFirstAsync<any>(
+        `SELECT sync_status FROM supplements WHERE supplement_id = ?`,
+        [s.supplement_id]
+      );
+      if (existing?.sync_status === "pending") {
+        continue;
+      }
+    }
+
     await db.runAsync(
       `INSERT OR REPLACE INTO supplements (supplement_id, pregnancy_id, visit_id, supplement_type, tablets_given_count, date_given, is_completed, version, sync_status, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -723,6 +772,20 @@ export async function saveLabScreeningsLocal(
     const sId = ls.screening_id;
     if (!sId || sId === "null" || sId === "undefined") continue;
 
+    let localFileUri = ls.local_file_uri || null;
+    if (isFromBackend) {
+      const existing = await db.getFirstAsync<any>(
+        `SELECT sync_status, local_file_uri FROM lab_screenings WHERE screening_id = ?`,
+        [sId]
+      );
+      if (existing?.sync_status === "pending") {
+        continue;
+      }
+      if (existing?.local_file_uri) {
+        localFileUri = existing.local_file_uri;
+      }
+    }
+
     const encResult = await encryptSensitiveText(ls.result || "");
     const encRemarks = await encryptSensitiveText(ls.remarks || "");
 
@@ -737,7 +800,7 @@ export async function saveLabScreeningsLocal(
         ls.screening_type,
         encResult,
         ls.file_url || null,
-        ls.local_file_uri || null,
+        localFileUri,
         ls.file_size_bytes || null,
         ls.upload_status || (isFromBackend ? "synced" : "pending"),
         ls.date_of_screening,
@@ -750,12 +813,26 @@ export async function saveLabScreeningsLocal(
   }
 }
 
-export async function deleteLabScreeningLocal(screeningId: string): Promise<void> {
+export async function deleteLabScreeningLocal(
+  screeningId: string,
+  isOnline = true,
+  userId?: string
+): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM lab_screenings WHERE screening_id = ?`, [screeningId]);
   await db
-    .runAsync(`DELETE FROM sync_outbox WHERE payload LIKE ?`, [`%${screeningId}%`])
+    .runAsync(`DELETE FROM sync_queue WHERE payload LIKE ?`, [`%${screeningId}%`])
     .catch(() => {});
+
+  if (!isOnline && !screeningId.startsWith("lab_local_")) {
+    await enqueueSyncAction(
+      "DELETE_LAB_SCREENING",
+      `/api/v1/lab-screening/delete/${screeningId}`,
+      "DELETE",
+      { screening_id: screeningId },
+      userId
+    );
+  }
 }
 
 export async function createLabScreeningLocal(
@@ -829,6 +906,17 @@ export async function createLabScreeningLocal(
   return record;
 }
 
+export async function updateLabScreeningLocalUri(
+  screeningId: string,
+  localUri: string
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE lab_screenings SET local_file_uri = ? WHERE screening_id = ?`,
+    [localUri, screeningId]
+  );
+}
+
 export async function getMessagesLocal(
   userId: string,
   contactId?: string
@@ -882,6 +970,46 @@ export async function saveMessagesLocal(messages: InAppMessage[]) {
         now,
       ]
     );
+
+    if ((m as any).sender?.user_id && (m as any).sender.role !== "Mother") {
+      const s = (m as any).sender;
+      await db
+        .runAsync(
+          `INSERT OR REPLACE INTO chat_contacts (user_id, first_name, last_name, role, facility_id, facility_name, profile_url, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            s.user_id,
+            s.first_name || "",
+            s.last_name || "",
+            s.role || "Staff",
+            s.facility_id || null,
+            null,
+            s.profile_url || null,
+            now,
+          ]
+        )
+        .catch(() => {});
+    }
+
+    if ((m as any).receiver?.user_id && (m as any).receiver.role !== "Mother") {
+      const r = (m as any).receiver;
+      await db
+        .runAsync(
+          `INSERT OR REPLACE INTO chat_contacts (user_id, first_name, last_name, role, facility_id, facility_name, profile_url, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            r.user_id,
+            r.first_name || "",
+            r.last_name || "",
+            r.role || "Staff",
+            r.facility_id || null,
+            null,
+            r.profile_url || null,
+            now,
+          ]
+        )
+        .catch(() => {});
+    }
 
     if (!m.message_id.startsWith("local_")) {
       await db
@@ -948,16 +1076,19 @@ export async function saveOutgoingMessageLocal(
 
 export async function getChatContactsLocal(facilityId?: string): Promise<ChatContact[]> {
   const db = await getDatabase();
-  let query = `SELECT * FROM chat_contacts`;
-  const params: any[] = [];
+  let rows: any[] = [];
 
   if (facilityId) {
-    query += ` WHERE facility_id = ?`;
-    params.push(facilityId);
+    rows = await db.getAllAsync<any>(
+      `SELECT * FROM chat_contacts WHERE facility_id = ? OR facility_id IS NULL OR facility_id = '' ORDER BY first_name ASC`,
+      [facilityId]
+    );
   }
-  query += ` ORDER BY first_name ASC`;
 
-  const rows = await db.getAllAsync<any>(query, params);
+  if (rows.length === 0) {
+    rows = await db.getAllAsync<any>(`SELECT * FROM chat_contacts ORDER BY first_name ASC`);
+  }
+
   return rows.map((r) => ({
     user_id: r.user_id,
     first_name: r.first_name,
@@ -1057,16 +1188,38 @@ export async function saveNotificationsLocal(notifications: NotificationRecordLo
   }
 }
 
-export async function markAllNotificationsReadLocal(userId: string) {
+export async function markAllNotificationsReadLocal(userId: string, isOnline = true) {
   if (!userId) return;
   const db = await getDatabase();
   await db.runAsync(`UPDATE notifications SET is_read = 1 WHERE user_id = ?`, [userId]);
+  if (!isOnline) {
+    await enqueueSyncAction(
+      "MARK_ALL_NOTIFICATIONS_READ",
+      `/api/v1/notification/read-all/${userId}`,
+      "PUT",
+      { user_id: userId },
+      userId
+    );
+  }
 }
 
-export async function markNotificationReadLocal(notificationId: string) {
+export async function markNotificationReadLocal(
+  notificationId: string,
+  isOnline = true,
+  userId?: string
+) {
   if (!notificationId) return;
   const db = await getDatabase();
   await db.runAsync(`UPDATE notifications SET is_read = 1 WHERE notification_id = ?`, [
     notificationId,
   ]);
+  if (!isOnline) {
+    await enqueueSyncAction(
+      "MARK_NOTIFICATION_READ",
+      `/api/v1/notification/read/${notificationId}`,
+      "PUT",
+      { notification_id: notificationId },
+      userId
+    );
+  }
 }

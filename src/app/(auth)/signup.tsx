@@ -1,10 +1,10 @@
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, Modal, KeyboardAvoidingView, } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView, } from "react-native";
 import { useState, useEffect, useCallback } from "react";
 import type { JSX } from "react";
 import { Text, Label, Checkbox } from "heroui-native";
 import { AppTextField as TextField, AppInput as Input, AppButton as Button } from "../../components/FormControls";
-import { BottomSheetHeader } from "../../components/BottomSheetHeader";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
+import { TermsPrivacyModal } from "../../components/TermsPrivacyModal";
 import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
@@ -93,6 +93,10 @@ export default function SignupScreen(): JSX.Element {
   }, []);
 
   const handleGooglePress = async () => {
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy before continuing with Google.");
+      return;
+    }
     if (Platform.OS === "web") {
       promptGoogleAsync();
       return;
@@ -197,11 +201,15 @@ export default function SignupScreen(): JSX.Element {
 
   useEffect(() => {
     if (googleResponse?.type !== "success") return;
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy before continuing with Google.");
+      return;
+    }
     const responseAny = googleResponse as any;
     const idToken = responseAny.params?.id_token || responseAny.authentication?.idToken;
     const accessToken = responseAny.authentication?.accessToken || responseAny.params?.access_token;
     void handleGoogleBackendRegister(idToken, accessToken);
-  }, [googleResponse, handleGoogleBackendRegister]);
+  }, [googleResponse, agreed, handleGoogleBackendRegister]);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -339,6 +347,12 @@ export default function SignupScreen(): JSX.Element {
       console.groupEnd();
       return;
     }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      console.warn("Validation failed: Password too short");
+      console.groupEnd();
+      return;
+    }
     if (!agreed) {
       setError("You must agree to the Maternal Consent and Terms");
       console.warn("Validation failed: Consent required");
@@ -362,6 +376,10 @@ export default function SignupScreen(): JSX.Element {
     }
     if (!emailRegex.test(email.trim())) {
       setError("Please enter a valid email address.");
+      return;
+    }
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
       return;
     }
     setStep(2);
@@ -489,11 +507,29 @@ export default function SignupScreen(): JSX.Element {
                   style={{ color: "#262626", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}
                   styles={{ asterisk: { color: "#003f2c", fontFamily: "Manrope", fontSize: 16 } }}
                 >
-                  Work Email
+                  Email
                 </Label.Text>
               </Label>
-              <Input value={email} onChangeText={setEmail} placeholder="hello@company.com" placeholderTextColor="#737373" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} className="h-10 rounded-md border" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} />
+              <Input value={email} onChangeText={setEmail} placeholder="name@example.com" placeholderTextColor="#737373" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} className="h-10 rounded-md border" style={{ height: 44, borderRadius: 6, borderWidth: 1, borderColor: "#d4d4d4", backgroundColor: "#ffffff", color: "#171717", fontFamily: "Manrope", fontSize: 16 }} />
             </TextField>
+            <View className="mt-4 flex-row items-start gap-2">
+              <Checkbox isSelected={agreed} onSelectedChange={setAgreed} className="mt-0.5" />
+              <Text className="flex-1 text-sm leading-5" style={{ color: "#525252" }}>
+                I agree to the{" "}
+                <Text onPress={() => { setTermsTab("terms"); setIsTermsModalOpen(true); }} style={{ color: "#003f2c", fontFamily: "Manrope-Medium" }}>
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text onPress={() => { setTermsTab("privacy"); setIsTermsModalOpen(true); }} style={{ color: "#003f2c", fontFamily: "Manrope-Medium" }}>
+                  Privacy Policy
+                </Text>
+                , and consent to the processing of my{" "}
+                <Text onPress={() => { setTermsTab("data"); setIsTermsModalOpen(true); }} style={{ color: "#003f2c", fontFamily: "Manrope-Medium" }}>
+                  health data
+                </Text>
+                .
+              </Text>
+            </View>
             <Button variant="primary" onPress={handleEmailContinue} className="mt-4 h-10 rounded-md" style={{ height: 44, borderRadius: 6, backgroundColor: "#fffe8c" }}>
               <Button.Label style={{ color: "#171717", fontFamily: "Manrope-Medium", fontSize: 16 }}>Continue with Email</Button.Label>
             </Button>
@@ -535,221 +571,15 @@ export default function SignupScreen(): JSX.Element {
           </>
         )}
 
-        <Modal
+        <TermsPrivacyModal
           visible={isTermsModalOpen}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setIsTermsModalOpen(false)}
-        >
-          <View className="flex-1 bg-black/60 justify-end">
-            <Pressable className="flex-1" onPress={() => setIsTermsModalOpen(false)} />
-
-            <View
-              className="bg-background rounded-t-[24px] px-5 pt-1 max-h-[82%] shadow-none"
-              style={{ paddingBottom: Math.max(insets.bottom + 16, 28) }}
-            >
-              <View className="w-12 h-1 self-center rounded-full bg-muted/60 mb-3" />
-              <BottomSheetHeader
-                title="Terms & Data Privacy"
-                description="Review how your account and health information are used."
-                onClose={() => setIsTermsModalOpen(false)}
-                closeLabel="Close terms"
-                className="mb-4"
-              />
-
-              <View className="flex-row bg-muted/40 p-1 rounded-xl mb-4 items-center">
-                <Pressable
-                  onPress={() => setTermsTab("terms")}
-                  className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-                    termsTab === "terms"
-                      ? "bg-primary"
-                      : "bg-transparent active:bg-muted/30"
-                  }`}
-                >
-                  <Text
-                    className={`text-base ${
-                      termsTab === "terms"
-                        ? "text-primary-foreground font-semibold"
-                        : "text-muted-foreground-foreground font-medium"
-                    }`}
-                  >
-                    Terms
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => setTermsTab("privacy")}
-                  className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-                    termsTab === "privacy"
-                      ? "bg-primary"
-                      : "bg-transparent active:bg-muted/30"
-                  }`}
-                >
-                  <Text
-                    className={`text-base ${
-                      termsTab === "privacy"
-                        ? "text-primary-foreground font-semibold"
-                        : "text-muted-foreground-foreground font-medium"
-                    }`}
-                  >
-                    Privacy
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => setTermsTab("data")}
-                  className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-                    termsTab === "data"
-                      ? "bg-primary"
-                      : "bg-transparent active:bg-muted/30"
-                  }`}
-                >
-                  <Text
-                    className={`text-base ${
-                      termsTab === "data"
-                        ? "text-primary-foreground font-semibold"
-                        : "text-muted-foreground-foreground font-medium"
-                    }`}
-                  >
-                    Health Data
-                  </Text>
-                </Pressable>
-              </View>
-
-              <ScrollView className="mb-4 px-1 max-h-[300px]" showsVerticalScrollIndicator={true}>
-                {termsTab === "terms" && (
-                  <View className="gap-3">
-                    <Text className="text-base font-semibold text-foreground">
-                      1. Acceptance of Terms
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      By registering an account on the Birth Monitoring System (BMS) Mobile
-                      Application, you agree to use the platform solely for managing maternal
-                      healthcare, tracking pregnancy progress, scheduling clinic appointments, and
-                      receiving prenatal guidelines.
-                    </Text>
-
-                    <Text className="text-base font-semibold text-foreground">
-                      2. Purpose of BMS Mobile
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      BMS Mobile connects expecting mothers with authorized healthcare personnel
-                      (midwives, nurses, and doctors) in public health facilities. It assists in
-                      monitoring high-risk pregnancy indicators, recording vital signs, and
-                      coordinating referral services.
-                    </Text>
-
-                    <Text className="text-base font-semibold text-foreground">
-                      3. User Responsibilities
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      You agree to provide accurate personal and health information. You are
-                      responsible for safeguarding your login credentials and verification OTPs.
-                    </Text>
-
-                    <Text className="text-base font-semibold text-foreground">
-                      4. Emergency Disclaimer
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      While BMS provides automated risk alerts and appointment reminders, it does
-                      not replace immediate emergency medical care. In acute medical emergencies,
-                      please proceed immediately to the nearest healthcare facility.
-                    </Text>
-                  </View>
-                )}
-
-                {termsTab === "privacy" && (
-                  <View className="gap-3">
-                    <Text className="text-base font-semibold text-foreground">
-                      1. Data Privacy Compliance
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      In compliance with Republic Act No. 10173 (Data Privacy Act of 2012), the
-                      Birth Monitoring System is committed to protecting your personal information
-                      and sensitive health records.
-                    </Text>
-
-                    <Text className="text-base font-semibold text-foreground">2. Data We Collect</Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      We collect your full name, contact number, age, pregnancy history
-                      (Gravida/Parity, LMP), prenatal visit vitals (blood pressure, weight,
-                      gestational age), and clinic appointment logs.
-                    </Text>
-
-                    <Text className="text-base font-semibold text-foreground">
-                      3. Data Usage & Access
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      Your data is strictly restricted to assigned medical staff and health officers
-                      managing your maternal care. Your records will never be sold, leased, or
-                      shared with unauthorized third parties.
-                    </Text>
-
-                    <Text className="text-base font-semibold text-foreground">
-                      4. Security Measures
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      All stored records and API transmissions are secured using HTTPS encryption,
-                      JWT authentication, and database access controls.
-                    </Text>
-                  </View>
-                )}
-
-                {termsTab === "data" && (
-                  <View className="gap-3">
-                    <Text className="text-base font-semibold text-foreground">
-                      Consent for Processing Health Data
-                    </Text>
-                    <Text className="text-base text-foreground/80 leading-6">
-                      By checking the consent box, you grant explicit authorization to the Birth
-                      Monitoring System and its healthcare partner facilities to process your
-                      medical records for the following maternal care services:
-                    </Text>
-                    <View className="gap-2 pl-2">
-                      <Text className="text-base text-foreground/80 leading-6">
-                        • Real-time risk level assessment (Normal, Moderate, High Risk) during
-                        prenatal care.
-                      </Text>
-                      <Text className="text-base text-foreground/80 leading-6">
-                        • Generating automated appointment SMS reminders and vaccination schedules.
-                      </Text>
-                      <Text className="text-base text-foreground/80 leading-6">
-                        • Coordinating referral transfers between rural health units and hospital
-                        facilities when high-risk complications arise.
-                      </Text>
-                      <Text className="text-base text-foreground/80 leading-6">
-                        • Recording labor and delivery outcomes for mother and newborn care records.
-                      </Text>
-                    </View>
-                    <Text className="text-base text-foreground/80 leading-6 mt-2">
-                      You retain the right to request access to your recorded health data or request
-                      account deactivation through your attending healthcare provider.
-                    </Text>
-                  </View>
-                )}
-              </ScrollView>
-
-              <View className="mt-2 gap-2">
-                <Button
-                  variant="primary"
-                  onPress={() => {
-                    setAgreed(true);
-                    setIsTermsModalOpen(false);
-                  }}
-                >
-                  I Agree & Accept Terms
-                </Button>
-
-                <Pressable
-                  onPress={() => setIsTermsModalOpen(false)}
-                  className="py-2.5 items-center justify-center active:opacity-70"
-                >
-                  <Text className="text-muted-foreground-foreground text-base font-semibold">Close</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+          onClose={() => setIsTermsModalOpen(false)}
+          onAccept={() => {
+            setAgreed(true);
+            setIsTermsModalOpen(false);
+          }}
+          initialTab={termsTab}
+        />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

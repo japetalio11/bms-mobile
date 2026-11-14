@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, View } from "react-native";
 import { BottomSheet, Label, Text, useToast } from "heroui-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton as Button, AppInput as Input, AppSelect, AppTextField as TextField } from "./FormControls";
 import * as DocumentPicker from "expo-document-picker";
 import { AppIcon } from "./AppIcon";
@@ -25,6 +26,7 @@ function fileDisplayName(fileName: string): string {
 }
 
 export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
   const { toast } = useToast();
   const { token, activePregnancy, motherRecord, user, refreshProfile } = useAuth();
   const { isOnline } = useNetwork();
@@ -139,14 +141,17 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
       <BottomSheet.Portal>
         <BottomSheet.Overlay className="bg-black/60" />
         <BottomSheet.Content
-          snapPoints={step === "file" ? ["36%"] : ["56%"]}
+          snapPoints={step === "file" ? ["52%"] : ["70%"]}
           enableDynamicSizing={false}
           enableOverDrag={false}
           contentContainerClassName="h-full"
           backgroundClassName="rounded-t-[24px] bg-background"
           handleIndicatorClassName="bg-muted"
         >
-          <View className="flex-1 px-5 pb-5 pt-1">
+          <View
+            className="flex-1 px-5 pt-1"
+            style={{ paddingBottom: Math.max(insets.bottom + 36, 56) }}
+          >
             <BottomSheetHeader
               title={step === "file" ? "Upload EHR record" : "Add record details"}
               description={step === "file" ? "Choose a document or image." : "Add a name and category for this file."}
@@ -162,7 +167,7 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
             </View>
 
             {step === "file" ? (
-              <View className="flex-1 justify-center pb-3">
+              <View className="flex-1 justify-between pb-2">
                 <Pressable
                   onPress={pickFile}
                   accessibilityRole="button"
@@ -177,6 +182,12 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
                   </View>
                   <AppIcon name="chevron-forward" size={18} weight="bold" color="#737373" />
                 </Pressable>
+
+                <View className="mt-6 mb-2">
+                  <Button variant="outline" className="w-full rounded-md" onPress={() => resetSheet()} isDisabled={isLoading}>
+                    <Button.Label>Cancel</Button.Label>
+                  </Button>
+                </View>
               </View>
             ) : (
               <ScrollView className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
@@ -222,7 +233,7 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
               </ScrollView>
             )}
 
-            {step === "details" ? (
+            {step === "details" && (
               <View className="mt-3 flex-row items-center justify-between gap-3">
                 <Button variant="outline" className="min-w-[104px] rounded-md" onPress={() => resetSheet()} isDisabled={isLoading}>
                   <Button.Label>Cancel</Button.Label>
@@ -232,10 +243,6 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
                   <Button.Label className="text-[#171717]">{isLoading ? "Uploading…" : "Save record"}</Button.Label>
                 </Button>
               </View>
-            ) : (
-              <Button variant="outline" className="rounded-md" onPress={() => resetSheet()} isDisabled={isLoading}>
-                <Button.Label>Cancel</Button.Label>
-              </Button>
             )}
           </View>
         </BottomSheet.Content>
