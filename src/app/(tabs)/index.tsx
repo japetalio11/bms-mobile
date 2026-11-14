@@ -47,6 +47,7 @@ export default function DashboardScreen(): JSX.Element {
   const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
   const [selectedTimelineWeek, setSelectedTimelineWeek] = useState<number | null>(null);
   const weekScrollerRef = useRef<ScrollViewInstance | null>(null);
+  const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
 
   const calculateGestationalWeeks = (): {
     weeks: number;
@@ -460,14 +461,18 @@ export default function DashboardScreen(): JSX.Element {
             })}
             {shownAppointments.length === 0 && (
               <MobileEmptyState
-                icon="calendar-outline"
-                title={appointmentTab === "upcoming" ? "No upcoming appointments" : "No completed appointments"}
-                description={appointmentTab === "upcoming" ? "Your scheduled visits will appear here." : "Completed visits will appear here after your appointment."}
-                action={appointmentTab === "upcoming" ? (
+                icon={!hasFacility ? "business-outline" : "calendar-outline"}
+                title={!hasFacility ? "Not Affiliated with any Facility" : (appointmentTab === "upcoming" ? "No upcoming appointments" : "No completed appointments")}
+                description={!hasFacility ? "You are currently not affiliated with any healthcare facility. Setting an appointment is only available once your account is linked to a health center." : (appointmentTab === "upcoming" ? "Your scheduled visits will appear here." : "Completed visits will appear here after your appointment.")}
+                action={!hasFacility ? (
+                  <Pressable onPress={() => router.push("/(tabs)/profile")} className="min-h-11 justify-center rounded-md bg-[#fffe8c] px-3 active:opacity-80">
+                    <Text className="text-sm font-medium text-[#171717]">View Profile</Text>
+                  </Pressable>
+                ) : (appointmentTab === "upcoming" ? (
                   <Pressable onPress={() => setAppointmentSheetOpen(true)} className="min-h-11 justify-center rounded-md bg-[#fffe8c] px-3 active:opacity-80">
                     <Text className="text-sm font-medium text-[#171717]">Schedule Appointment</Text>
                   </Pressable>
-                ) : undefined}
+                ) : undefined)}
               />
             )}
             </View>

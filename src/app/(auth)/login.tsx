@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { Text, Label } from "heroui-native";
 import { AppTextField as TextField, AppInput as Input, AppButton as Button } from "../../components/FormControls";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
+import { TermsPrivacyModal } from "../../components/TermsPrivacyModal";
 import { Link, useRouter } from "expo-router";
 import { withUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
@@ -69,6 +70,8 @@ export default function LoginScreen(): JSX.Element {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+  const [termsTab, setTermsTab] = useState<"terms" | "privacy" | "data">("terms");
 
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -533,7 +536,27 @@ export default function LoginScreen(): JSX.Element {
                 </Link>
               </View>
               <Text className="mt-8 text-center" style={{ color: "#737373", fontFamily: "Manrope", fontSize: 16, lineHeight: 20 }}>
-                By signing in, you agree to Silang&apos;s Terms of Service and Privacy Policy.
+                By signing in, you agree to Silang&apos;s{" "}
+                <Text
+                  onPress={() => {
+                    setTermsTab("terms");
+                    setIsTermsModalOpen(true);
+                  }}
+                  style={{ color: "#003f2c", fontFamily: "Manrope-Medium" }}
+                >
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text
+                  onPress={() => {
+                    setTermsTab("privacy");
+                    setIsTermsModalOpen(true);
+                  }}
+                  style={{ color: "#003f2c", fontFamily: "Manrope-Medium" }}
+                >
+                  Privacy Policy
+                </Text>
+                .
               </Text>
             </>
           ) : mode === "setup_otp" ? (
@@ -600,6 +623,11 @@ export default function LoginScreen(): JSX.Element {
               </Pressable>
             </>
           )}
+          <TermsPrivacyModal
+            visible={isTermsModalOpen}
+            onClose={() => setIsTermsModalOpen(false)}
+            initialTab={termsTab}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

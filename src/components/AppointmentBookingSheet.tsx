@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from "react-native";
 import { BottomSheet, Text, useToast } from "heroui-native";
+import { useRouter } from "expo-router";
 import { AppIcon } from "./AppIcon";
 import { BottomSheetHeader } from "./BottomSheetHeader";
 import { AppSelect } from "./FormControls";
@@ -47,6 +48,7 @@ type AppointmentBookingSheetProps = {
 };
 
 export function AppointmentBookingSheet({ visible, onClose, onCreated }: AppointmentBookingSheetProps) {
+  const router = useRouter();
   const { user, token } = useAuth();
   const { isOnline } = useNetwork();
   const { toast } = useToast();
@@ -57,6 +59,8 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
+
   const close = () => {
     setError(null);
     setIsDatePickerOpen(false);
@@ -66,6 +70,11 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
   const schedule = async () => {
     if (!user?.user_id) {
       setError("Your session has expired. Please sign in again.");
+      return;
+    }
+
+    if (!hasFacility) {
+      setError("You are currently not affiliated with any healthcare facility.");
       return;
     }
 
@@ -128,56 +137,87 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
             handleIndicatorClassName="bg-muted"
           >
             <View className="flex-1 px-5 pb-5 pt-1">
-              <BottomSheetHeader title="Set Appointment" description="Choose a visit and date." onClose={close} />
+              <BottomSheetHeader
+                title="Set Appointment"
+                description={hasFacility ? "Choose a visit and date." : "Facility affiliation required."}
+                onClose={close}
+              />
 
-              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18, paddingBottom: 16 }}>
-                <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">Visit type</Text>
-                  <AppSelect value={type} onValueChange={setType} options={VISIT_TYPES} placeholder="Select visit type" />
-                </View>
+              {!hasFacility ? (
+                <View className="flex-1 items-center justify-center p-4">
+                  <View className="size-20 rounded-full bg-muted border border-blue-500/20 items-center justify-center mb-4">
+                    <AppIcon name="business-outline" size={36} color="#3b82f6" />
+                  </View>
+                  <Text className="text-foreground font-semibold text-base mb-2 text-center">
+                    Not Affiliated with any Facility
+                  </Text>
+                  <Text className="text-muted-foreground text-sm text-center max-w-sm leading-6 mb-6">
+                    You are currently not affiliated with any healthcare facility. Setting an appointment is only available once your account is linked to a health center.
+                  </Text>
 
-                <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">Date</Text>
                   <Pressable
-                    onPress={() => setIsDatePickerOpen(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Choose appointment date"
-                    className="h-12 flex-row items-center justify-between rounded-md border border-border bg-field-background px-3.5 active:bg-surface-secondary"
+                    onPress={() => {
+                      close();
+                      router.push("/(tabs)/profile");
+                    }}
+                    className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2 shadow-none"
                   >
-                    <View className="flex-row items-center gap-2.5">
-                      <View className="size-7 items-center justify-center rounded-md border border-black/25 bg-[#fffe8c] dark:border-white/20">
-                        <AppIcon name="calendar" size={16} weight="bold" color="#171717" />
-                      </View>
-                      <Text className="text-sm font-semibold text-foreground">
-                        {formatReadableDate(selectedDate)}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-1.5">
-                      {(isTodayDate(selectedDate) || isTomorrowDate(selectedDate)) && (
-                        <View className="rounded-full border border-black/20 bg-surface px-2.5 py-0.5 dark:border-white/30">
-                          <Text className="text-[11px] font-bold text-foreground">
-                            {isTodayDate(selectedDate) ? "Today" : "Tomorrow"}
-                          </Text>
-                        </View>
-                      )}
-                      <AppIcon name="chevron-forward" size={16} weight="bold" color="#737373" />
-                    </View>
+                    <AppIcon name="person-circle-outline" size={20} color="white" />
+                    <Text className="text-white font-semibold text-sm">View Profile</Text>
                   </Pressable>
                 </View>
+              ) : (
+                <>
+                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18, paddingBottom: 16 }}>
+                    <View className="gap-2">
+                      <Text className="text-sm font-medium text-foreground">Visit type</Text>
+                      <AppSelect value={type} onValueChange={setType} options={VISIT_TYPES} placeholder="Select visit type" />
+                    </View>
 
-                <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">Reason or notes <Text className="text-muted-foreground">(optional)</Text></Text>
-                  <TextInput value={reason} onChangeText={setReason} placeholder="What would you like to discuss?" placeholderTextColor="#8a8a8a" multiline numberOfLines={3} textAlignVertical="top" className="min-h-20 rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground" />
-                </View>
-              </ScrollView>
+                    <View className="gap-2">
+                      <Text className="text-sm font-medium text-foreground">Date</Text>
+                      <Pressable
+                        onPress={() => setIsDatePickerOpen(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Choose appointment date"
+                        className="h-12 flex-row items-center justify-between rounded-md border border-border bg-field-background px-3.5 active:bg-surface-secondary"
+                      >
+                        <View className="flex-row items-center gap-2.5">
+                          <View className="size-7 items-center justify-center rounded-md border border-black/25 bg-[#fffe8c] dark:border-white/20">
+                            <AppIcon name="calendar" size={16} weight="bold" color="#171717" />
+                          </View>
+                          <Text className="text-sm font-semibold text-foreground">
+                            {formatReadableDate(selectedDate)}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center gap-1.5">
+                          {(isTodayDate(selectedDate) || isTomorrowDate(selectedDate)) && (
+                            <View className="rounded-full border border-black/20 bg-surface px-2.5 py-0.5 dark:border-white/30">
+                              <Text className="text-[11px] font-bold text-foreground">
+                                {isTodayDate(selectedDate) ? "Today" : "Tomorrow"}
+                              </Text>
+                            </View>
+                          )}
+                          <AppIcon name="chevron-forward" size={16} weight="bold" color="#737373" />
+                        </View>
+                      </Pressable>
+                    </View>
 
-              {error && <Text className="mb-2 text-sm text-red-500">{error}</Text>}
-              <Pressable onPress={schedule} disabled={submitting} className="min-h-12 flex-row items-center justify-center gap-2 rounded-md bg-[#fffe8c] active:opacity-80 disabled:opacity-60">
-                {submitting ? <ActivityIndicator size="small" color="#171717" /> : <>
-                  <AppIcon name="calendar" size={18} weight="bold" color="#171717" />
-                  <Text className="text-sm font-semibold text-[#171717]">Set Appointment</Text>
-                </>}
-              </Pressable>
+                    <View className="gap-2">
+                      <Text className="text-sm font-medium text-foreground">Reason or notes <Text className="text-muted-foreground">(optional)</Text></Text>
+                      <TextInput value={reason} onChangeText={setReason} placeholder="What would you like to discuss?" placeholderTextColor="#8a8a8a" multiline numberOfLines={3} textAlignVertical="top" className="min-h-20 rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground" />
+                    </View>
+                  </ScrollView>
+
+                  {error && <Text className="mb-2 text-sm text-red-500">{error}</Text>}
+                  <Pressable onPress={schedule} disabled={submitting} className="min-h-12 flex-row items-center justify-center gap-2 rounded-md bg-[#fffe8c] active:opacity-80 disabled:opacity-60">
+                    {submitting ? <ActivityIndicator size="small" color="#171717" /> : <>
+                      <AppIcon name="calendar" size={18} weight="bold" color="#171717" />
+                      <Text className="text-sm font-semibold text-[#171717]">Set Appointment</Text>
+                    </>}
+                  </Pressable>
+                </>
+              )}
             </View>
           </BottomSheet.Content>
         </BottomSheet.Portal>
