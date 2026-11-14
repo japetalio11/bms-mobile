@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { View, Text, Pressable, Image } from "react-native";
-import { Avatar } from "heroui-native";
 import { AppIcon as Ionicons } from "./AppIcon";
 import { useRouter } from "expo-router";
 import { useUniwind } from "uniwind";
@@ -116,26 +115,24 @@ export function Header({
           </Pressable>
         ) : (
           <View className="relative">
-            <Avatar size="sm">
+            <View className="size-9 rounded-full bg-primary/20 overflow-hidden items-center justify-center">
               {user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url ? (
-                <Avatar.Image
+                <Image
                   source={{
                     uri:
                       user.profile_url ||
                       (user as any).profile_picture_url ||
                       (user as any).avatar_url,
                   }}
+                  className="size-full"
+                  resizeMode="cover"
                 />
               ) : (
-                <Avatar.Fallback delayMs={0}>
-                  <View className="w-full h-full bg-primary/20 items-center justify-center">
-                    <Text className="text-foreground text-sm font-semibold">
-                      {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
-                    </Text>
-                  </View>
-                </Avatar.Fallback>
+                <Text className="text-foreground text-sm font-semibold">
+                  {user.first_name ? user.first_name.charAt(0).toUpperCase() : "M"}
+                </Text>
               )}
-            </Avatar>
+            </View>
 
             <View
               style={{

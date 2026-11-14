@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
+import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./UserContext";
 import { API_BASE_URL } from "../config/api";
@@ -29,6 +30,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocket(null);
+        setIsConnected(false);
       }
       return;
     }
@@ -40,7 +43,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000,
+      timeout: 10000,
     });
 
     socketRef.current = socketInstance;
@@ -50,12 +53,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsConnected(true);
     });
 
+    socketInstance.on("reconnect", () => {
+      setSocket(socketInstance);
+      setIsConnected(true);
+      refreshNotifications();
+    });
+
     socketInstance.on("disconnect", () => {
       setIsConnected(false);
     });
 
     socketInstance.on("connect_error", (error) => {
       console.warn("[Mobile Socket] Connection error:", error.message);
+      setIsConnected(false);
     });
 
     socketInstance.on("notification:new", async (notification: any) => {
@@ -94,10 +104,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       appState.current = nextAppState;
     };
 
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    const handleNetworkChange = (state: NetInfoState) => {
+      if (state.isConnected && socketRef.current && !socketRef.current.connected) {
+        socketRef.current.connect();
+        refreshNotifications();
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener("change", handleAppStateChange);
+    const networkSubscription = NetInfo.addEventListener(handleNetworkChange);
 
     return () => {
-      subscription.remove();
+      appStateSubscription.remove();
+      networkSubscription();
       socketInstance.disconnect();
       socketRef.current = null;
       setSocket(null);

@@ -838,12 +838,31 @@ export async function markMessagesAsReadApi(senderId: string, token: string): Pr
   }).catch(() => {});
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 8000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function getMessagesApi(
   token: string
 ): Promise<{ data: InAppMessage[]; contact?: ChatContact; hasFacility?: boolean }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/message/getAll`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await fetchWithTimeout(
+    `${API_BASE_URL}/api/v1/message/getAll`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    8000
+  );
 
   const data = await response.json();
   if (!response.ok) {
@@ -861,17 +880,21 @@ export async function sendMessageApi(
   payload: { receiver_id?: string; message_content: string; message_type?: string },
   token: string
 ): Promise<InAppMessage> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/message/create`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const response = await fetchWithTimeout(
+    `${API_BASE_URL}/api/v1/message/create`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...payload,
+        message_date: new Date().toISOString(),
+      }),
     },
-    body: JSON.stringify({
-      ...payload,
-      message_date: new Date().toISOString(),
-    }),
-  });
+    8000
+  );
 
   const data = await response.json();
   if (!response.ok) {

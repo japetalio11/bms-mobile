@@ -204,9 +204,20 @@ const iconMap: Record<string, ComponentType<any>> = {
   "woman-outline": GenderFemaleIcon,
 };
 
-/** Shared Phosphor icon adapter. Screens can choose filled or bold icons. */
 export function AppIcon({ name, size = 20, color, weight = "fill", style }: AppIconProps) {
   const { theme } = useUniwind();
   const Icon = iconMap[name] ?? FileTextIcon;
-  return <Icon size={size} color={color ?? (theme === "dark" ? "#f5f5f5" : "#262626")} weight={weight} style={style} />;
+  const resolvedWeight =
+    (name === "checkmark" || name === "checkmark-done" || name === "checkmark-outline") &&
+    weight === "fill"
+      ? "bold"
+      : weight;
+  return (
+    <Icon
+      size={size}
+      color={color ?? (theme === "dark" ? "#f5f5f5" : "#262626")}
+      weight={resolvedWeight}
+      style={style}
+    />
+  );
 }

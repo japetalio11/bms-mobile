@@ -14,7 +14,6 @@ import {
   Keyboard,
   Text,
 } from "react-native";
-import { Avatar } from "heroui-native";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { BottomSheetHeader } from "../../components/BottomSheetHeader";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
@@ -24,6 +23,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
+import * as Sharing from "expo-sharing";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as FileSystem from "expo-file-system/legacy";
 import { useUniwind } from "uniwind";
 import { useAuth } from "../../context/UserContext";
 import { useSocket } from "../../context/SocketContext";
@@ -47,6 +49,8 @@ import {
   getChatContactsLocal,
   saveChatContactsLocal,
 } from "../../db/repository";
+import { subscribeSyncEvents } from "../../services/syncEngine";
+import { getCachedOrRemoteUri, prefetchMediaFiles, isLocalUri } from "../../lib/fileCache";
 
 type MessageBubble = {
   id: string;
@@ -55,10 +59,143 @@ type MessageBubble = {
   time: string;
   type: string;
   dateRaw: string;
+  isRead?: boolean;
   status?: "sending" | "sent" | "failed" | "queued";
 };
 
-function MessagesTopBar({ onBack, isDark }: { onBack: () => void; isDark: boolean }): JSX.Element {
+function ChatImageBubble({
+  rawUri,
+  status,
+  onPress,
+}: {
+  rawUri: string;
+  status?: string;
+  onPress: () => void;
+}): JSX.Element {
+  const fullUrl = getFullFileUrl(rawUri) || rawUri;
+  const [displayUri, setDisplayUri] = useState<string>(fullUrl);
+
+  useEffect(() => {
+    let isMounted = true;
+    getCachedOrRemoteUri(fullUrl).then((cached) => {
+      if (isMounted && cached) {
+        setDisplayUri(cached);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [fullUrl]);
+
+  return (
+    <Pressable onPress={onPress} className="active:opacity-90 relative">
+      <Image
+        source={{ uri: displayUri }}
+        className="w-56 h-48 rounded-xl bg-default/40 mb-1"
+        resizeMode="cover"
+      />
+      {status === "sending" && (
+        <View className="absolute inset-0 bg-black/40 rounded-xl items-center justify-center">
+          <ActivityIndicator size="small" color="#ffffff" />
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+function ChatImagePreview({ uri }: { uri: string }): JSX.Element {
+  const fullUrl = getFullFileUrl(uri) || uri;
+  const [displayUri, setDisplayUri] = useState<string>(fullUrl);
+
+  useEffect(() => {
+    let isMounted = true;
+    getCachedOrRemoteUri(fullUrl).then((cached) => {
+      if (isMounted && cached) {
+        setDisplayUri(cached);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [fullUrl]);
+
+  return (
+    <Image
+      source={{ uri: displayUri }}
+      className="w-full h-4/5 rounded-xl"
+      resizeMode="contain"
+    />
+  );
+}
+
+function MessagesTopBar({
+  onBack,
+  isDark,
+  contact,
+  isOnline = true,
+}: {
+  onBack: () => void;
+  isDark: boolean;
+  contact?: ChatContact | null;
+  isOnline?: boolean;
+}): JSX.Element {
+  if (contact) {
+    const displayName = contact.role.toLowerCase().includes("doctor")
+      ? `Dr. ${contact.first_name} ${contact.last_name}`
+      : `${contact.first_name} ${contact.last_name}`;
+
+    return (
+      <View className="mt-2 h-14 flex-row items-center justify-between bg-background px-4 border-b border-border/40">
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          className="size-9 items-center justify-center active:opacity-70 mr-1"
+        >
+          <Ionicons name="chevron-back" size={20} weight="bold" color={isDark ? "#f5f5f5" : "#262626"} />
+        </Pressable>
+
+        <View className="flex-1 flex-row items-center gap-2.5 min-w-0">
+          <View className="size-9 rounded-full bg-primary/20 overflow-hidden items-center justify-center">
+            {contact.profile_url ? (
+              <Image
+                source={{ uri: contact.profile_url }}
+                className="size-full"
+                resizeMode="cover"
+              />
+            ) : (
+              <Text className="text-primary text-xs font-semibold">
+                {contact.first_name ? contact.first_name.charAt(0).toUpperCase() : "S"}
+              </Text>
+            )}
+          </View>
+          <View className="flex-1 min-w-0">
+            <Text className="text-base font-semibold text-foreground" numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+              {contact.role} {contact.facility?.facility_name ? `• ${contact.facility.facility_name}` : ""}
+            </Text>
+          </View>
+        </View>
+
+        <View className="ml-2">
+          {!isOnline ? (
+            <View className="flex-row items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              <Ionicons name="cloud-offline-outline" size={11} color="#f59e0b" />
+              <Text className="text-[11px] text-amber-500 font-medium">Offline</Text>
+            </View>
+          ) : (
+            <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+              <View className="size-1.5 rounded-full bg-emerald-500" />
+              <Text className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Online</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View className="mt-4 h-12 flex-row items-center justify-center bg-background px-4">
       <Pressable
@@ -95,10 +232,30 @@ export default function ChatScreen(): JSX.Element {
   const [allMessages, setAllMessages] = useState<InAppMessage[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<ChatContact | null>(null);
   const [isStaffListVisible, setIsStaffListVisible] = useState(false);
-  const assignedStaff = staffList.find((staff) => staff.user_id === assignedWorkerId)
-    || motherRecord?.assignedWorker
-    || motherRecord?.creator
-    || null;
+  const assignedStaff =
+    staffList.find((staff) => staff.user_id === assignedWorkerId) ||
+    motherRecord?.assignedWorker ||
+    motherRecord?.creator ||
+    null;
+
+  let mostRecentStaffContact: ChatContact | null = null;
+  if (allMessages.length > 0 && user?.user_id) {
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+      const m = allMessages[i];
+      const otherId = m.sender_id === user.user_id ? m.receiver_id : m.sender_id;
+      if (otherId && otherId !== user.user_id) {
+        const found = staffList.find((s) => s.user_id === otherId);
+        mostRecentStaffContact = found || {
+          user_id: otherId,
+          first_name: "Care",
+          last_name: "Provider",
+          role: "Health Worker",
+        };
+        break;
+      }
+    }
+  }
+
   const defaultStaffContact: ChatContact | null = assignedWorkerId
     ? (assignedStaff as ChatContact | null) || {
         user_id: assignedWorkerId,
@@ -106,7 +263,8 @@ export default function ChatScreen(): JSX.Element {
         last_name: "Care Provider",
         role: "Health Worker",
       }
-    : null;
+    : mostRecentStaffContact || (staffList.length > 0 ? staffList[0] : null);
+
   const activeStaff = selectedStaff || (isStaffListVisible ? null : defaultStaffContact);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
@@ -188,7 +346,13 @@ export default function ChatScreen(): JSX.Element {
             prev.forEach((m) => map.set(m.message_id, m));
             return Array.from(map.values());
           });
+
+          const localMediaUrls = localMsgs
+            .filter((m) => m.message_type === "image" || m.message_type === "file")
+            .map((m) => getFullFileUrl(m.message_content) || m.message_content);
+          prefetchMediaFiles(localMediaUrls);
         }
+
         const activeAssignedId =
           motherRecord?.assigned_worker_id ||
           motherRecord?.assignedWorker?.user_id ||
@@ -196,9 +360,24 @@ export default function ChatScreen(): JSX.Element {
           (motherRecord as any)?.creator?.user_id ||
           null;
 
+        const knownStaffIds = new Set(localStaff.map((s) => s.user_id));
+        const combinedStaff: ChatContact[] = [...localStaff];
+        for (const m of localMsgs) {
+          const otherId = m.sender_id === user.user_id ? m.receiver_id : m.sender_id;
+          if (otherId && otherId !== user.user_id && !knownStaffIds.has(otherId)) {
+            knownStaffIds.add(otherId);
+            combinedStaff.push({
+              user_id: otherId,
+              first_name: "Care",
+              last_name: "Provider",
+              role: "Health Worker",
+            });
+          }
+        }
+
         let scopedStaff: ChatContact[] = [];
         if (activeAssignedId) {
-          scopedStaff = localStaff.filter((s) => s.user_id === activeAssignedId);
+          scopedStaff = combinedStaff.filter((s) => s.user_id === activeAssignedId);
           if (scopedStaff.length === 0 && motherRecord?.assignedWorker) {
             scopedStaff = [motherRecord.assignedWorker as any];
           }
@@ -208,11 +387,13 @@ export default function ChatScreen(): JSX.Element {
               .map((m) => (m.sender_id === user.user_id ? m.receiver_id : m.sender_id))
               .filter(Boolean)
           );
-          scopedStaff = localStaff.filter((s) => messagedIds.has(s.user_id));
+          scopedStaff = combinedStaff.filter((s) => messagedIds.has(s.user_id));
         }
 
         if (scopedStaff.length > 0) {
           setStaffList(scopedStaff);
+        } else if (combinedStaff.length > 0) {
+          setStaffList(combinedStaff);
         } else if (motherRecord?.assignedWorker) {
           setStaffList([motherRecord.assignedWorker as any]);
         } else {
@@ -272,15 +453,12 @@ export default function ChatScreen(): JSX.Element {
             (rm) =>
               rm.sender_id === m.sender_id &&
               rm.receiver_id === m.receiver_id &&
-              rm.message_content === m.message_content &&
-              Math.abs(new Date(rm.message_date).getTime() - new Date(m.message_date).getTime()) <
-                120000
+              rm.message_content === m.message_content
           );
 
           if (!matchingRemote) {
             const isLocal = m.message_id.startsWith("local_");
-            const isRecent = Math.abs(Date.now() - new Date(m.message_date).getTime()) < 180000;
-            if (isLocal || (isRecent && m.sender_id === user?.user_id)) {
+            if (isLocal || m.sender_id === user?.user_id) {
               map.set(m.message_id, m);
             }
           } else {
@@ -301,6 +479,10 @@ export default function ChatScreen(): JSX.Element {
 
       if (remoteMessages.length > 0) {
         await saveMessagesLocal(remoteMessages);
+        const remoteMediaUrls = remoteMessages
+          .filter((m) => m.message_type === "image" || m.message_type === "file")
+          .map((m) => getFullFileUrl(m.message_content) || m.message_content);
+        prefetchMediaFiles(remoteMediaUrls);
       }
       if (remoteStaff.length > 0) {
         await saveChatContactsLocal(remoteStaff);
@@ -310,6 +492,25 @@ export default function ChatScreen(): JSX.Element {
       console.warn("Failed to fetch chat data:", err);
     }
   }, [token, user, isOnline, motherRecord]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvents((event) => {
+      if (event.type === "item_synced" && event.actionType === "CREATE_MESSAGE") {
+        if (event.tempId && event.serverId) {
+          setAllMessages((prev) =>
+            prev.map((m) =>
+              m.message_id === event.tempId
+                ? { ...m, message_id: event.serverId!, sync_status: "synced" }
+                : m
+            )
+          );
+        }
+      } else if (event.type === "sync_completed") {
+        fetchAllData();
+      }
+    });
+    return () => unsubscribe();
+  }, [fetchAllData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -467,8 +668,8 @@ export default function ChatScreen(): JSX.Element {
 
     const thread = allMessages.filter(
       (m) =>
-        (m.sender_id === activeStaff.user_id && m.receiver_id === user?.user_id) ||
-        (m.sender_id === user?.user_id && m.receiver_id === activeStaff.user_id)
+        (m.sender_id === activeStaff.user_id && (!user?.user_id || m.receiver_id === user.user_id)) ||
+        ((!user?.user_id || m.sender_id === user.user_id) && m.receiver_id === activeStaff.user_id)
     );
 
     const seenIds = new Set<string>();
@@ -504,6 +705,7 @@ export default function ChatScreen(): JSX.Element {
         }),
         type: isImg ? "image" : isDoc ? "file" : "text",
         dateRaw: msg.message_date,
+        isRead: Boolean(msg.is_read),
         status: sendingMessageIds.has(msg.message_id)
           ? "sending"
           : msg.message_id.startsWith("local_")
@@ -511,7 +713,7 @@ export default function ChatScreen(): JSX.Element {
             : "sent",
       };
     });
-  }, [allMessages, activeStaff, user?.user_id, sendingMessageIds]);
+  }, [allMessages, activeStaff, user, sendingMessageIds]);
 
   useEffect(() => {
     if (currentChatMessages.length > 0) {
@@ -566,6 +768,11 @@ export default function ChatScreen(): JSX.Element {
     } catch (err: any) {
       console.warn("Online send failed, saving to offline outbox:", err);
       await saveOutgoingMessageLocal(localMessage, false);
+      setAllMessages((prev) =>
+        prev.map((m) =>
+          m.message_id === localId ? { ...localMessage, sync_status: "pending" } : m
+        )
+      );
     } finally {
       setIsSending(false);
       setSendingMessageIds((prev) => {
@@ -755,22 +962,55 @@ export default function ChatScreen(): JSX.Element {
     if (!fileUrlOrUri) return;
     const targetUrl = getFullFileUrl(fileUrlOrUri) || fileUrlOrUri;
     try {
-      if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
-        await WebBrowser.openBrowserAsync(targetUrl);
-      } else {
-        const canOpen = await Linking.canOpenURL(targetUrl);
-        if (canOpen) {
-          await Linking.openURL(targetUrl);
+      const localUri = await getCachedOrRemoteUri(targetUrl);
+
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") {
+          window.open(localUri || targetUrl, "_blank");
         } else {
-          confirm({
-            title: "Document File",
-            message: `File path: ${targetUrl}`,
-            confirmText: "OK",
-            cancelText: "",
-            variant: "info",
-            icon: "document-text-outline",
-          });
+          await Linking.openURL(localUri || targetUrl);
         }
+        return;
+      }
+
+      if (isLocalUri(localUri)) {
+        if (Platform.OS === "android") {
+          try {
+            const contentUri = localUri.startsWith("content://")
+              ? localUri
+              : await FileSystem.getContentUriAsync(localUri);
+            await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+              data: contentUri,
+              flags: 1,
+            });
+            return;
+          } catch {}
+        }
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(localUri);
+          return;
+        }
+      }
+
+      if (isOnline && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+        await WebBrowser.openBrowserAsync(targetUrl);
+        return;
+      }
+
+      const canOpen = await Linking.canOpenURL(localUri || targetUrl);
+      if (canOpen) {
+        await Linking.openURL(localUri || targetUrl);
+      } else {
+        confirm({
+          title: "Document File",
+          message: `File path: ${localUri || targetUrl}`,
+          confirmText: "OK",
+          cancelText: "",
+          variant: "info",
+          icon: "document-text-outline",
+        });
       }
     } catch (err: any) {
       console.warn("Error opening document:", err);
@@ -893,13 +1133,8 @@ export default function ChatScreen(): JSX.Element {
         animationType="slide"
         statusBarTranslucent
         onRequestClose={() => {
-          if (motherRecord && assignedWorkerId) {
-            if (router.canGoBack()) router.back();
-            else router.replace("/(tabs)");
-          } else {
-            setSelectedStaff(null);
-            setIsStaffListVisible(true);
-          }
+          if (router.canGoBack()) router.back();
+          else router.replace("/(tabs)");
         }}
       >
         <KeyboardAvoidingView
@@ -909,16 +1144,27 @@ export default function ChatScreen(): JSX.Element {
           <View style={{ paddingTop: Math.max(insets.top, 12) }} className="bg-background">
             <MessagesTopBar
               isDark={isDark}
+              contact={activeStaff}
+              isOnline={isOnline}
               onBack={() => {
-                if (motherRecord && assignedWorkerId) {
-                  if (router.canGoBack()) router.back();
-                  else router.replace("/(tabs)");
-                } else {
+                if (staffList.length > 1) {
                   setSelectedStaff(null);
                   setIsStaffListVisible(true);
+                } else if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)");
                 }
               }}
             />
+            {!isOnline && (
+              <View className="flex-row items-center justify-center gap-1.5 bg-amber-500/10 border-b border-amber-500/20 py-2 px-4">
+                <Ionicons name="cloud-offline-outline" size={13} color="#f59e0b" />
+                <Text className="text-amber-500 text-xs font-medium text-center">
+                  Working offline • Messages are saved on your device and will send once reconnected
+                </Text>
+              </View>
+            )}
           </View>
 
           {currentChatMessages.length > 0 ? (
@@ -962,21 +1208,11 @@ export default function ChatScreen(): JSX.Element {
                     }}
                   >
                     {item.type === "image" ? (
-                      <Pressable
+                      <ChatImageBubble
+                        rawUri={item.text}
+                        status={item.status}
                         onPress={() => setPreviewImage(item.text)}
-                        className="active:opacity-90 relative"
-                      >
-                        <Image
-                          source={{ uri: getFullFileUrl(item.text) || item.text }}
-                          className="w-56 h-48 rounded-xl bg-default/40 mb-1"
-                          resizeMode="cover"
-                        />
-                        {item.status === "sending" && (
-                          <View className="absolute inset-0 bg-black/40 rounded-xl items-center justify-center">
-                            <ActivityIndicator size="small" color="#ffffff" />
-                          </View>
-                        )}
-                      </Pressable>
+                      />
                     ) : item.type === "file" ? (
                       <Pressable
                         onPress={() => handleOpenDocument(item.text)}
@@ -1109,10 +1345,16 @@ export default function ChatScreen(): JSX.Element {
                       >
                         {item.time}
                       </Text>
-                      {item.mine && item.status === "sending" ? (
-                        <ActivityIndicator size={10} color="rgba(255,255,255,0.85)" />
-                      ) : item.mine && item.id.startsWith("local_") ? (
-                          <Ionicons name="checkmark-done" size={12} color="rgba(255,255,255,0.85)" />
+                      {item.mine ? (
+                        item.status === "sending" ? (
+                          <ActivityIndicator size={10} color="rgba(255,255,255,0.85)" />
+                        ) : item.status === "queued" || item.id.startsWith("local_") ? (
+                          <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.75)" />
+                        ) : item.isRead ? (
+                          <Ionicons name="checkmark-done" size={13} weight="bold" color="#93c5fd" />
+                        ) : (
+                          <Ionicons name="checkmark" size={13} weight="bold" color="rgba(255,255,255,0.85)" />
+                        )
                       ) : null}
                     </View>
                   </View>
@@ -1204,11 +1446,7 @@ export default function ChatScreen(): JSX.Element {
                 <Ionicons name="close" size={24} color="white" />
               </Pressable>
               {previewImage && (
-                <Image
-                  source={{ uri: getFullFileUrl(previewImage) || previewImage }}
-                  className="w-full h-4/5 rounded-xl"
-                  resizeMode="contain"
-                />
+                <ChatImagePreview uri={previewImage} />
               )}
             </View>
           </Modal>
@@ -1394,7 +1632,13 @@ export default function ChatScreen(): JSX.Element {
     );
   }
 
-  if (motherRecord && assignedWorkerId) {
+  if (
+    motherRecord &&
+    assignedWorkerId &&
+    !isStaffListVisible &&
+    allMessages.length === 0 &&
+    staffList.length === 0
+  ) {
     return (
       <View className="flex-1 bg-background">
         <MessagesTopBar
@@ -1510,19 +1754,19 @@ export default function ChatScreen(): JSX.Element {
               className="flex-row items-center px-5 py-3.5 border-b border-default/50 active:bg-surface-secondary"
             >
               <View className="relative mr-3.5">
-                <Avatar size="md">
+                <View className="size-11 rounded-full bg-primary/20 overflow-hidden items-center justify-center">
                   {item.profile_url ? (
-                    <Avatar.Image source={{ uri: item.profile_url }} />
+                    <Image
+                      source={{ uri: item.profile_url }}
+                      className="size-full"
+                      resizeMode="cover"
+                    />
                   ) : (
-                    <Avatar.Fallback delayMs={0}>
-                      <View className="w-full h-full bg-primary/20 items-center justify-center">
-                        <Text className="text-primary text-base font-semibold">
-                          {item.first_name ? item.first_name.charAt(0).toUpperCase() : "S"}
-                        </Text>
-                      </View>
-                    </Avatar.Fallback>
+                    <Text className="text-primary text-base font-semibold">
+                      {item.first_name ? item.first_name.charAt(0).toUpperCase() : "S"}
+                    </Text>
                   )}
-                </Avatar>
+                </View>
 
                 <View
                   style={{
@@ -1532,7 +1776,7 @@ export default function ChatScreen(): JSX.Element {
                     width: 12,
                     height: 12,
                     borderRadius: 6,
-                    backgroundColor: isOnline ? "#10b981" : "#f59e0b",
+                    backgroundColor: isOnline ? "#10b981" : "#71717a",
                     borderWidth: 2,
                     borderColor: isDark ? "#18181b" : "#ffffff",
                   }}

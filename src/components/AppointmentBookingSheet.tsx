@@ -117,7 +117,11 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
       close();
       setReason("");
       setSelectedDate(new Date());
-      toast.show({ label: "Appointment scheduled", variant: "success" });
+      toast.show({
+        label: isOnline ? "Appointment scheduled" : "Appointment scheduled (Saved Offline)",
+        description: isOnline ? undefined : "Saved locally on this device. Will sync once connected.",
+        variant: "success",
+      });
       await onCreated?.();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not schedule appointment.");

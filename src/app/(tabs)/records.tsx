@@ -10,7 +10,7 @@ import {
   TextInput,
   Platform,
 } from "react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { JSX } from "react";
 import { BottomSheet, Card, Text, useToast } from "heroui-native";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
@@ -43,6 +43,8 @@ import {
   getSupplementsLocal,
   saveSupplementsLocal,
 } from "../../db/repository";
+import { subscribeSyncEvents } from "../../services/syncEngine";
+import { getCachedOrRemoteUri, prefetchMediaFiles, isLocalUri } from "../../lib/fileCache";
 
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
@@ -107,16 +109,45 @@ export default function RecordsScreen(): JSX.Element {
   const openDocumentSafely = async (url: string, title?: string) => {
     setIsOpeningDocument(true);
     try {
+      const localUri = await getCachedOrRemoteUri(url);
+
       if (Platform.OS === "web") {
         if (typeof window !== "undefined") {
-          window.open(url, "_blank");
+          window.open(localUri || url, "_blank");
         } else {
-          await Linking.openURL(url);
+          await Linking.openURL(localUri || url);
         }
         return;
       }
 
-      if (url.startsWith("http://") || url.startsWith("https://")) {
+      if (isLocalUri(localUri)) {
+        if (Platform.OS === "android") {
+          try {
+            const contentUri = localUri.startsWith("content://")
+              ? localUri
+              : await FileSystem.getContentUriAsync(localUri);
+
+            await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+              data: contentUri,
+              flags: 1,
+              type: "application/pdf",
+            });
+            return;
+          } catch {}
+        }
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(localUri, {
+            mimeType: "application/pdf",
+            dialogTitle: title || "View EHR Document",
+            UTI: "com.adobe.pdf",
+          });
+          return;
+        }
+      }
+
+      if (isOnline && (url.startsWith("http://") || url.startsWith("https://"))) {
         await WebBrowser.openBrowserAsync(url, {
           presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
           toolbarColor: isDark ? "#171717" : "#ffffff",
@@ -128,34 +159,7 @@ export default function RecordsScreen(): JSX.Element {
         return;
       }
 
-      let localUri = url;
-
-      if (Platform.OS === "android") {
-        try {
-          const contentUri = localUri.startsWith("content://")
-            ? localUri
-            : await FileSystem.getContentUriAsync(localUri);
-
-          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-            data: contentUri,
-            flags: 1,
-            type: "application/pdf",
-          });
-          return;
-        } catch {}
-      }
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(localUri, {
-          mimeType: "application/pdf",
-          dialogTitle: title || "View EHR Document",
-          UTI: "com.adobe.pdf",
-        });
-        return;
-      }
-
-      await Linking.openURL(url);
+      await Linking.openURL(localUri || url);
     } catch {
       toast.show({
         label: "Unable to open document",
@@ -175,8 +179,9 @@ export default function RecordsScreen(): JSX.Element {
       return;
     }
 
+    const resolved = await getCachedOrRemoteUri(url);
     setPreviewScale(1);
-    setSelectedImageModal(url);
+    setSelectedImageModal(resolved || url);
     if (lab) setSelectedRecord(lab);
   };
 
@@ -206,7 +211,7 @@ export default function RecordsScreen(): JSX.Element {
     setDeleteError(null);
 
     try {
-      await deleteLabScreeningLocal(targetId);
+      await deleteLabScreeningLocal(targetId, isOnline, motherRecord?.mother_id || undefined);
 
       if (isOnline && token) {
         try {
@@ -259,6 +264,10 @@ export default function RecordsScreen(): JSX.Element {
 
       setLabScreenings(localLabs || []);
       setSupplements(localSupps || []);
+      if (localLabs?.length) {
+        const localUrls = localLabs.map((l) => l.file_url).filter(Boolean);
+        prefetchMediaFiles(localUrls);
+      }
     } catch (e) {
       console.warn("Local records load error:", e);
     }
@@ -273,7 +282,6 @@ export default function RecordsScreen(): JSX.Element {
         .then(async ([labs, supps, ehrDocs]) => {
           let allLabs: LabScreeningRecord[] = Array.isArray(labs) ? [...labs] : [];
 
-          // Track existing IDs, URLs, and filenames to prevent any duplicate entries
           const existingIds = new Set<string>();
           const existingUrls = new Set<string>();
 
@@ -297,7 +305,6 @@ export default function RecordsScreen(): JSX.Element {
               const cleanDocUrl = docUrl ? docUrl.split("?")[0].trim().toLowerCase() : "";
               const docFilename = cleanDocUrl ? cleanDocUrl.split("/").pop() : "";
 
-              // Skip if already in allLabs by ID, file URL, or filename
               if (docId && existingIds.has(docId)) continue;
               if (cleanDocUrl && existingUrls.has(cleanDocUrl)) continue;
               if (docFilename && existingUrls.has(docFilename)) continue;
@@ -337,6 +344,8 @@ export default function RecordsScreen(): JSX.Element {
           const merged = [...allLabs, ...pendingLabs.filter((p) => !serverIds.has(p.screening_id))];
 
           setLabScreenings(merged);
+          const remoteUrls = merged.map((l) => l.file_url).filter(Boolean);
+          prefetchMediaFiles(remoteUrls);
           if (Array.isArray(labs) && labs.length > 0) {
             await saveLabScreeningsLocal(labs, true, motherRecord.mother_id, true);
           }
@@ -367,6 +376,20 @@ export default function RecordsScreen(): JSX.Element {
     }, [loadData])
   );
 
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvents((event) => {
+      if (
+        event.type === "sync_completed" ||
+        event.actionType === "CREATE_LAB_SCREENING" ||
+        event.actionType === "DELETE_LAB_SCREENING" ||
+        event.actionType === "UPDATE_SUPPLEMENT"
+      ) {
+        void loadData();
+      }
+    });
+    return () => unsubscribe();
+  }, [loadData]);
+
   const filteredLabs = labScreenings.filter((lab) => {
     const q = searchQuery.toLowerCase();
     return !searchQuery.trim() || (
@@ -380,7 +403,6 @@ export default function RecordsScreen(): JSX.Element {
     return !searchQuery.trim() || (supp.supplement_type || "").toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  // Keep the folder treatment from Appointments while using neutral file rows.
   const folderSurface = "#262626";
   const folderRail = "#1b1b1b";
   const folderMuted = "#a3a3a3";
@@ -808,6 +830,12 @@ export default function RecordsScreen(): JSX.Element {
           </BottomSheet.Content>
         </BottomSheet.Portal>
       </BottomSheet>
+
+      {isOpeningDocument && (
+        <View className="absolute inset-0 bg-black/40 items-center justify-center z-50">
+          <ActivityIndicator size="large" color={isDark ? "#fffe8c" : "#003f2c"} />
+        </View>
+      )}
     </View>
   );
 }

@@ -78,7 +78,7 @@ export default function NotificationCenterScreen() {
   const openItem = async (item: NotificationRecord) => {
     if (!item.is_read) {
       setItems(current => current.map(entry => entry.notification_id === item.notification_id ? { ...entry, is_read: true } : entry));
-      await markNotificationReadLocal(item.notification_id);
+      await markNotificationReadLocal(item.notification_id, isOnline, user?.user_id);
       if (isOnline && token) {
         try { await updateNotificationReadApi(item.notification_id, true, token); }
         catch (error) { console.warn("Could not sync notification read state:", error); }

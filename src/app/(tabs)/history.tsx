@@ -12,6 +12,7 @@ import { useAuth } from "../../context/UserContext";
 import { getAppointmentsByUserApi } from "../../config/api";
 import type { AppointmentRecord } from "../../config/api";
 import { getAppointmentsLocal, saveAppointmentsLocal } from "../../db/repository";
+import { subscribeSyncEvents } from "../../services/syncEngine";
 
 type HistoryTab = "upcoming" | "completed" | "cancelled";
 const HISTORY_TABS: { id: HistoryTab; label: string }[] = [
@@ -60,10 +61,20 @@ export default function HistoryScreen(): JSX.Element {
 
     if (isOnline && token) {
       getAppointmentsByUserApi(user.user_id, token)
-        .then((result) => {
+        .then(async (result) => {
           if (isMounted && Array.isArray(result)) {
-            saveAppointmentsLocal(result, true);
-            setAppointments(result);
+            const currentLocal = await getAppointmentsLocal(user.user_id);
+            const pendingLocal = currentLocal.filter((a: any) => a.sync_status === "pending");
+            const freshIds = new Set(result.map((a) => a.appointment_id));
+            const merged = [
+              ...pendingLocal.filter((p) => !freshIds.has(p.appointment_id)),
+              ...result.map((f) => {
+                const pendingMatch = pendingLocal.find((p) => p.appointment_id === f.appointment_id);
+                return pendingMatch || f;
+              }),
+            ];
+            setAppointments(merged);
+            await saveAppointmentsLocal(result, true);
           }
         })
         .catch(() => {})
@@ -73,6 +84,23 @@ export default function HistoryScreen(): JSX.Element {
     }
     return () => { isMounted = false; };
   }, [user?.user_id, token, isOnline, refreshProfile]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvents((event) => {
+      if (
+        event.type === "sync_completed" ||
+        event.actionType === "CREATE_APPOINTMENT" ||
+        event.actionType === "CANCEL_APPOINTMENT"
+      ) {
+        if (user?.user_id) {
+          getAppointmentsLocal(user.user_id)
+            .then((local) => setAppointments(local || []))
+            .catch(() => {});
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.user_id]);
 
   const groupedAppointments = useMemo(() => {
     const today = new Date();
@@ -201,7 +229,15 @@ export default function HistoryScreen(): JSX.Element {
                         style={{ backgroundColor: "#302f22" }}
                       >
                         <View className="gap-2">
-                          <Text className="text-sm" style={{ color: "#b9b48a" }}>{time}</Text>
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-sm" style={{ color: "#b9b48a" }}>{time}</Text>
+                            {((appointment as any).sync_status === "pending" || appointment.appointment_id.startsWith("appt_local_")) && (
+                              <View className="flex-row items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                                <AppIcon name="cloud-offline-outline" size={11} color="#f59e0b" />
+                                <Text className="text-[11px] text-amber-400 font-medium">Queued to sync</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text className="text-base font-semibold leading-6" style={{ color: "#f5f1c4" }} numberOfLines={2}>
                             {appointment.appointment_type}
                           </Text>

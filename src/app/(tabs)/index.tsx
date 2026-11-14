@@ -2,7 +2,7 @@ import { View, ScrollView, Pressable, RefreshControl, useWindowDimensions } from
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import type { ScrollViewInstance } from "react-native";
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import type { JSX } from "react";
 import { BottomSheet, Card, Text, useToast } from "heroui-native";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
@@ -20,6 +20,7 @@ import { useNetwork } from "../../context/NetworkContext";
 import { getAppointmentsByUserApi, getSupplementsByMotherApi } from "../../config/api";
 import type { AppointmentRecord, SupplementRecord } from "../../config/api";
 import { getAppointmentsLocal, getSupplementsLocal, saveAppointmentsLocal, saveSupplementsLocal } from "../../db/repository";
+import { subscribeSyncEvents } from "../../services/syncEngine";
 import { getWeekMilestone, PREGNANCY_WEEKS } from "../../lib/pregnancyTimeline";
 import { getLoggedDoseIds, localDoseDate, setLoggedDoseIds } from "../../lib/doseLog";
 import {
@@ -99,14 +100,25 @@ export default function DashboardScreen(): JSX.Element {
   const loadAppointments = useCallback(async () => {
     if (!user?.user_id) return;
     try {
-      setAppointments(await getAppointmentsLocal(user.user_id));
+      const localItems = await getAppointmentsLocal(user.user_id);
+      setAppointments(localItems);
     } catch (error) {
       console.warn("Could not read saved appointments:", error);
     }
     if (isOnline && token) {
       try {
         const fresh = await getAppointmentsByUserApi(user.user_id, token);
-        setAppointments(fresh);
+        const currentLocal = await getAppointmentsLocal(user.user_id);
+        const pendingLocal = currentLocal.filter((a: any) => a.sync_status === "pending");
+        const freshIds = new Set(fresh.map((a) => a.appointment_id));
+        const merged = [
+          ...pendingLocal.filter((p) => !freshIds.has(p.appointment_id)),
+          ...fresh.map((f) => {
+            const pendingMatch = pendingLocal.find((p) => p.appointment_id === f.appointment_id);
+            return pendingMatch || f;
+          }),
+        ];
+        setAppointments(merged);
         await saveAppointmentsLocal(fresh, true);
       } catch (error) {
         console.warn("Could not refresh appointments:", error);
@@ -122,14 +134,25 @@ export default function DashboardScreen(): JSX.Element {
       return;
     }
     try {
-      setPrescriptions(await getSupplementsLocal(motherRecord.mother_id));
+      const localSupps = await getSupplementsLocal(motherRecord.mother_id);
+      setPrescriptions(localSupps);
     } catch (error) {
       console.warn("Could not read saved prescriptions:", error);
     }
     if (isOnline && token) {
       try {
         const fresh = await getSupplementsByMotherApi(motherRecord.mother_id, token);
-        setPrescriptions(fresh);
+        const currentLocal = await getSupplementsLocal(motherRecord.mother_id);
+        const pendingLocal = currentLocal.filter((s: any) => s.sync_status === "pending");
+        const freshIds = new Set(fresh.map((s) => s.supplement_id));
+        const merged = [
+          ...pendingLocal.filter((p) => !freshIds.has(p.supplement_id)),
+          ...fresh.map((f) => {
+            const pendingMatch = pendingLocal.find((p) => p.supplement_id === f.supplement_id);
+            return pendingMatch || f;
+          }),
+        ];
+        setPrescriptions(merged);
         await saveSupplementsLocal(fresh, true);
       } catch (error) {
         console.warn("Could not refresh prescriptions:", error);
@@ -138,6 +161,21 @@ export default function DashboardScreen(): JSX.Element {
   }, [motherRecord, isOnline, token]);
 
   useFocusEffect(useCallback(() => { void loadPrescriptions(); }, [loadPrescriptions]));
+
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvents((event) => {
+      if (
+        event.type === "sync_completed" ||
+        event.actionType === "CREATE_APPOINTMENT" ||
+        event.actionType === "CANCEL_APPOINTMENT" ||
+        event.actionType === "UPDATE_SUPPLEMENT"
+      ) {
+        void loadAppointments();
+        void loadPrescriptions();
+      }
+    });
+    return () => unsubscribe();
+  }, [loadAppointments, loadPrescriptions]);
 
   const loadDoseLog = useCallback(async () => {
     const date = localDoseDate();
