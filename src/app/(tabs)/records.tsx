@@ -8,10 +8,11 @@ import {
   RefreshControl,
   Linking,
   TextInput,
+  Platform,
 } from "react-native";
 import { useState, useCallback } from "react";
 import type { JSX } from "react";
-import { BottomSheet, Card, Text } from "heroui-native";
+import { BottomSheet, Card, Text, useToast } from "heroui-native";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { BottomSheetHeader } from "../../components/BottomSheetHeader";
 import { UploadRecordSheet } from "../../components/UploadRecordSheet";
@@ -19,6 +20,9 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUniwind } from "uniwind";
 import * as WebBrowser from "expo-web-browser";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as IntentLauncher from "expo-intent-launcher";
 import { MobileEmptyState } from "../../components/MobileEmptyState";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
@@ -43,6 +47,7 @@ import {
 export default function RecordsScreen(): JSX.Element {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const { theme } = useUniwind();
   const isDark = theme === "dark";
   const { tab } = useLocalSearchParams<{ tab?: string }>();
@@ -58,6 +63,7 @@ export default function RecordsScreen(): JSX.Element {
   const [supplements, setSupplements] = useState<SupplementRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOpeningDocument, setIsOpeningDocument] = useState(false);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<LabScreeningRecord | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
@@ -66,25 +72,112 @@ export default function RecordsScreen(): JSX.Element {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const isPdfOrDocument = (url: string, lab?: LabScreeningRecord | null): boolean => {
+    const cleanUrl = (url || "").split("?")[0].toLowerCase();
+    const screeningType = (lab?.screening_type || "").toLowerCase();
+    const remarks = (lab?.remarks || "").toLowerCase();
+
+    if (
+      cleanUrl.endsWith(".pdf") ||
+      cleanUrl.includes("/pdf") ||
+      cleanUrl.endsWith(".doc") ||
+      cleanUrl.endsWith(".docx") ||
+      cleanUrl.endsWith(".txt")
+    ) {
+      return true;
+    }
+
+    if (
+      screeningType.includes(".pdf") ||
+      screeningType.includes(".doc") ||
+      remarks.includes(".pdf") ||
+      remarks.includes("application/pdf")
+    ) {
+      return true;
+    }
+
+    const isImageExtension = /\.(png|jpe?g|webp|gif|bmp|heic)$/i.test(cleanUrl);
+    if (!isImageExtension && (cleanUrl.startsWith("content://") || cleanUrl.startsWith("file://"))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const openDocumentSafely = async (url: string, title?: string) => {
+    setIsOpeningDocument(true);
+    try {
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") {
+          window.open(url, "_blank");
+        } else {
+          await Linking.openURL(url);
+        }
+        return;
+      }
+
+      let localUri = url;
+
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        const sanitizedFilename = (title || "ehr_record").replace(/[^a-zA-Z0-9_-]/g, "_");
+        const cacheFilePath = `${FileSystem.cacheDirectory}${sanitizedFilename}_${Date.now()}.pdf`;
+        const downloadRes = await FileSystem.downloadAsync(url, cacheFilePath);
+        localUri = downloadRes.uri;
+      }
+
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = localUri.startsWith("content://")
+            ? localUri
+            : await FileSystem.getContentUriAsync(localUri);
+
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+            data: contentUri,
+            flags: 1,
+            type: "application/pdf",
+          });
+          return;
+        } catch {}
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(localUri, {
+          mimeType: "application/pdf",
+          dialogTitle: title || "View EHR Document",
+          UTI: "com.adobe.pdf",
+        });
+        return;
+      }
+
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        await WebBrowser.openBrowserAsync(url);
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch {
+      toast.show({
+        label: "Unable to open document",
+        description: "Please check your PDF viewer application or try again later.",
+        variant: "danger",
+      });
+    } finally {
+      setIsOpeningDocument(false);
+    }
+  };
+
   const handleOpenAttachment = async (url: string, lab?: LabScreeningRecord) => {
     if (!url) return;
-    const lowerUrl = url.toLowerCase();
-    if (
-      lowerUrl.includes(".pdf") ||
-      lowerUrl.includes("/pdf") ||
-      lowerUrl.endsWith(".doc") ||
-      lowerUrl.endsWith(".docx")
-    ) {
-      try {
-        await WebBrowser.openBrowserAsync(url);
-      } catch {
-        Linking.openURL(url).catch(() => {});
-      }
-    } else {
-      setPreviewScale(1);
-      setSelectedImageModal(url);
-      if (lab) setSelectedRecord(lab);
+
+    if (isPdfOrDocument(url, lab)) {
+      await openDocumentSafely(url, lab?.screening_type || "EHR Document");
+      return;
     }
+
+    setPreviewScale(1);
+    setSelectedImageModal(url);
+    if (lab) setSelectedRecord(lab);
   };
 
   const closeRecordPreview = () => {
@@ -379,9 +472,9 @@ export default function RecordsScreen(): JSX.Element {
                       })
                     : "";
                   const cleanFileUrl = (fileUrl || "").split("?")[0].toLowerCase();
-                  const isPdf = cleanFileUrl.endsWith(".pdf") || cleanFileUrl.includes("/pdf");
+                  const isDoc = fileUrl ? isPdfOrDocument(fileUrl, lab) : false;
                   const isImage = /\.(png|jpe?g|webp|gif|bmp|heic)$/.test(cleanFileUrl);
-                  const fileIcon = isPdf ? "file-pdf" : isImage ? "image" : "document-text-outline";
+                  const fileIcon = isDoc ? "file-pdf" : isImage ? "image" : "document-text-outline";
 
                   return (
                     <Pressable
@@ -517,8 +610,15 @@ export default function RecordsScreen(): JSX.Element {
                 <Pressable
                   onPress={() => {
                     const url = recordMenu.url;
+                    const lab = recordMenu.record;
                     setRecordMenu(null);
-                    if (url) Linking.openURL(url).catch(() => {});
+                    if (url) {
+                      if (isPdfOrDocument(url, lab)) {
+                        void openDocumentSafely(url, lab.screening_type || "EHR Document");
+                      } else {
+                        void Linking.openURL(url).catch(() => {});
+                      }
+                    }
                   }}
                   className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
                 >

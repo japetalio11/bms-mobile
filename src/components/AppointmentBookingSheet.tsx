@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from "react-native";
 import { BottomSheet, Text, useToast } from "heroui-native";
 import { useRouter } from "expo-router";
+import { useUniwind } from "uniwind";
 import { AppIcon } from "./AppIcon";
 import { BottomSheetHeader } from "./BottomSheetHeader";
 import { AppSelect } from "./FormControls";
@@ -49,6 +50,8 @@ type AppointmentBookingSheetProps = {
 
 export function AppointmentBookingSheet({ visible, onClose, onCreated }: AppointmentBookingSheetProps) {
   const router = useRouter();
+  const { theme } = useUniwind();
+  const isDark = theme === "dark";
   const { user, token } = useAuth();
   const { isOnline } = useNetwork();
   const { toast } = useToast();
@@ -160,10 +163,11 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
                       close();
                       router.push("/(tabs)/profile");
                     }}
-                    className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2 shadow-none"
+                    className="px-6 py-3 rounded-full flex-row items-center gap-2 active:opacity-85 shadow-none"
+                    style={{ backgroundColor: isDark ? "#fffe8c" : "#171717" }}
                   >
-                    <AppIcon name="person-circle-outline" size={20} color="white" />
-                    <Text className="text-white font-semibold text-sm">View Profile</Text>
+                    <AppIcon name="person-circle-outline" size={20} color={isDark ? "#171717" : "#ffffff"} />
+                    <Text style={{ color: isDark ? "#171717" : "#ffffff" }} className="font-semibold text-sm">View Profile</Text>
                   </Pressable>
                 </View>
               ) : (

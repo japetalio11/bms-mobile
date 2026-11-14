@@ -1,4 +1,5 @@
-import { View, Text, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, Image } from "react-native";
 import { Avatar } from "heroui-native";
 import { AppIcon as Ionicons } from "./AppIcon";
 import { useRouter } from "expo-router";
@@ -28,6 +29,8 @@ export function Header({
   const user = useUser();
   const { unreadCount } = useAuth();
   const { isOnline } = useNetwork();
+  const avatarUri = user.profile_url || (user as any).profile_picture_url || (user as any).avatar_url;
+  const [imageError, setImageError] = useState(false);
 
   const handleBack = () => {
     if (onBack) {
@@ -46,9 +49,24 @@ export function Header({
     return (
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-3 flex-1 mr-3">
-          <View className="size-10 rounded-full items-center justify-center" style={{ backgroundColor: darkHero ? "#303030" : isDark ? "#292929" : "#e5e5e5" }}>
-            <Ionicons name="person" size={17} color={darkHero ? "#f5f5f5" : isDark ? "#f5f5f5" : "#404040"} />
-          </View>
+          <Pressable
+            onPress={() => router.push("/(tabs)/profile")}
+            accessibilityRole="button"
+            accessibilityLabel="View profile"
+            className="active:opacity-80"
+          >
+            {avatarUri && !imageError ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={{ width: 40, height: 40, borderRadius: 20 }}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <View className="size-10 rounded-full items-center justify-center" style={{ backgroundColor: darkHero ? "#303030" : isDark ? "#292929" : "#e5e5e5" }}>
+                <Ionicons name="person" size={17} color={darkHero ? "#f5f5f5" : isDark ? "#f5f5f5" : "#404040"} />
+              </View>
+            )}
+          </Pressable>
           <View className="flex-1">
             <Text className="text-sm" style={{ color: darkHero ? "#a3a3a3" : isDark ? "#a3a3a3" : "#737373" }} numberOfLines={1}>
               {user.name}

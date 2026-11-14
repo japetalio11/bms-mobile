@@ -118,10 +118,11 @@ export default function HistoryScreen(): JSX.Element {
 
           <Pressable
             onPress={() => router.push("/(tabs)/profile")}
-            className="bg-primary px-6 py-3 rounded-full flex-row items-center gap-2 shadow-none"
+            className="px-6 py-3 rounded-full flex-row items-center gap-2 active:opacity-85 shadow-none"
+            style={{ backgroundColor: isDark ? "#fffe8c" : "#171717" }}
           >
-            <AppIcon name="person-circle-outline" size={20} color="white" />
-            <Text className="text-white font-semibold text-sm">View Profile</Text>
+            <AppIcon name="person-circle-outline" size={20} color={isDark ? "#171717" : "#ffffff"} />
+            <Text style={{ color: isDark ? "#171717" : "#ffffff" }} className="font-semibold text-sm">View Profile</Text>
           </Pressable>
         </View>
       </View>
