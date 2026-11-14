@@ -116,14 +116,19 @@ export default function RecordsScreen(): JSX.Element {
         return;
       }
 
-      let localUri = url;
-
       if (url.startsWith("http://") || url.startsWith("https://")) {
-        const sanitizedFilename = (title || "ehr_record").replace(/[^a-zA-Z0-9_-]/g, "_");
-        const cacheFilePath = `${FileSystem.cacheDirectory}${sanitizedFilename}_${Date.now()}.pdf`;
-        const downloadRes = await FileSystem.downloadAsync(url, cacheFilePath);
-        localUri = downloadRes.uri;
+        await WebBrowser.openBrowserAsync(url, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          toolbarColor: isDark ? "#171717" : "#ffffff",
+          controlsColor: isDark ? "#fffe8c" : "#171717",
+          showTitle: true,
+          enableBarCollapsing: true,
+          createTask: false,
+        });
+        return;
       }
+
+      let localUri = url;
 
       if (Platform.OS === "android") {
         try {
@@ -150,16 +155,11 @@ export default function RecordsScreen(): JSX.Element {
         return;
       }
 
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        await WebBrowser.openBrowserAsync(url);
-        return;
-      }
-
       await Linking.openURL(url);
     } catch {
       toast.show({
         label: "Unable to open document",
-        description: "Please check your PDF viewer application or try again later.",
+        description: "Please check your PDF viewer or try again later.",
         variant: "danger",
       });
     } finally {
@@ -598,33 +598,44 @@ export default function RecordsScreen(): JSX.Element {
         <BottomSheet.Portal>
           <BottomSheet.Overlay className="bg-black/60" />
           <BottomSheet.Content
-            snapPoints={["30%"]}
+            snapPoints={insets.bottom > 0 ? ["38%"] : ["28%"]}
             enableDynamicSizing={false}
             enableOverDrag={false}
             backgroundClassName="rounded-t-[24px] bg-background"
             handleIndicatorClassName="bg-muted"
           >
-            <View className="px-5 pb-5 pt-1">
+            <View className="px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
               <BottomSheetHeader title="Record options" description={recordMenu?.record.screening_type || "EHR record"} onClose={() => setRecordMenu(null)} />
               {recordMenu?.url ? (
-                <Pressable
-                  onPress={() => {
-                    const url = recordMenu.url;
-                    const lab = recordMenu.record;
-                    setRecordMenu(null);
-                    if (url) {
-                      if (isPdfOrDocument(url, lab)) {
-                        void openDocumentSafely(url, lab.screening_type || "EHR Document");
-                      } else {
+                <>
+                  <Pressable
+                    onPress={() => {
+                      const url = recordMenu.url;
+                      const lab = recordMenu.record;
+                      setRecordMenu(null);
+                      if (url) {
+                        void handleOpenAttachment(url, lab);
+                      }
+                    }}
+                    className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
+                  >
+                    <Ionicons name="eye-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
+                    <Text className="text-sm font-medium text-foreground">View document</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      const url = recordMenu.url;
+                      setRecordMenu(null);
+                      if (url) {
                         void Linking.openURL(url).catch(() => {});
                       }
-                    }
-                  }}
-                  className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
-                >
-                  <Ionicons name="download-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
-                  <Text className="text-sm font-medium text-foreground">Download file</Text>
-                </Pressable>
+                    }}
+                    className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
+                  >
+                    <Ionicons name="download-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
+                    <Text className="text-sm font-medium text-foreground">Download file</Text>
+                  </Pressable>
+                </>
               ) : null}
               <Pressable
                 onPress={() => {
@@ -757,13 +768,13 @@ export default function RecordsScreen(): JSX.Element {
         <BottomSheet.Portal>
           <BottomSheet.Overlay className="bg-black/60" />
           <BottomSheet.Content
-            snapPoints={["34%"]}
+            snapPoints={insets.bottom > 0 ? ["40%"] : ["32%"]}
             enableDynamicSizing={false}
             enableOverDrag={false}
             backgroundClassName="rounded-t-[24px] bg-background"
             handleIndicatorClassName="bg-muted"
           >
-            <View className="gap-4 px-5 pb-5 pt-1">
+            <View className="gap-4 px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
               <BottomSheetHeader
                 title="Delete EHR record?"
                 description={`${recordToDelete?.screening_type || "This document"} will be permanently removed.`}
