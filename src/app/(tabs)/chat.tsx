@@ -1167,17 +1167,25 @@ export default function ChatScreen(): JSX.Element {
 
             <Pressable
               onPress={handleSendText}
-              disabled={!inputText.trim()}
+              disabled={isSending || !inputText.trim()}
+              accessibilityRole="button"
+              accessibilityLabel={isSending ? "Sending message" : "Send message"}
               className={`size-9 rounded-full items-center justify-center ${
-                inputText.trim() ? "bg-primary active:opacity-80" : "bg-surface opacity-60"
+                isSending || inputText.trim()
+                  ? "bg-primary active:opacity-80"
+                  : "bg-surface opacity-60"
               }`}
             >
-              <Ionicons
-                name="send"
-                size={16}
-                color={inputText.trim() ? "white" : isDark ? "#71717a" : "#94a3b8"}
-                style={{ marginLeft: 2 }}
-              />
+              {isSending ? (
+                <ActivityIndicator size="small" color="#171717" />
+              ) : (
+                <Ionicons
+                  name="send"
+                  size={16}
+                  color={inputText.trim() ? "#171717" : isDark ? "#71717a" : "#94a3b8"}
+                  style={{ marginLeft: 2 }}
+                />
+              )}
             </Pressable>
           </View>
 
@@ -1367,11 +1375,11 @@ export default function ChatScreen(): JSX.Element {
                       className="min-h-11 flex-1 bg-primary rounded-md flex-row items-center justify-center gap-2 active:opacity-85"
                     >
                       {isSending ? (
-                        <ActivityIndicator size="small" color="white" />
+                        <ActivityIndicator size="small" color="#171717" />
                       ) : (
                         <>
-                          <Ionicons name="send" size={16} color="white" />
-                          <Text className="text-white font-semibold text-sm">Send Attachment</Text>
+                          <Ionicons name="send" size={16} color="#171717" />
+                          <Text className="text-[#171717] font-semibold text-sm">Send Attachment</Text>
                         </>
                       )}
                     </Pressable>

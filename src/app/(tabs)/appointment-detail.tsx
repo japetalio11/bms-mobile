@@ -5,6 +5,7 @@ import { AppIcon as Ionicons } from "../../components/AppIcon";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/UserContext";
 import { useNetwork } from "../../context/NetworkContext";
 import { useConfirm } from "../../context/ConfirmationContext";
@@ -35,6 +36,7 @@ const DataRow = ({ label, value }: { label: string; value: string }) => (
 
 export default function AppointmentDetailScreen(): JSX.Element {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, token, activePregnancy } = useAuth();
   const { isOnline } = useNetwork();
@@ -144,7 +146,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
       />
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 110, 140) }}
         showsVerticalScrollIndicator={false}
       >
         {isLoading ? (
@@ -306,7 +308,7 @@ export default function AppointmentDetailScreen(): JSX.Element {
               onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/history")}
               className="mt-5 bg-primary px-5 py-2.5 rounded-full"
             >
-              <Text className="text-white text-sm font-semibold">Back to Appointments</Text>
+              <Text className="text-[#171717] text-sm font-semibold">Back to Appointments</Text>
             </Pressable>
           </View>
         )}
