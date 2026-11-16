@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import { io, Socket } from "socket.io-client";
@@ -24,6 +24,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const socketRef = useRef<Socket | null>(null);
   const appState = useRef<string | null | undefined>(AppState.currentState);
+  const refreshNotificationsRef = useRef(refreshNotifications);
+
+  useEffect(() => {
+    refreshNotificationsRef.current = refreshNotifications;
+  }, [refreshNotifications]);
 
   useEffect(() => {
     if (!isAuthenticated || !token || !user?.user_id) {
@@ -56,7 +61,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on("reconnect", () => {
       setSocket(socketInstance);
       setIsConnected(true);
-      refreshNotifications();
+      refreshNotificationsRef.current();
     });
 
     socketInstance.on("disconnect", () => {
@@ -77,11 +82,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("[Mobile Socket] Failed to save notification locally:", dbErr);
       }
 
-      refreshNotifications();
+      refreshNotificationsRef.current();
     });
 
     socketInstance.on("notification:read_all", () => {
-      refreshNotifications();
+      refreshNotificationsRef.current();
     });
 
     socketInstance.on("message:new", async (message: any) => {
@@ -99,7 +104,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (socketRef.current && !socketRef.current.connected) {
           socketRef.current.connect();
         }
-        refreshNotifications();
+        refreshNotificationsRef.current();
       }
       appState.current = nextAppState;
     };
@@ -107,7 +112,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const handleNetworkChange = (state: NetInfoState) => {
       if (state.isConnected && socketRef.current && !socketRef.current.connected) {
         socketRef.current.connect();
-        refreshNotifications();
+        refreshNotificationsRef.current();
       }
     };
 
@@ -122,9 +127,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setSocket(null);
       setIsConnected(false);
     };
-  }, [isAuthenticated, token, user?.user_id, refreshNotifications]);
+  }, [isAuthenticated, token, user?.user_id]);
+
+  const contextValue = useMemo(() => ({ socket, isConnected }), [socket, isConnected]);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>{children}</SocketContext.Provider>
+    <SocketContext.Provider value={contextValue}>{children}</SocketContext.Provider>
   );
 };

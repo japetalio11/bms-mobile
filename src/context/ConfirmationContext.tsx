@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react";
 import { ConfirmationModal, ConfirmationVariant } from "../components/ConfirmationModal";
 
 export type ConfirmOptions = {
@@ -77,21 +77,25 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
     setVisible(false);
   };
 
+  const contextValue = useMemo(() => ({ confirm, confirmAsync }), [confirm, confirmAsync]);
+
   return (
-    <ConfirmationContext.Provider value={{ confirm, confirmAsync }}>
+    <ConfirmationContext.Provider value={contextValue}>
       {children}
-      <ConfirmationModal
-        visible={visible}
-        title={modalOptions.title}
-        message={modalOptions.message}
-        confirmText={modalOptions.confirmText}
-        cancelText={modalOptions.cancelText}
-        variant={modalOptions.variant}
-        icon={modalOptions.icon}
-        isLoading={isLoading}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
+      {visible && (
+        <ConfirmationModal
+          visible={visible}
+          title={modalOptions.title}
+          message={modalOptions.message}
+          confirmText={modalOptions.confirmText}
+          cancelText={modalOptions.cancelText}
+          variant={modalOptions.variant}
+          icon={modalOptions.icon}
+          isLoading={isLoading}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
     </ConfirmationContext.Provider>
   );
 };

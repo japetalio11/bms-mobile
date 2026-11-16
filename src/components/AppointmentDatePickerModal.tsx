@@ -74,13 +74,11 @@ export function AppointmentDatePickerModal({
   const [tempDate, setTempDate] = useState<Date>(() => startOfDay(selectedDate));
 
   useEffect(() => {
-    if (visible) {
-      const normalized = startOfDay(selectedDate);
-      setTempDate(normalized);
-      setCurrentYear(normalized.getFullYear());
-      setCurrentMonth(normalized.getMonth());
-    }
-  }, [visible, selectedDate]);
+    const normalized = startOfDay(selectedDate);
+    setTempDate(normalized);
+    setCurrentYear(normalized.getFullYear());
+    setCurrentMonth(normalized.getMonth());
+  }, [selectedDate]);
 
   const daysInMonth = useMemo(() => {
     return new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -142,16 +140,33 @@ export function AppointmentDatePickerModal({
     onClose();
   };
 
-  const emptyCells = Array.from({ length: firstDayWeekday });
-  const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const today = startOfDay(new Date());
+  const emptyCells = useMemo(() => Array.from({ length: firstDayWeekday }), [firstDayWeekday]);
 
-  const tomorrowDate = new Date(today.getTime() + 86400000);
-  const nextWeekDate = new Date(today.getTime() + 86400000 * 7);
+  const calendarDays = useMemo(() => {
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const cellDate = new Date(currentYear, currentMonth, dayNum);
+      const normalizedCell = startOfDay(cellDate);
+      const isPast = normalizedCell < normalizedMinDate;
+      const isClosed = checkClosed(normalizedCell);
+      return {
+        dayNum,
+        cellDate,
+        isPast,
+        isClosed,
+      };
+    });
+  }, [currentYear, currentMonth, daysInMonth, normalizedMinDate, checkClosed]);
+
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const tomorrowDate = useMemo(() => new Date(today.getTime() + 86400000), [today]);
+  const nextWeekDate = useMemo(() => new Date(today.getTime() + 86400000 * 7), [today]);
 
   const isTodayClosed = checkClosed(today);
   const isTomorrowClosed = checkClosed(tomorrowDate);
   const isNextWeekClosed = checkClosed(nextWeekDate);
+
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -200,7 +215,7 @@ export function AppointmentDatePickerModal({
                     : "font-semibold text-muted-foreground"
                 }`}
               >
-                Today{isTodayClosed ? " (Closed)" : ""}
+                Today
               </Text>
             </Pressable>
 
@@ -224,7 +239,7 @@ export function AppointmentDatePickerModal({
                     : "font-semibold text-muted-foreground"
                 }`}
               >
-                Tomorrow{isTomorrowClosed ? " (Closed)" : ""}
+                Tomorrow
               </Text>
             </Pressable>
 
@@ -288,13 +303,9 @@ export function AppointmentDatePickerModal({
             {emptyCells.map((_, i) => (
               <View key={`empty-${i}`} className="h-10 w-[14.28%]" />
             ))}
-            {dayNumbers.map((dayNum) => {
-              const cellDate = new Date(currentYear, currentMonth, dayNum);
-              const normalizedCell = startOfDay(cellDate);
-              const isPast = normalizedCell < normalizedMinDate;
+            {calendarDays.map(({ dayNum, cellDate, isPast, isClosed }) => {
               const isSelected = isSameDay(cellDate, tempDate);
               const isTodayCell = isSameDay(cellDate, today);
-              const isClosed = checkClosed(normalizedCell);
 
               return (
                 <View key={`day-${dayNum}`} className="h-10 w-[14.28%] items-center justify-center">

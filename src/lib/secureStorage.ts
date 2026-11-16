@@ -5,6 +5,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const TOKEN_KEY = "bms_secure_auth_token";
 const CIPHER_KEY = "bms_local_cipher_key";
 
+let cachedMasterKey: string | null = null;
+
+export function clearMasterCipherKeyMemoryCache(): void {
+  cachedMasterKey = null;
+}
+
 export async function getSecureToken(): Promise<string | null> {
   try {
     if (Platform.OS === "web") {
@@ -36,6 +42,7 @@ export async function setSecureToken(token: string): Promise<void> {
 }
 
 export async function deleteSecureToken(): Promise<void> {
+  clearMasterCipherKeyMemoryCache();
   try {
     if (Platform.OS === "web") {
       await AsyncStorage.removeItem(TOKEN_KEY);
@@ -49,6 +56,10 @@ export async function deleteSecureToken(): Promise<void> {
 }
 
 export async function getOrCreateMasterCipherKey(): Promise<string> {
+  if (cachedMasterKey) {
+    return cachedMasterKey;
+  }
+
   try {
     let key: string | null = null;
     if (Platform.OS === "web") {
@@ -57,6 +68,7 @@ export async function getOrCreateMasterCipherKey(): Promise<string> {
         key = generateHexKey(32);
         await AsyncStorage.setItem(CIPHER_KEY, key);
       }
+      cachedMasterKey = key;
       return key;
     }
 
@@ -67,6 +79,7 @@ export async function getOrCreateMasterCipherKey(): Promise<string> {
         keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
       });
     }
+    cachedMasterKey = key;
     return key;
   } catch (err) {
     console.warn("[SecureStorage] Failed to access master cipher key, fallback:", err);
@@ -75,6 +88,7 @@ export async function getOrCreateMasterCipherKey(): Promise<string> {
       key = generateHexKey(32);
       await AsyncStorage.setItem(CIPHER_KEY, key);
     }
+    cachedMasterKey = key;
     return key;
   }
 }

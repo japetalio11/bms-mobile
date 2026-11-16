@@ -92,6 +92,8 @@ export function MotherQRCodeModal({ visible, onClose, user, motherRecord }: Moth
     }
   };
 
+  if (!visible) return null;
+
   return (
     <BottomSheet isOpen={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
       <BottomSheet.Portal>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -327,7 +327,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     loadStoredAuth();
   }, [fetchProfile, refreshNotifications, logout]);
 
-  const login = async (userData: AuthUser, authToken: string) => {
+  const login = useCallback(async (userData: AuthUser, authToken: string) => {
     const formatted = formatUser(userData);
     setUser(formatted);
     setToken(authToken);
@@ -341,29 +341,45 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Failed to store user session:", err);
     }
-  };
+  }, [fetchProfile, refreshNotifications]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (token) {
       await fetchProfile(token, user.user_id);
     }
-  };
+  }, [token, fetchProfile, user.user_id]);
 
-  const value: UserContextType = {
-    user,
-    token,
-    motherRecord,
-    activePregnancy,
-    isAuthenticated: !!token,
-    isLoadingStorage,
-    isOnline,
-    unreadCount,
-    login,
-    logout,
-    refreshProfile,
-    refreshNotifications,
-    markAllNotificationsRead,
-  };
+  const value: UserContextType = useMemo(
+    () => ({
+      user,
+      token,
+      motherRecord,
+      activePregnancy,
+      isAuthenticated: !!token,
+      isLoadingStorage,
+      isOnline,
+      unreadCount,
+      login,
+      logout,
+      refreshProfile,
+      refreshNotifications,
+      markAllNotificationsRead,
+    }),
+    [
+      user,
+      token,
+      motherRecord,
+      activePregnancy,
+      isLoadingStorage,
+      isOnline,
+      unreadCount,
+      login,
+      logout,
+      refreshProfile,
+      refreshNotifications,
+      markAllNotificationsRead,
+    ]
+  );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

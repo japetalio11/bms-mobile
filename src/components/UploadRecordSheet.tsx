@@ -102,31 +102,42 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
 
     setIsLoading(true);
     try {
-      let savedOffline = !isOnline || !token;
       if (isOnline && token) {
         try {
+          const fileToUpload = formatFormDataFile(
+            selectedFile.uri,
+            selectedFile.name || "ehr-document",
+            selectedFile.mimeType || "application/octet-stream"
+          );
           const formData = new FormData();
-          formData.append("file", formatFormDataFile(selectedFile.uri, selectedFile.name, selectedFile.mimeType) as any);
-          const uploaded = await uploadLabFileApi(formData, token);
-          const fileUrl = uploaded.file_url || uploaded.fileUrl;
-          const record = await createLabScreeningApi({ ...payload, file_url: fileUrl }, token);
-          if (record) await saveLabScreeningsLocal([record], true, motherId, false);
-        } catch (error) {
-          console.warn("Record upload queued locally:", error);
-          savedOffline = true;
+          formData.append("file", fileToUpload as any);
+          const uploadRes = await uploadLabFileApi(formData, token);
+          const finalUrl = uploadRes.file_url || uploadRes.fileUrl || "";
+          const created = await createLabScreeningApi({ ...payload, file_url: finalUrl }, token);
+          if (created) await saveLabScreeningsLocal([created], true, motherId);
+        } catch (apiErr: any) {
+          const msg = apiErr?.message || "";
+          const isNetworkError =
+            msg.includes("Network request failed") ||
+            msg.includes("Failed to fetch") ||
+            msg.includes("NetworkError") ||
+            msg.includes("timeout");
+          if (isNetworkError) {
+            await createLabScreeningLocal(payload, selectedFile.uri, selectedFile.size || null, false, motherId);
+          } else {
+            throw apiErr;
+          }
         }
+      } else {
+        await createLabScreeningLocal(payload, selectedFile.uri, selectedFile.size || null, false, motherId);
       }
-      if (savedOffline) {
-        await createLabScreeningLocal(payload, selectedFile.uri, selectedFile.size ?? null, false, motherId);
-      }
-
-      void refreshProfile?.().catch(() => {});
       toast.show({
-        label: savedOffline ? "Record saved on this device" : "EHR record uploaded",
-        description: savedOffline ? "It will sync when you are online." : "The record is now part of your EHR.",
+        label: isOnline ? "Record uploaded successfully" : "Record saved offline",
+        description: isOnline ? "Your file is securely attached to your profile." : "Saved locally on this device. Will sync once connected.",
         variant: "success",
       });
       resetSheet(true);
+      void refreshProfile();
     } catch (error) {
       toast.show({ label: "Upload could not be saved", description: error instanceof Error ? error.message : "Please try again.", variant: "danger" });
     } finally {
@@ -135,6 +146,8 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
   };
 
   const fileIsImage = selectedFile?.mimeType?.startsWith("image/");
+
+  if (!visible) return null;
 
   return (
     <BottomSheet isOpen={visible} onOpenChange={(open) => { if (!open) resetSheet(); }}>

@@ -16,7 +16,6 @@ import {
   checkStaffAvailability,
   formatDateKey,
   getFacilityClosedReason,
-  getWeekdayName,
   isFacilityDateClosed,
   loadFacilityClosedDates,
   loadStaffSchedule,
@@ -122,20 +121,24 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
   const hasFacility = Boolean(facilityId);
 
   useEffect(() => {
-    if (visible && facilityId) {
-      loadFacilityClosedDates(facilityId, token).then(() => {
-        setSelectedDate((current) => {
-          if (isFacilityDateClosed(current, facilityId)) {
-            return getInitialAvailableDate(facilityId);
-          }
-          return current;
+    const timer = setTimeout(() => {
+      if (facilityId) {
+        loadFacilityClosedDates(facilityId, token).then(() => {
+          setSelectedDate((current) => {
+            if (isFacilityDateClosed(current, facilityId)) {
+              return getInitialAvailableDate(facilityId);
+            }
+            return current;
+          });
         });
-      });
-    }
-    if (visible && assignedStaff?.user_id) {
-      loadStaffSchedule(assignedStaff.user_id, token).then(setStaffSchedule);
-    }
-  }, [visible, facilityId, assignedStaff?.user_id, token]);
+      }
+      if (assignedStaff?.user_id) {
+        loadStaffSchedule(assignedStaff.user_id, token).then(setStaffSchedule);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [facilityId, assignedStaff?.user_id, token]);
 
   const close = () => {
     setError(null);
@@ -147,7 +150,6 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
   const isSelectedDateClosed = isFacilityDateClosed(selectedDate, facilityId);
   const staffAvailability = checkStaffAvailability(selectedDate, assignedStaff, staffSchedule);
   const selectedDateKey = formatDateKey(selectedDate);
-  const selectedWeekday = getWeekdayName(selectedDate);
 
   const executeBooking = async () => {
     const payload = {
@@ -239,6 +241,8 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
 
     await executeBooking();
   };
+
+  if (!visible) return null;
 
   return (
     <>
@@ -352,39 +356,43 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
         </BottomSheet.Portal>
       </BottomSheet>
 
-      <AppointmentDatePickerModal
-        visible={isDatePickerOpen}
-        selectedDate={selectedDate}
-        facilityId={facilityId}
-        onSelectDate={(date) => {
-          setSelectedDate(date);
-          setError(null);
-          setStaffWarningAcknowledgedForDate(null);
-          if (assignedStaff?.user_id) {
-            const check = checkStaffAvailability(date, assignedStaff, staffSchedule);
-            if (!check.isAvailable) {
-              setShowStaffWarningModal(true);
+      {isDatePickerOpen && (
+        <AppointmentDatePickerModal
+          visible={isDatePickerOpen}
+          selectedDate={selectedDate}
+          facilityId={facilityId}
+          onSelectDate={(date) => {
+            setSelectedDate(date);
+            setError(null);
+            setStaffWarningAcknowledgedForDate(null);
+            if (assignedStaff?.user_id) {
+              const check = checkStaffAvailability(date, assignedStaff, staffSchedule);
+              if (!check.isAvailable) {
+                setShowStaffWarningModal(true);
+              }
             }
-          }
-        }}
-        onClose={() => setIsDatePickerOpen(false)}
-      />
+          }}
+          onClose={() => setIsDatePickerOpen(false)}
+        />
+      )}
 
-      <StaffUnavailableWarningModal
-        visible={showStaffWarningModal}
-        staffName={assignedStaffName}
-        selectedDate={selectedDate}
-        onProceed={async () => {
-          setShowStaffWarningModal(false);
-          setStaffWarningAcknowledgedForDate(selectedDateKey);
-          await executeBooking();
-        }}
-        onChangeDate={() => {
-          setShowStaffWarningModal(false);
-          setIsDatePickerOpen(true);
-        }}
-        onClose={() => setShowStaffWarningModal(false)}
-      />
+      {showStaffWarningModal && (
+        <StaffUnavailableWarningModal
+          visible={showStaffWarningModal}
+          staffName={assignedStaffName}
+          selectedDate={selectedDate}
+          onProceed={async () => {
+            setShowStaffWarningModal(false);
+            setStaffWarningAcknowledgedForDate(selectedDateKey);
+            await executeBooking();
+          }}
+          onChangeDate={() => {
+            setShowStaffWarningModal(false);
+            setIsDatePickerOpen(true);
+          }}
+          onClose={() => setShowStaffWarningModal(false)}
+        />
+      )}
     </>
   );
 }

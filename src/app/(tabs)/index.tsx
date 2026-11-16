@@ -50,13 +50,7 @@ export default function DashboardScreen(): JSX.Element {
   const weekScrollerRef = useRef<ScrollViewInstance | null>(null);
   const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
 
-  const calculateGestationalWeeks = (): {
-    weeks: number;
-    progress: number;
-    remainingWeeks: number;
-    trimesterText: string;
-    hasPregnancy: boolean;
-  } => {
+  const gestationalData = useMemo(() => {
     if (!activePregnancy || !activePregnancy.lmp_date) {
       return {
         weeks: 0,
@@ -91,9 +85,7 @@ export default function DashboardScreen(): JSX.Element {
     }
 
     return { weeks, progress, remainingWeeks, trimesterText, hasPregnancy: true };
-  };
-
-  const gestationalData = calculateGestationalWeeks();
+  }, [activePregnancy]);
   const timelineWeek = selectedTimelineWeek ?? Math.min(40, Math.max(1, gestationalData.weeks || 1));
   const activeDetailMilestone = getWeekMilestone(timelineWeek);
 
@@ -125,8 +117,6 @@ export default function DashboardScreen(): JSX.Element {
       }
     }
   }, [user, token, isOnline]);
-
-  useFocusEffect(useCallback(() => { void loadAppointments(); }, [loadAppointments]));
 
   const loadPrescriptions = useCallback(async () => {
     if (!motherRecord?.mother_id) {
@@ -160,7 +150,20 @@ export default function DashboardScreen(): JSX.Element {
     }
   }, [motherRecord, isOnline, token]);
 
-  useFocusEffect(useCallback(() => { void loadPrescriptions(); }, [loadPrescriptions]));
+  const loadDoseLog = useCallback(async () => {
+    const date = localDoseDate();
+    setDoseLogDate(date);
+    if (!user?.user_id) {
+      setTodayDoseIds([]);
+      return;
+    }
+    try {
+      setTodayDoseIds(await getLoggedDoseIds(user.user_id, date));
+    } catch (error) {
+      console.warn("Could not read today's dose log:", error);
+      setTodayDoseIds([]);
+    }
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = subscribeSyncEvents((event) => {
@@ -177,22 +180,21 @@ export default function DashboardScreen(): JSX.Element {
     return () => unsubscribe();
   }, [loadAppointments, loadPrescriptions]);
 
-  const loadDoseLog = useCallback(async () => {
-    const date = localDoseDate();
-    setDoseLogDate(date);
-    if (!user?.user_id) {
-      setTodayDoseIds([]);
-      return;
-    }
-    try {
-      setTodayDoseIds(await getLoggedDoseIds(user.user_id, date));
-    } catch (error) {
-      console.warn("Could not read today's dose log:", error);
-      setTodayDoseIds([]);
-    }
-  }, [user]);
-
-  useFocusEffect(useCallback(() => { void loadDoseLog(); }, [loadDoseLog]));
+  useFocusEffect(
+    useCallback(() => {
+      let isCurrent = true;
+      const timer = setTimeout(() => {
+        if (!isCurrent) return;
+        void loadAppointments();
+        void loadPrescriptions();
+        void loadDoseLog();
+      }, 50);
+      return () => {
+        isCurrent = false;
+        clearTimeout(timer);
+      };
+    }, [loadAppointments, loadPrescriptions, loadDoseLog])
+  );
 
   const prescriptionProgress = useMemo(() => {
     const ordered = prescriptions.filter((item) => !item.is_completed);
@@ -519,85 +521,93 @@ export default function DashboardScreen(): JSX.Element {
         </LinearGradient>
       </ScrollView>
 
-      <BottomSheet isOpen={isTimelineModalOpen} onOpenChange={open => { if (!open) setIsTimelineModalOpen(false); }}>
-        <BottomSheet.Portal>
-          <BottomSheet.Overlay className="bg-black/60" />
-          <BottomSheet.Content snapPoints={["66%"]} enableDynamicSizing={false} enableOverDrag={false} contentContainerClassName="h-full" backgroundClassName="rounded-t-[24px] bg-background" handleIndicatorClassName="bg-muted">
-            <View className="flex-1 px-5 pb-5 pt-1">
-              <BottomSheetHeader title="Track pregnancy" description="Follow your pregnancy week by week." onClose={() => setIsTimelineModalOpen(false)} closeLabel="Close pregnancy timeline" />
-              <BottomSheetScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 36 }}>
-              <View className="mb-4 rounded-2xl bg-surface p-4">
-                <View className="flex-row items-start justify-between gap-3">
-                  <View>
-                    <Text className="text-sm font-medium text-muted-foreground">Pregnancy timeline</Text>
-                    <Text className="mt-1 text-2xl font-semibold text-foreground">Week {timelineWeek}</Text>
-                    <Text className="mt-1 text-sm text-muted-foreground">Trimester {activeDetailMilestone.trimester} · {Math.max(0, 40 - timelineWeek)} weeks remaining</Text>
+      {isTimelineModalOpen && (
+        <BottomSheet isOpen={isTimelineModalOpen} onOpenChange={open => { if (!open) setIsTimelineModalOpen(false); }}>
+          <BottomSheet.Portal>
+            <BottomSheet.Overlay className="bg-black/60" />
+            <BottomSheet.Content snapPoints={["66%"]} enableDynamicSizing={false} enableOverDrag={false} contentContainerClassName="h-full" backgroundClassName="rounded-t-[24px] bg-background" handleIndicatorClassName="bg-muted">
+              <View className="flex-1 px-5 pb-5 pt-1">
+                <BottomSheetHeader title="Track pregnancy" description="Follow your pregnancy week by week." onClose={() => setIsTimelineModalOpen(false)} closeLabel="Close pregnancy timeline" />
+                <BottomSheetScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 36 }}>
+                <View className="mb-4 rounded-2xl bg-surface p-4">
+                  <View className="flex-row items-start justify-between gap-3">
+                    <View>
+                      <Text className="text-sm font-medium text-muted-foreground">Pregnancy timeline</Text>
+                      <Text className="mt-1 text-2xl font-semibold text-foreground">Week {timelineWeek}</Text>
+                      <Text className="mt-1 text-sm text-muted-foreground">Trimester {activeDetailMilestone.trimester} · {Math.max(0, 40 - timelineWeek)} weeks remaining</Text>
+                    </View>
+                    {timelineWeek !== gestationalData.weeks && (
+                      <Pressable onPress={() => jumpToCurrentWeek(true)} accessibilityRole="button" className="min-h-10 justify-center rounded-md bg-[#fffe8c] px-3">
+                        <Text className="text-sm font-medium text-[#171717]">Today</Text>
+                      </Pressable>
+                    )}
                   </View>
-                  {timelineWeek !== gestationalData.weeks && (
-                    <Pressable onPress={() => jumpToCurrentWeek(true)} accessibilityRole="button" className="min-h-10 justify-center rounded-md bg-[#fffe8c] px-3">
-                      <Text className="text-sm font-medium text-[#171717]">Today</Text>
-                    </Pressable>
+                  <View accessibilityLabel={`Pregnancy progress: week ${timelineWeek} of 40`} className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                    <View className="h-full rounded-full bg-[#e5dc42]" style={{ width: `${Math.min(100, (timelineWeek / 40) * 100)}%` }} />
+                  </View>
+                  <View className="mt-2 flex-row justify-between">
+                    <Text className="text-sm text-muted-foreground">Week {timelineWeek}</Text>
+                    <Text className="text-sm text-muted-foreground">40 weeks</Text>
+                  </View>
+                </View>
+                <Text className="mb-2 text-sm font-medium text-muted-foreground">Explore a week</Text>
+                <NativeViewGestureHandler disallowInterruption>
+                  <ScrollView ref={weekScrollerRef} horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} className="mb-5 grow-0" contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+                    {PREGNANCY_WEEKS.map(item => {
+                      const selected = item.week === timelineWeek;
+                      return <Pressable key={item.week} onPress={() => { triggerSelectionHaptic(); setSelectedTimelineWeek(item.week); }} accessibilityRole="button" accessibilityLabel={`Week ${item.week}`} accessibilityState={{ selected }} className={`min-h-11 min-w-11 items-center justify-center rounded-xl px-3 ${selected ? "bg-[#fffe8c]" : "bg-surface active:opacity-70"}`}>
+                        <Text className={`text-sm font-semibold ${selected ? "text-[#171717]" : "text-muted-foreground"}`}>{item.week}</Text>
+                      </Pressable>;
+                    })}
+                  </ScrollView>
+                </NativeViewGestureHandler>
+                <View className="gap-4">
+                  <View className="rounded-2xl bg-surface p-4">
+                    <Text className="text-sm font-medium text-muted-foreground">Baby’s development</Text>
+                    <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.sizeComparison}</Text>
+                    <Text className="mt-2 text-sm leading-5 text-muted-foreground">{activeDetailMilestone.babyDevelopment}</Text>
+                    <View className="mt-4 flex-row gap-3">
+                      <View className="flex-1 rounded-xl bg-background px-3 py-2.5">
+                        <Text className="text-sm text-muted-foreground">Length</Text>
+                        <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.approxLength}</Text>
+                      </View>
+                      <View className="flex-1 rounded-xl bg-background px-3 py-2.5">
+                        <Text className="text-sm text-muted-foreground">Weight</Text>
+                        <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.approxWeight}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View className="px-1">
+                    <Text className="text-base font-semibold text-foreground">For you</Text>
+                    <Text className="mt-1 text-sm leading-5 text-muted-foreground">{activeDetailMilestone.momExperience}</Text>
+                  </View>
+                  {activeDetailMilestone.clinicalMilestone && (
+                    <View className="rounded-2xl bg-[#fffedc] p-4">
+                      <Text className="text-sm font-semibold text-foreground">Care milestone</Text>
+                      <Text className="mt-1 text-sm leading-5 text-foreground/80">{activeDetailMilestone.clinicalMilestone}</Text>
+                    </View>
                   )}
                 </View>
-                <View accessibilityLabel={`Pregnancy progress: week ${timelineWeek} of 40`} className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-                  <View className="h-full rounded-full bg-[#e5dc42]" style={{ width: `${Math.min(100, (timelineWeek / 40) * 100)}%` }} />
-                </View>
-                <View className="mt-2 flex-row justify-between">
-                  <Text className="text-sm text-muted-foreground">Week {timelineWeek}</Text>
-                  <Text className="text-sm text-muted-foreground">40 weeks</Text>
-                </View>
+                </BottomSheetScrollView>
               </View>
-              <Text className="mb-2 text-sm font-medium text-muted-foreground">Explore a week</Text>
-              <NativeViewGestureHandler disallowInterruption>
-                <ScrollView ref={weekScrollerRef} horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} className="mb-5 grow-0" contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
-                  {PREGNANCY_WEEKS.map(item => {
-                    const selected = item.week === timelineWeek;
-                    return <Pressable key={item.week} onPress={() => { triggerSelectionHaptic(); setSelectedTimelineWeek(item.week); }} accessibilityRole="button" accessibilityLabel={`Week ${item.week}`} accessibilityState={{ selected }} className={`min-h-11 min-w-11 items-center justify-center rounded-xl px-3 ${selected ? "bg-[#fffe8c]" : "bg-surface active:opacity-70"}`}>
-                      <Text className={`text-sm font-semibold ${selected ? "text-[#171717]" : "text-muted-foreground"}`}>{item.week}</Text>
-                    </Pressable>;
-                  })}
-                </ScrollView>
-              </NativeViewGestureHandler>
-              <View className="gap-4">
-                <View className="rounded-2xl bg-surface p-4">
-                  <Text className="text-sm font-medium text-muted-foreground">Baby’s development</Text>
-                  <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.sizeComparison}</Text>
-                  <Text className="mt-2 text-sm leading-5 text-muted-foreground">{activeDetailMilestone.babyDevelopment}</Text>
-                  <View className="mt-4 flex-row gap-3">
-                    <View className="flex-1 rounded-xl bg-background px-3 py-2.5">
-                      <Text className="text-sm text-muted-foreground">Length</Text>
-                      <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.approxLength}</Text>
-                    </View>
-                    <View className="flex-1 rounded-xl bg-background px-3 py-2.5">
-                      <Text className="text-sm text-muted-foreground">Weight</Text>
-                      <Text className="mt-1 text-base font-semibold text-foreground">{activeDetailMilestone.approxWeight}</Text>
-                    </View>
-                  </View>
-                </View>
-                <View className="px-1">
-                  <Text className="text-base font-semibold text-foreground">For you</Text>
-                  <Text className="mt-1 text-sm leading-5 text-muted-foreground">{activeDetailMilestone.momExperience}</Text>
-                </View>
-                {activeDetailMilestone.clinicalMilestone && (
-                  <View className="rounded-2xl bg-[#fffedc] p-4">
-                    <Text className="text-sm font-semibold text-foreground">Care milestone</Text>
-                    <Text className="mt-1 text-sm leading-5 text-foreground/80">{activeDetailMilestone.clinicalMilestone}</Text>
-                  </View>
-                )}
-              </View>
-              </BottomSheetScrollView>
-            </View>
-          </BottomSheet.Content>
-        </BottomSheet.Portal>
-      </BottomSheet>
-      <MotherQRCodeModal
-        visible={qrModalOpen}
-        onClose={() => setQrModalOpen(false)}
-        user={user}
-        motherRecord={motherRecord}
-      />
-      <UploadRecordSheet visible={uploadSheetOpen} onClose={() => setUploadSheetOpen(false)} />
-      <AppointmentBookingSheet visible={appointmentSheetOpen} onClose={() => setAppointmentSheetOpen(false)} onCreated={loadAppointments} />
+            </BottomSheet.Content>
+          </BottomSheet.Portal>
+        </BottomSheet>
+      )}
+      {qrModalOpen && (
+        <MotherQRCodeModal
+          visible={qrModalOpen}
+          onClose={() => setQrModalOpen(false)}
+          user={user}
+          motherRecord={motherRecord}
+        />
+      )}
+      {uploadSheetOpen && (
+        <UploadRecordSheet visible={uploadSheetOpen} onClose={() => setUploadSheetOpen(false)} />
+      )}
+      {appointmentSheetOpen && (
+        <AppointmentBookingSheet visible={appointmentSheetOpen} onClose={() => setAppointmentSheetOpen(false)} onCreated={loadAppointments} />
+      )}
     </View>
   );
 }

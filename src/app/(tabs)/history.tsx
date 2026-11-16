@@ -283,13 +283,15 @@ export default function HistoryScreen(): JSX.Element {
           <Text className="text-base font-semibold text-[#171717]">Set Appointment</Text>
         </Pressable>
       )}
-      <AppointmentBookingSheet
-        visible={appointmentSheetOpen}
-        onClose={() => setAppointmentSheetOpen(false)}
-        onCreated={async () => {
-          if (user?.user_id) setAppointments(await getAppointmentsLocal(user.user_id));
-        }}
-      />
+      {appointmentSheetOpen && (
+        <AppointmentBookingSheet
+          visible={appointmentSheetOpen}
+          onClose={() => setAppointmentSheetOpen(false)}
+          onCreated={async () => {
+            if (user?.user_id) setAppointments(await getAppointmentsLocal(user.user_id));
+          }}
+        />
+      )}
     </View>
   );
 }

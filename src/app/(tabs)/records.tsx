@@ -10,7 +10,7 @@ import {
   TextInput,
   Platform,
 } from "react-native";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import type { JSX } from "react";
 import { BottomSheet, Card, Text, useToast } from "heroui-native";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
@@ -345,7 +345,9 @@ export default function RecordsScreen(): JSX.Element {
 
           setLabScreenings(merged);
           const remoteUrls = merged.map((l) => l.file_url).filter(Boolean);
-          prefetchMediaFiles(remoteUrls);
+          setTimeout(() => {
+            prefetchMediaFiles(remoteUrls);
+          }, 150);
           if (Array.isArray(labs) && labs.length > 0) {
             await saveLabScreeningsLocal(labs, true, motherRecord.mother_id, true);
           }
@@ -372,7 +374,15 @@ export default function RecordsScreen(): JSX.Element {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      let isCurrent = true;
+      const timer = setTimeout(() => {
+        if (!isCurrent) return;
+        void loadData();
+      }, 50);
+      return () => {
+        isCurrent = false;
+        clearTimeout(timer);
+      };
     }, [loadData])
   );
 
@@ -390,18 +400,25 @@ export default function RecordsScreen(): JSX.Element {
     return () => unsubscribe();
   }, [loadData]);
 
-  const filteredLabs = labScreenings.filter((lab) => {
-    const q = searchQuery.toLowerCase();
-    return !searchQuery.trim() || (
-      (lab.screening_type || "").toLowerCase().includes(q) ||
-      (lab.result || "").toLowerCase().includes(q) ||
-      (lab.remarks || "").toLowerCase().includes(q)
-    );
-  });
+  const filteredLabs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return labScreenings;
+    return labScreenings.filter((lab) => {
+      return (
+        (lab.screening_type || "").toLowerCase().includes(q) ||
+        (lab.result || "").toLowerCase().includes(q) ||
+        (lab.remarks || "").toLowerCase().includes(q)
+      );
+    });
+  }, [labScreenings, searchQuery]);
 
-  const filteredSupplements = supplements.filter((supp) => {
-    return !searchQuery.trim() || (supp.supplement_type || "").toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  const filteredSupplements = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return supplements;
+    return supplements.filter((supp) => {
+      return (supp.supplement_type || "").toLowerCase().includes(q);
+    });
+  }, [supplements, searchQuery]);
 
   const folderSurface = "#262626";
   const folderRail = "#1b1b1b";
@@ -614,222 +631,230 @@ export default function RecordsScreen(): JSX.Element {
         <Text className="text-base font-semibold text-[#171717]">Upload</Text>
       </Pressable>
 
-      <UploadRecordSheet visible={uploadSheetOpen} onClose={() => { setUploadSheetOpen(false); void loadData(); }} />
+      {uploadSheetOpen && (
+        <UploadRecordSheet visible={uploadSheetOpen} onClose={() => { setUploadSheetOpen(false); void loadData(); }} />
+      )}
 
-      <BottomSheet isOpen={!!recordMenu} onOpenChange={(open) => { if (!open) setRecordMenu(null); }}>
-        <BottomSheet.Portal>
-          <BottomSheet.Overlay className="bg-black/60" />
-          <BottomSheet.Content
-            snapPoints={insets.bottom > 0 ? ["38%"] : ["28%"]}
-            enableDynamicSizing={false}
-            enableOverDrag={false}
-            backgroundClassName="rounded-t-[24px] bg-background"
-            handleIndicatorClassName="bg-muted"
-          >
-            <View className="px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-              <BottomSheetHeader title="Record options" description={recordMenu?.record.screening_type || "EHR record"} onClose={() => setRecordMenu(null)} />
-              {recordMenu?.url ? (
-                <>
-                  <Pressable
-                    onPress={() => {
-                      const url = recordMenu.url;
-                      const lab = recordMenu.record;
-                      setRecordMenu(null);
-                      if (url) {
-                        void handleOpenAttachment(url, lab);
-                      }
-                    }}
-                    className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
-                  >
-                    <Ionicons name="eye-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
-                    <Text className="text-sm font-medium text-foreground">View document</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      const url = recordMenu.url;
-                      setRecordMenu(null);
-                      if (url) {
-                        void Linking.openURL(url).catch(() => {});
-                      }
-                    }}
-                    className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
-                  >
-                    <Ionicons name="download-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
-                    <Text className="text-sm font-medium text-foreground">Download file</Text>
-                  </Pressable>
-                </>
-              ) : null}
-              <Pressable
-                onPress={() => {
-                  const record = recordMenu?.record;
-                  setRecordMenu(null);
-                  if (record) confirmDeleteRecord(record);
-                }}
-                className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
-              >
-                <Ionicons name="trash-outline" size={19} weight="regular" color="#dc2626" />
-                <Text className="text-sm font-medium text-red-600">Delete record</Text>
-              </Pressable>
-            </View>
-          </BottomSheet.Content>
-        </BottomSheet.Portal>
-      </BottomSheet>
-
-      <Modal
-        visible={!!selectedImageModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => {
-          closeRecordPreview();
-        }}
-      >
-        <View className="flex-1 bg-[#111111]" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-          <View className="min-h-[68px] flex-row items-center gap-3 px-4 py-3">
-            <Pressable
-              onPress={closeRecordPreview}
-              accessibilityRole="button"
-              accessibilityLabel="Close record preview"
-              className="size-10 items-center justify-center rounded-full active:bg-white/10"
+      {!!recordMenu && (
+        <BottomSheet isOpen={!!recordMenu} onOpenChange={(open) => { if (!open) setRecordMenu(null); }}>
+          <BottomSheet.Portal>
+            <BottomSheet.Overlay className="bg-black/60" />
+            <BottomSheet.Content
+              snapPoints={insets.bottom > 0 ? ["38%"] : ["28%"]}
+              enableDynamicSizing={false}
+              enableOverDrag={false}
+              backgroundClassName="rounded-t-[24px] bg-background"
+              handleIndicatorClassName="bg-muted"
             >
-              <Ionicons name="close" size={21} weight="regular" color="#f5f5f5" />
-            </Pressable>
-
-            <View className="min-w-0 flex-1">
-              <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
-                {selectedRecord?.screening_type || "Health record"}
-              </Text>
-              <Text className="mt-0.5 text-sm text-[#a3a3a3]" numberOfLines={1}>
-                {[
-                  selectedRecord?.date_of_screening
-                    ? new Date(selectedRecord.date_of_screening).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : null,
-                  selectedImageModal?.split("/").pop()?.split("?")[0]
-                    ? selectedImageModal.split("/").pop()!.split("?")[0].replace(/%20/g, " ")
-                    : null,
-                ].filter(Boolean).join(" · ") || "Image preview"}
-              </Text>
-            </View>
-
-            {selectedImageModal ? (
-              <Pressable
-                onPress={() => Linking.openURL(selectedImageModal).catch(() => {})}
-                accessibilityRole="button"
-                accessibilityLabel="Download health record"
-                className="size-10 items-center justify-center rounded-full bg-[#252525] active:bg-[#333333]"
-              >
-                <Ionicons name="download-outline" size={19} weight="regular" color="#f5f5f5" />
-              </Pressable>
-            ) : null}
-            {selectedRecord ? (
-              <Pressable
-                onPress={() => confirmDeleteRecord(selectedRecord)}
-                accessibilityRole="button"
-                accessibilityLabel="Delete health record"
-                className="size-10 items-center justify-center rounded-full active:bg-red-500/15"
-              >
-                <Ionicons name="trash-outline" size={19} weight="regular" color="#f87171" />
-              </Pressable>
-            ) : null}
-          </View>
-
-          <View className="mx-3 min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-[#181818]">
-            {selectedImageModal && (
-              <Image
-                source={{ uri: selectedImageModal }}
-                style={{ width: "100%", height: "100%", transform: [{ scale: previewScale }] }}
-                className="w-full h-full"
-                resizeMode="contain"
-                resizeMethod="scale"
-              />
-            )}
-          </View>
-
-          <View className="flex-row items-center justify-between px-5 py-4">
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="image" size={16} weight="regular" color="#a3a3a3" />
-              <Text className="text-sm text-[#a3a3a3]">Preview</Text>
-            </View>
-            <View className="flex-row items-center gap-1 rounded-full bg-[#252525] p-1">
-              <Pressable
-                onPress={() => setPreviewScale((scale) => Math.max(1, Number((scale - 0.25).toFixed(2))))}
-                accessibilityRole="button"
-                accessibilityLabel="Zoom out"
-                disabled={previewScale <= 1}
-                className="size-8 items-center justify-center rounded-full active:bg-white/10"
-              >
-                <Text className="text-base leading-5 text-white">−</Text>
-              </Pressable>
-              <Text className="min-w-12 text-center text-sm font-medium text-white">
-                {Math.round(previewScale * 100)}%
-              </Text>
-              <Pressable
-                onPress={() => setPreviewScale((scale) => Math.min(2.5, Number((scale + 0.25).toFixed(2))))}
-                accessibilityRole="button"
-                accessibilityLabel="Zoom in"
-                disabled={previewScale >= 2.5}
-                className="size-8 items-center justify-center rounded-full active:bg-white/10"
-              >
-                <Text className="text-base leading-5 text-white">+</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <BottomSheet
-        isOpen={!!recordToDelete}
-        onOpenChange={(open) => {
-          if (!open && !isDeleting) setRecordToDelete(null);
-        }}
-      >
-        <BottomSheet.Portal>
-          <BottomSheet.Overlay className="bg-black/60" />
-          <BottomSheet.Content
-            snapPoints={insets.bottom > 0 ? ["40%"] : ["32%"]}
-            enableDynamicSizing={false}
-            enableOverDrag={false}
-            backgroundClassName="rounded-t-[24px] bg-background"
-            handleIndicatorClassName="bg-muted"
-          >
-            <View className="gap-4 px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-              <BottomSheetHeader
-                title="Delete EHR record?"
-                description={`${recordToDelete?.screening_type || "This document"} will be permanently removed.`}
-                onClose={() => { if (!isDeleting) setRecordToDelete(null); }}
-              />
-
-              {deleteError && (
-                <View className="rounded-xl bg-red-500/10 p-3">
-                  <Text className="text-sm text-red-600">{deleteError}</Text>
-                </View>
-              )}
-
-              <View className="mt-1 flex-row gap-3">
+              <View className="px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
+                <BottomSheetHeader title="Record options" description={recordMenu?.record.screening_type || "EHR record"} onClose={() => setRecordMenu(null)} />
+                {recordMenu?.url ? (
+                  <>
+                    <Pressable
+                      onPress={() => {
+                        const url = recordMenu.url;
+                        const lab = recordMenu.record;
+                        setRecordMenu(null);
+                        if (url) {
+                          void handleOpenAttachment(url, lab);
+                        }
+                      }}
+                      className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
+                    >
+                      <Ionicons name="eye-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
+                      <Text className="text-sm font-medium text-foreground">View document</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        const url = recordMenu.url;
+                        setRecordMenu(null);
+                        if (url) {
+                          void Linking.openURL(url).catch(() => {});
+                        }
+                      }}
+                      className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
+                    >
+                      <Ionicons name="download-outline" size={19} weight="regular" color={isDark ? "#e5e5e5" : "#404040"} />
+                      <Text className="text-sm font-medium text-foreground">Download file</Text>
+                    </Pressable>
+                  </>
+                ) : null}
                 <Pressable
-                  disabled={isDeleting}
-                  onPress={() => setRecordToDelete(null)}
-                  className="min-h-11 flex-1 items-center justify-center rounded-md bg-default active:opacity-75 disabled:opacity-50"
+                  onPress={() => {
+                    const record = recordMenu?.record;
+                    setRecordMenu(null);
+                    if (record) confirmDeleteRecord(record);
+                  }}
+                  className="min-h-11 flex-row items-center gap-3 rounded-xl px-2 active:bg-default"
                 >
-                  <Text className="text-sm font-semibold text-foreground">Cancel</Text>
+                  <Ionicons name="trash-outline" size={19} weight="regular" color="#dc2626" />
+                  <Text className="text-sm font-medium text-red-600">Delete record</Text>
                 </Pressable>
+              </View>
+            </BottomSheet.Content>
+          </BottomSheet.Portal>
+        </BottomSheet>
+      )}
+
+      {!!selectedImageModal && (
+        <Modal
+          visible={!!selectedImageModal}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => {
+            closeRecordPreview();
+          }}
+        >
+          <View className="flex-1 bg-[#111111]" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+            <View className="min-h-[68px] flex-row items-center gap-3 px-4 py-3">
+              <Pressable
+                onPress={closeRecordPreview}
+                accessibilityRole="button"
+                accessibilityLabel="Close record preview"
+                className="size-10 items-center justify-center rounded-full active:bg-white/10"
+              >
+                <Ionicons name="close" size={21} weight="regular" color="#f5f5f5" />
+              </Pressable>
+
+              <View className="min-w-0 flex-1">
+                <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
+                  {selectedRecord?.screening_type || "Health record"}
+                </Text>
+                <Text className="mt-0.5 text-sm text-[#a3a3a3]" numberOfLines={1}>
+                  {[
+                    selectedRecord?.date_of_screening
+                      ? new Date(selectedRecord.date_of_screening).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : null,
+                    selectedImageModal?.split("/").pop()?.split("?")[0]
+                      ? selectedImageModal.split("/").pop()!.split("?")[0].replace(/%20/g, " ")
+                      : null,
+                  ].filter(Boolean).join(" · ") || "Image preview"}
+                </Text>
+              </View>
+
+              {selectedImageModal ? (
                 <Pressable
-                  disabled={isDeleting}
-                  onPress={handleDeleteRecord}
-                  className="min-h-11 flex-1 flex-row items-center justify-center gap-2 rounded-md bg-red-600 active:bg-red-700 disabled:opacity-50"
+                  onPress={() => Linking.openURL(selectedImageModal).catch(() => {})}
+                  accessibilityRole="button"
+                  accessibilityLabel="Download health record"
+                  className="size-10 items-center justify-center rounded-full bg-[#252525] active:bg-[#333333]"
                 >
-                  {isDeleting ? <ActivityIndicator size="small" color="white" /> : <Ionicons name="trash" size={16} color="white" />}
-                  <Text className="text-sm font-semibold text-white">{isDeleting ? "Deleting…" : "Delete record"}</Text>
+                  <Ionicons name="download-outline" size={19} weight="regular" color="#f5f5f5" />
+                </Pressable>
+              ) : null}
+              {selectedRecord ? (
+                <Pressable
+                  onPress={() => confirmDeleteRecord(selectedRecord)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete health record"
+                  className="size-10 items-center justify-center rounded-full active:bg-red-500/15"
+                >
+                  <Ionicons name="trash-outline" size={19} weight="regular" color="#f87171" />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View className="mx-3 min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-[#181818]">
+              {selectedImageModal && (
+                <Image
+                  source={{ uri: selectedImageModal }}
+                  style={{ width: "100%", height: "100%", transform: [{ scale: previewScale }] }}
+                  className="w-full h-full"
+                  resizeMode="contain"
+                  resizeMethod="scale"
+                />
+              )}
+            </View>
+
+            <View className="flex-row items-center justify-between px-5 py-4">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="image" size={16} weight="regular" color="#a3a3a3" />
+                <Text className="text-sm text-[#a3a3a3]">Preview</Text>
+              </View>
+              <View className="flex-row items-center gap-1 rounded-full bg-[#252525] p-1">
+                <Pressable
+                  onPress={() => setPreviewScale((scale) => Math.max(1, Number((scale - 0.25).toFixed(2))))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Zoom out"
+                  disabled={previewScale <= 1}
+                  className="size-8 items-center justify-center rounded-full active:bg-white/10"
+                >
+                  <Text className="text-base leading-5 text-white">−</Text>
+                </Pressable>
+                <Text className="min-w-12 text-center text-sm font-medium text-white">
+                  {Math.round(previewScale * 100)}%
+                </Text>
+                <Pressable
+                  onPress={() => setPreviewScale((scale) => Math.min(2.5, Number((scale + 0.25).toFixed(2))))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Zoom in"
+                  disabled={previewScale >= 2.5}
+                  className="size-8 items-center justify-center rounded-full active:bg-white/10"
+                >
+                  <Text className="text-base leading-5 text-white">+</Text>
                 </Pressable>
               </View>
             </View>
-          </BottomSheet.Content>
-        </BottomSheet.Portal>
-      </BottomSheet>
+          </View>
+        </Modal>
+      )}
+
+      {!!recordToDelete && (
+        <BottomSheet
+          isOpen={!!recordToDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeleting) setRecordToDelete(null);
+          }}
+        >
+          <BottomSheet.Portal>
+            <BottomSheet.Overlay className="bg-black/60" />
+            <BottomSheet.Content
+              snapPoints={insets.bottom > 0 ? ["40%"] : ["32%"]}
+              enableDynamicSizing={false}
+              enableOverDrag={false}
+              backgroundClassName="rounded-t-[24px] bg-background"
+              handleIndicatorClassName="bg-muted"
+            >
+              <View className="gap-4 px-5 pt-1" style={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}>
+                <BottomSheetHeader
+                  title="Delete EHR record?"
+                  description={`${recordToDelete?.screening_type || "This document"} will be permanently removed.`}
+                  onClose={() => { if (!isDeleting) setRecordToDelete(null); }}
+                />
+
+                {deleteError && (
+                  <View className="rounded-xl bg-red-500/10 p-3">
+                    <Text className="text-sm text-red-600">{deleteError}</Text>
+                  </View>
+                )}
+
+                <View className="mt-1 flex-row gap-3">
+                  <Pressable
+                    disabled={isDeleting}
+                    onPress={() => setRecordToDelete(null)}
+                    className="min-h-11 flex-1 items-center justify-center rounded-md bg-default active:opacity-75 disabled:opacity-50"
+                  >
+                    <Text className="text-sm font-semibold text-foreground">Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={isDeleting}
+                    onPress={handleDeleteRecord}
+                    className="min-h-11 flex-1 flex-row items-center justify-center gap-2 rounded-md bg-red-600 active:bg-red-700 disabled:opacity-50"
+                  >
+                    {isDeleting ? <ActivityIndicator size="small" color="white" /> : <Ionicons name="trash" size={16} color="white" />}
+                    <Text className="text-sm font-semibold text-white">{isDeleting ? "Deleting…" : "Delete record"}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </BottomSheet.Content>
+          </BottomSheet.Portal>
+        </BottomSheet>
+      )}
 
       {isOpeningDocument && (
         <View className="absolute inset-0 bg-black/40 items-center justify-center z-50">

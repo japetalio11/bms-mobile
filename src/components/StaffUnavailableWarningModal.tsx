@@ -20,6 +20,8 @@ export function StaffUnavailableWarningModal({
   onChangeDate,
   onClose,
 }: StaffUnavailableWarningModalProps) {
+  if (!visible) return null;
+
   const weekday = getWeekdayName(selectedDate);
   const formattedDate = selectedDate.toLocaleDateString("en-US", {
     month: "short",
@@ -51,7 +53,7 @@ export function StaffUnavailableWarningModal({
           </Text>
 
           <Text className="text-xs text-muted-foreground text-center leading-5 mb-4">
-            Your assigned staff <Text className="font-semibold text-foreground">{staffName}</Text> isn't available this day ({weekday}, {formattedDate}), but you are still allowed to make an appointment. A different staff member will take care of you.
+            Your assigned staff <Text className="font-semibold text-foreground">{staffName}</Text> is not available this day ({weekday}, {formattedDate}), but you are still allowed to make an appointment. A different staff member will take care of you.
           </Text>
 
           <View className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 mb-5">

@@ -3,6 +3,7 @@ import { View, Pressable, Text } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+
 const TAB_ITEM_SIZE = 54;
 
 type TabBarItemProps = {
@@ -41,7 +42,7 @@ function TabBarItem({ isFocused, options, onPress, onLongPress }: TabBarItemProp
   );
 }
 
-export function AnimatedTabBar({ state, descriptors }: any) {
+export function AnimatedTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [barWidth, setBarWidth] = useState(0);
@@ -56,7 +57,7 @@ export function AnimatedTabBar({ state, descriptors }: any) {
   const activeIndex = Math.max(0, visibleRoutes.findIndex((route: any) => route.name === currentTab));
 
   useEffect(() => {
-    activePosition.value = withTiming(activeIndex, { duration: 220 });
+    activePosition.value = withTiming(activeIndex, { duration: 200 });
   }, [activeIndex, activePosition]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -79,7 +80,12 @@ export function AnimatedTabBar({ state, descriptors }: any) {
         borderRadius: 999,
         backgroundColor: "#111111",
       }}
-      onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
+      onLayout={(event) => {
+        const width = event.nativeEvent.layout.width;
+        if (width > 0 && Math.abs(width - barWidth) > 1) {
+          setBarWidth(width);
+        }
+      }}
     >
       <Animated.View
         pointerEvents="none"
@@ -100,12 +106,27 @@ export function AnimatedTabBar({ state, descriptors }: any) {
         const isFocused = route.name === currentTab;
 
         const onPress = () => {
-          if (!isFocused) {
-            router.navigate(route.name === "records" ? "/(tabs)/records" : "/(tabs)");
+          const event = navigation?.emit?.({
+            type: "tabPress",
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event?.defaultPrevented) {
+            if (navigation?.navigate) {
+              navigation.navigate(route.name);
+            } else {
+              router.navigate(route.name === "records" ? "/(tabs)/records" : "/(tabs)");
+            }
           }
         };
 
-        const onLongPress = () => {};
+        const onLongPress = () => {
+          navigation?.emit?.({
+            type: "tabLongPress",
+            target: route.key,
+          });
+        };
 
         return (
           <TabBarItem
