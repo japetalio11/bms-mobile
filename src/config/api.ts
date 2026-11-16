@@ -1048,6 +1048,7 @@ export async function getMotherShareTokenApi(
   return data.data;
 }
 
+
 export async function regenerateMotherShareTokenApi(
   token: string,
   motherId?: string
@@ -1068,3 +1069,54 @@ export async function regenerateMotherShareTokenApi(
 
   return data.data;
 }
+
+export type FacilityScheduleItem = {
+  schedule_id?: string;
+  facility_id: string;
+  available_date: string;
+  available_time_slot?: string | null;
+  is_available: boolean;
+  max_slots?: number;
+  booked_slots?: number;
+};
+
+export async function getFacilityScheduleApi(
+  facilityId: string,
+  token: string
+): Promise<FacilityScheduleItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendar/facility/${facilityId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return [];
+  }
+
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+export async function getStaffScheduleApi(
+  staffId: string,
+  token: string
+): Promise<{ days: string[]; intervals: { start: string; end: string }[] } | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/user/${staffId}/schedule`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const sched = data?.schedule || data?.data || data;
+      const days = Array.isArray(sched?.days) ? sched.days : (Array.isArray(data?.days) ? data.days : null);
+      if (Array.isArray(days)) {
+        return {
+          days,
+          intervals: sched?.intervals || [{ start: sched?.start_time || "08:00", end: sched?.end_time || "17:00" }],
+        };
+      }
+    }
+  } catch {}
+
+  return null;
+}
+

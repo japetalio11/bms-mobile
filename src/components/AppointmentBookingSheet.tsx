@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from "react-native";
 import { BottomSheet, Text, useToast } from "heroui-native";
 import { useRouter } from "expo-router";
@@ -7,10 +7,21 @@ import { AppIcon } from "./AppIcon";
 import { BottomSheetHeader } from "./BottomSheetHeader";
 import { AppSelect } from "./FormControls";
 import { AppointmentDatePickerModal } from "./AppointmentDatePickerModal";
+import { StaffUnavailableWarningModal } from "./StaffUnavailableWarningModal";
 import { useAuth } from "../context/UserContext";
 import { useNetwork } from "../context/NetworkContext";
 import { createAppointmentApi } from "../config/api";
 import { createAppointmentLocal, saveAppointmentsLocal } from "../db/repository";
+import {
+  checkStaffAvailability,
+  formatDateKey,
+  getFacilityClosedReason,
+  getWeekdayName,
+  isFacilityDateClosed,
+  loadFacilityClosedDates,
+  loadStaffSchedule,
+  type StaffSchedule,
+} from "../services/facilityScheduleService";
 
 const VISIT_TYPES = ["Prenatal Visit", "Postnatal Checkup", "Neonatal Screening"];
 
@@ -42,6 +53,19 @@ function isTomorrowDate(date: Date): boolean {
   );
 }
 
+function getInitialAvailableDate(facilityId?: string | null): Date {
+  const candidate = new Date();
+  for (let i = 0; i < 7; i++) {
+    const testDate = new Date();
+    testDate.setDate(testDate.getDate() + i);
+    testDate.setHours(0, 0, 0, 0);
+    if (!isFacilityDateClosed(testDate, facilityId)) {
+      return testDate;
+    }
+  }
+  return candidate;
+}
+
 type AppointmentBookingSheetProps = {
   visible: boolean;
   onClose: () => void;
@@ -52,22 +76,127 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
   const router = useRouter();
   const { theme } = useUniwind();
   const isDark = theme === "dark";
-  const { user, token } = useAuth();
+  const { user, token, motherRecord } = useAuth();
   const { isOnline } = useNetwork();
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+
+  const facilityId = user?.facility_id || user?.facility?.facility_id || null;
+  const rawAssignedWorker = motherRecord?.assignedWorker || null;
+  const rawCreator = motherRecord?.creator || null;
+  const assignedWorkerId =
+    motherRecord?.assigned_worker_id ||
+    rawAssignedWorker?.user_id ||
+    motherRecord?.created_by_id ||
+    rawCreator?.user_id ||
+    null;
+
+  const assignedStaff =
+    rawAssignedWorker ||
+    rawCreator ||
+    (assignedWorkerId
+      ? {
+          user_id: assignedWorkerId,
+          first_name: "Assigned",
+          last_name: "Staff",
+          role: "Staff",
+        }
+      : null);
+
+  const assignedStaffName = rawAssignedWorker
+    ? [rawAssignedWorker.first_name, rawAssignedWorker.last_name].filter(Boolean).join(" ")
+    : rawCreator
+    ? [rawCreator.first_name, rawCreator.last_name].filter(Boolean).join(" ")
+    : "Assigned Healthcare Staff";
+
+  const [selectedDate, setSelectedDate] = useState<Date>(() => getInitialAvailableDate(facilityId));
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [showStaffWarningModal, setShowStaffWarningModal] = useState(false);
+  const [staffWarningAcknowledgedForDate, setStaffWarningAcknowledgedForDate] = useState<string | null>(null);
+  const [staffSchedule, setStaffSchedule] = useState<StaffSchedule | null>(null);
+
   const [type, setType] = useState(VISIT_TYPES[0]);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
+  const hasFacility = Boolean(facilityId);
+
+  useEffect(() => {
+    if (visible && facilityId) {
+      loadFacilityClosedDates(facilityId, token).then(() => {
+        setSelectedDate((current) => {
+          if (isFacilityDateClosed(current, facilityId)) {
+            return getInitialAvailableDate(facilityId);
+          }
+          return current;
+        });
+      });
+    }
+    if (visible && assignedStaff?.user_id) {
+      loadStaffSchedule(assignedStaff.user_id, token).then(setStaffSchedule);
+    }
+  }, [visible, facilityId, assignedStaff?.user_id, token]);
 
   const close = () => {
     setError(null);
     setIsDatePickerOpen(false);
+    setShowStaffWarningModal(false);
     onClose();
+  };
+
+  const isSelectedDateClosed = isFacilityDateClosed(selectedDate, facilityId);
+  const staffAvailability = checkStaffAvailability(selectedDate, assignedStaff, staffSchedule);
+  const selectedDateKey = formatDateKey(selectedDate);
+  const selectedWeekday = getWeekdayName(selectedDate);
+
+  const executeBooking = async () => {
+    const payload = {
+      user_id: user.user_id,
+      facility_id: facilityId || undefined,
+      appointment_date: selectedDateKey,
+      appointment_time: "09:00 AM",
+      appointment_type: type,
+      reason: reason.trim() || undefined,
+    };
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (isOnline && token) {
+        try {
+          const created = await createAppointmentApi(payload, token);
+          if (created) await saveAppointmentsLocal([created], true);
+        } catch (apiError: any) {
+          const msg = apiError?.message || "";
+          const isNetworkError =
+            msg.includes("Network request failed") ||
+            msg.includes("Failed to fetch") ||
+            msg.includes("NetworkError") ||
+            msg.includes("timeout");
+          if (isNetworkError) {
+            await createAppointmentLocal(payload, false);
+          } else {
+            throw apiError;
+          }
+        }
+      } else {
+        await createAppointmentLocal(payload, false);
+      }
+      close();
+      setReason("");
+      setSelectedDate(getInitialAvailableDate(facilityId));
+      setStaffWarningAcknowledgedForDate(null);
+      toast.show({
+        label: isOnline ? "Appointment scheduled" : "Appointment scheduled (Saved Offline)",
+        description: isOnline ? undefined : "Saved locally on this device. Will sync once connected.",
+        variant: "success",
+      });
+      await onCreated?.();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Could not schedule appointment.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const schedule = async () => {
@@ -91,43 +220,24 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
       return;
     }
 
-    const payload = {
-      user_id: user.user_id,
-      facility_id: user.facility_id || undefined,
-      appointment_date: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`,
-      appointment_time: "09:00 AM",
-      appointment_type: type,
-      reason: reason.trim() || undefined,
-    };
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (isOnline && token) {
-        try {
-          const created = await createAppointmentApi(payload, token);
-          if (created) await saveAppointmentsLocal([created], true);
-        } catch (apiError) {
-          await createAppointmentLocal(payload, false);
-          console.warn("Appointment saved to the offline queue:", apiError);
-        }
-      } else {
-        await createAppointmentLocal(payload, false);
-      }
-      close();
-      setReason("");
-      setSelectedDate(new Date());
-      toast.show({
-        label: isOnline ? "Appointment scheduled" : "Appointment scheduled (Saved Offline)",
-        description: isOnline ? undefined : "Saved locally on this device. Will sync once connected.",
-        variant: "success",
-      });
-      await onCreated?.();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Could not schedule appointment.");
-    } finally {
-      setSubmitting(false);
+    if (isFacilityDateClosed(checkDate, facilityId)) {
+      setError(
+        getFacilityClosedReason(checkDate, facilityId) ||
+          "The facility is closed on this date. Please pick an open clinic date."
+      );
+      return;
     }
+
+    if (
+      assignedStaff?.user_id &&
+      !staffAvailability.isAvailable &&
+      staffWarningAcknowledgedForDate !== selectedDateKey
+    ) {
+      setShowStaffWarningModal(true);
+      return;
+    }
+
+    await executeBooking();
   };
 
   return (
@@ -136,7 +246,7 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
         <BottomSheet.Portal>
           <BottomSheet.Overlay className="bg-black/60" />
           <BottomSheet.Content
-            snapPoints={["68%"]}
+            snapPoints={["72%"]}
             enableDynamicSizing={false}
             enableOverDrag={false}
             contentContainerClassName="h-full"
@@ -176,7 +286,7 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
                 </View>
               ) : (
                 <>
-                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18, paddingBottom: 16 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 16 }}>
                     <View className="gap-2">
                       <Text className="text-sm font-medium text-foreground">Visit type</Text>
                       <AppSelect value={type} onValueChange={setType} options={VISIT_TYPES} placeholder="Select visit type" />
@@ -209,6 +319,15 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
                           <AppIcon name="chevron-forward" size={16} weight="bold" color="#737373" />
                         </View>
                       </Pressable>
+
+                      {isSelectedDateClosed && (
+                        <View className="flex-row items-center gap-1.5 rounded-lg border border-destructive/25 bg-destructive/10 px-2.5 py-1.5 mt-0.5">
+                          <AppIcon name="close-circle-outline" size={14} color="#ef4444" />
+                          <Text className="text-[11px] font-medium text-destructive flex-1">
+                            {getFacilityClosedReason(selectedDate, facilityId) || "Facility is closed on this date."}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     <View className="gap-2">
@@ -218,10 +337,12 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
                   </ScrollView>
 
                   {error && <Text className="mb-2 text-sm text-red-500">{error}</Text>}
-                  <Pressable onPress={schedule} disabled={submitting} className="min-h-12 flex-row items-center justify-center gap-2 rounded-md bg-[#fffe8c] active:opacity-80 disabled:opacity-60">
+                  <Pressable onPress={schedule} disabled={submitting || isSelectedDateClosed} className={`min-h-12 flex-row items-center justify-center gap-2 rounded-md ${isSelectedDateClosed ? "bg-muted opacity-50" : "bg-[#fffe8c]"} active:opacity-80 disabled:opacity-60`}>
                     {submitting ? <ActivityIndicator size="small" color="#171717" /> : <>
-                      <AppIcon name="calendar" size={18} weight="bold" color="#171717" />
-                      <Text className="text-sm font-semibold text-[#171717]">Set Appointment</Text>
+                      <AppIcon name="calendar" size={18} weight="bold" color={isSelectedDateClosed ? "#737373" : "#171717"} />
+                      <Text className={`text-sm font-semibold ${isSelectedDateClosed ? "text-muted-foreground" : "text-[#171717]"}`}>
+                        {isSelectedDateClosed ? "Facility Closed on this Date" : "Set Appointment"}
+                      </Text>
                     </>}
                   </Pressable>
                 </>
@@ -234,11 +355,35 @@ export function AppointmentBookingSheet({ visible, onClose, onCreated }: Appoint
       <AppointmentDatePickerModal
         visible={isDatePickerOpen}
         selectedDate={selectedDate}
+        facilityId={facilityId}
         onSelectDate={(date) => {
           setSelectedDate(date);
           setError(null);
+          setStaffWarningAcknowledgedForDate(null);
+          if (assignedStaff?.user_id) {
+            const check = checkStaffAvailability(date, assignedStaff, staffSchedule);
+            if (!check.isAvailable) {
+              setShowStaffWarningModal(true);
+            }
+          }
         }}
         onClose={() => setIsDatePickerOpen(false)}
+      />
+
+      <StaffUnavailableWarningModal
+        visible={showStaffWarningModal}
+        staffName={assignedStaffName}
+        selectedDate={selectedDate}
+        onProceed={async () => {
+          setShowStaffWarningModal(false);
+          setStaffWarningAcknowledgedForDate(selectedDateKey);
+          await executeBooking();
+        }}
+        onChangeDate={() => {
+          setShowStaffWarningModal(false);
+          setIsDatePickerOpen(true);
+        }}
+        onClose={() => setShowStaffWarningModal(false)}
       />
     </>
   );

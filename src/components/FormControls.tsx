@@ -6,7 +6,6 @@ type AppButtonProps = ComponentProps<typeof HeroButton>;
 type AppTextFieldProps = ComponentProps<typeof HeroTextField>;
 type AppButtonLabelProps = ComponentProps<typeof HeroButton.Label>;
 
-/** Shared text field used across forms, sheets, and account screens. */
 export function AppInput({ className, style, ...props }: AppInputProps) {
   return (
     <HeroInput
@@ -26,12 +25,10 @@ export function AppInput({ className, style, ...props }: AppInputProps) {
   );
 }
 
-/** Shared label/input group spacing for predictable form rhythm. */
 export function AppTextField({ className, ...props }: AppTextFieldProps) {
   return <HeroTextField {...props} className={`gap-1.5 ${className ?? ""}`} />;
 }
 
-/** Keeps action buttons on the same compact radius and primary accent. */
 function StyledAppButton({ variant, className, style, ...props }: AppButtonProps) {
   const primary = variant === "primary";
   return (
@@ -68,16 +65,16 @@ export function AppSelect({ value, onValueChange, options, placeholder }: {
 }) {
   return (
     <Select value={value ? { value, label: value } : undefined} onValueChange={(option) => onValueChange(option?.value ?? "")}>
-      <Select.Trigger className="h-11 rounded-md border border-field-border bg-field-background px-3">
-        <Select.Value placeholder={placeholder} className="text-base text-field-foreground" />
+      <Select.Trigger className="h-12 min-h-12 rounded-md border border-field-border bg-field-background px-3.5 py-0 flex-row items-center justify-between">
+        <Select.Value placeholder={placeholder} className="text-sm font-medium text-field-foreground leading-5 pb-0.5" />
         <Select.TriggerIndicator />
       </Select.Trigger>
       <Select.Portal>
         <Select.Overlay />
         <Select.Content presentation="popover" width="trigger" className="rounded-md border border-field-border bg-background">
           {options.map((option) => (
-            <Select.Item key={option} value={option} label={option}>
-              <Select.ItemLabel />
+            <Select.Item key={option} value={option} label={option} className="py-2.5 px-3">
+              <Select.ItemLabel className="text-sm text-foreground py-0.5" />
               <Select.ItemIndicator />
             </Select.Item>
           ))}

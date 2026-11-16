@@ -18,6 +18,7 @@ import {
 } from "../db/repository";
 import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
+import { loadStaffSchedule } from "../services/facilityScheduleService";
 import { getSecureToken, setSecureToken, deleteSecureToken } from "../lib/secureStorage";
 import { signOutNativeGoogle } from "../lib/googleAuthUtils";
 
@@ -202,6 +203,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setMotherRecord(mRecord);
           await AsyncStorage.setItem(STORAGE_KEYS.MOTHER_RECORD, JSON.stringify(mRecord));
 
+          const assignedWorkerId = mRecord.assigned_worker_id || mRecord.assignedWorker?.user_id || mRecord.created_by_id || mRecord.creator?.user_id;
+          if (assignedWorkerId) {
+            loadStaffSchedule(assignedWorkerId, authToken).catch(() => {});
+          }
+
           if (data.result.pregnancies && data.result.pregnancies.length > 0) {
             const firstPregnancy = data.result.pregnancies[0];
             setActivePregnancy(firstPregnancy);
@@ -294,6 +300,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (storedMotherJson) {
             const parsedMother = JSON.parse(storedMotherJson);
             setMotherRecord((prev) => prev || parsedMother);
+            const wId = parsedMother?.assigned_worker_id || parsedMother?.assignedWorker?.user_id;
+            if (wId && storedToken) {
+              loadStaffSchedule(wId, storedToken).catch(() => {});
+            }
           }
 
           if (storedPregnancyJson) {
