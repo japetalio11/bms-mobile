@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { ActivityIndicator, Platform, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Share, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { BottomSheet, useToast } from "heroui-native";
+import { useToast } from "heroui-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton as Button } from "./FormControls";
 import * as Print from "expo-print";
@@ -92,70 +92,68 @@ export function MotherQRCodeModal({ visible, onClose, user, motherRecord }: Moth
     }
   };
 
-  if (!visible) return null;
-
   return (
-    <BottomSheet isOpen={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <BottomSheet.Portal>
-        <BottomSheet.Overlay className="bg-black/60" />
-        <BottomSheet.Content
-          snapPoints={["70%"]}
-          enableDynamicSizing={false}
-          enableOverDrag={false}
-          contentContainerClassName="h-full"
-          backgroundClassName="rounded-t-[24px] bg-background"
-          handleIndicatorClassName="bg-muted"
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 justify-end bg-black/60">
+        <Pressable className="flex-1" onPress={onClose} />
+        <View
+          className="max-h-[85%] rounded-t-[24px] bg-background px-5 pt-2"
+          style={{ paddingBottom: Math.max(insets.bottom + 20, 32) }}
         >
-          <View className="flex-1 px-5 pt-1">
-            <BottomSheetHeader
-              title="Mother QR code"
-              description="Share this code with your care team."
-              onClose={onClose}
-              closeLabel="Close QR code"
-              className="w-full"
-            />
+          <View className="mb-3 h-1 w-12 self-center rounded-full bg-muted/60" />
+          <BottomSheetHeader
+            title="Mother QR code"
+            description="Share this code with your care team."
+            onClose={onClose}
+            closeLabel="Close QR code"
+            className="w-full"
+          />
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                alignItems: "center",
-                paddingTop: 4,
-                paddingBottom: Math.max(insets.bottom + 32, 52),
-              }}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              alignItems: "center",
+              paddingTop: 4,
+              paddingBottom: 16,
+            }}
+          >
+            <View className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm">
+              <QRCode
+                value={qrPayload}
+                size={196}
+                color="#111111"
+                backgroundColor="#ffffff"
+                quietZone={6}
+                getRef={(ref) => { qrRef.current = ref as QRCodeRef | null; }}
+              />
+            </View>
+
+            <Text className="mt-4 text-sm text-muted-foreground">Mother code</Text>
+            <Text className="mt-1 text-base font-semibold tracking-wide text-foreground">{displayCode}</Text>
+
+            <Button
+              variant="primary"
+              onPress={handleShare}
+              isDisabled={isSharing}
+              className="mt-4 min-h-11 w-full rounded-md bg-[#fffe8c]"
             >
-              <View className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm">
-                <QRCode
-                  value={qrPayload}
-                  size={196}
-                  color="#111111"
-                  backgroundColor="#ffffff"
-                  quietZone={6}
-                  getRef={(ref) => { qrRef.current = ref as QRCodeRef | null; }}
-                />
-              </View>
-
-              <Text className="mt-4 text-sm text-muted-foreground">Mother code</Text>
-              <Text className="mt-1 text-base font-semibold tracking-wide text-foreground">{displayCode}</Text>
-
-              <Button
-                variant="primary"
-                onPress={handleShare}
-                isDisabled={isSharing}
-                className="mt-4 min-h-11 w-full rounded-md bg-[#fffe8c]"
-              >
-                {isSharing ? (
-                  <ActivityIndicator size="small" color="#171717" />
-                ) : (
-                  <AppIcon name="share-social-outline" size={18} weight="bold" color="#171717" />
-                )}
-                <Button.Label className="font-semibold text-[#171717]">
-                  {isSharing ? "Preparing share…" : "Share QR & Code"}
-                </Button.Label>
-              </Button>
-            </ScrollView>
-          </View>
-        </BottomSheet.Content>
-      </BottomSheet.Portal>
-    </BottomSheet>
+              {isSharing ? (
+                <ActivityIndicator size="small" color="#171717" />
+              ) : (
+                <AppIcon name="share-social-outline" size={18} weight="bold" color="#171717" />
+              )}
+              <Button.Label className="font-semibold text-[#171717]">
+                {isSharing ? "Preparing share…" : "Share QR & Code"}
+              </Button.Label>
+            </Button>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
