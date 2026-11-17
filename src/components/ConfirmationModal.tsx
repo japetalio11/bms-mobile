@@ -78,6 +78,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  if (!visible) return null;
+
   const config = VARIANT_CONFIGS[variant] || VARIANT_CONFIGS.danger;
   const activeIcon = icon || config.iconName;
 

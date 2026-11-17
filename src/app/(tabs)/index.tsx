@@ -1,12 +1,11 @@
-import { View, ScrollView, Pressable, RefreshControl, useWindowDimensions } from "react-native";
+import { View, ScrollView, Pressable, RefreshControl, useWindowDimensions, Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import type { ScrollViewInstance } from "react-native";
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import type { JSX } from "react";
-import { BottomSheet, Card, Text, useToast } from "heroui-native";
-import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import { NativeViewGestureHandler } from "react-native-gesture-handler";
+import { Card, Text, useToast } from "heroui-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Header } from "../../components/Header";
 import { MotherQRCodeModal } from "../../components/MotherQRCodeModal";
 import { UploadRecordSheet } from "../../components/UploadRecordSheet";
@@ -30,6 +29,7 @@ import {
 
 export default function DashboardScreen(): JSX.Element {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { toast } = useToast();
   const { width: screenWidth } = useWindowDimensions();
   const { user, token, motherRecord, activePregnancy, refreshProfile } = useAuth();
@@ -50,13 +50,7 @@ export default function DashboardScreen(): JSX.Element {
   const weekScrollerRef = useRef<ScrollViewInstance | null>(null);
   const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
 
-  const calculateGestationalWeeks = (): {
-    weeks: number;
-    progress: number;
-    remainingWeeks: number;
-    trimesterText: string;
-    hasPregnancy: boolean;
-  } => {
+  const gestationalData = useMemo(() => {
     if (!activePregnancy || !activePregnancy.lmp_date) {
       return {
         weeks: 0,
@@ -91,9 +85,7 @@ export default function DashboardScreen(): JSX.Element {
     }
 
     return { weeks, progress, remainingWeeks, trimesterText, hasPregnancy: true };
-  };
-
-  const gestationalData = calculateGestationalWeeks();
+  }, [activePregnancy]);
   const timelineWeek = selectedTimelineWeek ?? Math.min(40, Math.max(1, gestationalData.weeks || 1));
   const activeDetailMilestone = getWeekMilestone(timelineWeek);
 
@@ -125,8 +117,6 @@ export default function DashboardScreen(): JSX.Element {
       }
     }
   }, [user, token, isOnline]);
-
-  useFocusEffect(useCallback(() => { void loadAppointments(); }, [loadAppointments]));
 
   const loadPrescriptions = useCallback(async () => {
     if (!motherRecord?.mother_id) {
@@ -160,7 +150,20 @@ export default function DashboardScreen(): JSX.Element {
     }
   }, [motherRecord, isOnline, token]);
 
-  useFocusEffect(useCallback(() => { void loadPrescriptions(); }, [loadPrescriptions]));
+  const loadDoseLog = useCallback(async () => {
+    const date = localDoseDate();
+    setDoseLogDate(date);
+    if (!user?.user_id) {
+      setTodayDoseIds([]);
+      return;
+    }
+    try {
+      setTodayDoseIds(await getLoggedDoseIds(user.user_id, date));
+    } catch (error) {
+      console.warn("Could not read today's dose log:", error);
+      setTodayDoseIds([]);
+    }
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = subscribeSyncEvents((event) => {
@@ -177,22 +180,21 @@ export default function DashboardScreen(): JSX.Element {
     return () => unsubscribe();
   }, [loadAppointments, loadPrescriptions]);
 
-  const loadDoseLog = useCallback(async () => {
-    const date = localDoseDate();
-    setDoseLogDate(date);
-    if (!user?.user_id) {
-      setTodayDoseIds([]);
-      return;
-    }
-    try {
-      setTodayDoseIds(await getLoggedDoseIds(user.user_id, date));
-    } catch (error) {
-      console.warn("Could not read today's dose log:", error);
-      setTodayDoseIds([]);
-    }
-  }, [user]);
-
-  useFocusEffect(useCallback(() => { void loadDoseLog(); }, [loadDoseLog]));
+  useFocusEffect(
+    useCallback(() => {
+      let isCurrent = true;
+      const timer = setTimeout(() => {
+        if (!isCurrent) return;
+        void loadAppointments();
+        void loadPrescriptions();
+        void loadDoseLog();
+      }, 50);
+      return () => {
+        isCurrent = false;
+        clearTimeout(timer);
+      };
+    }, [loadAppointments, loadPrescriptions, loadDoseLog])
+  );
 
   const prescriptionProgress = useMemo(() => {
     const ordered = prescriptions.filter((item) => !item.is_completed);
@@ -519,13 +521,29 @@ export default function DashboardScreen(): JSX.Element {
         </LinearGradient>
       </ScrollView>
 
-      <BottomSheet isOpen={isTimelineModalOpen} onOpenChange={open => { if (!open) setIsTimelineModalOpen(false); }}>
-        <BottomSheet.Portal>
-          <BottomSheet.Overlay className="bg-black/60" />
-          <BottomSheet.Content snapPoints={["66%"]} enableDynamicSizing={false} enableOverDrag={false} contentContainerClassName="h-full" backgroundClassName="rounded-t-[24px] bg-background" handleIndicatorClassName="bg-muted">
-            <View className="flex-1 px-5 pb-5 pt-1">
-              <BottomSheetHeader title="Track pregnancy" description="Follow your pregnancy week by week." onClose={() => setIsTimelineModalOpen(false)} closeLabel="Close pregnancy timeline" />
-              <BottomSheetScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 36 }}>
+      <Modal
+        visible={isTimelineModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsTimelineModalOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/60">
+          <Pressable className="flex-1" onPress={() => setIsTimelineModalOpen(false)} />
+          <View
+            className="max-h-[85%] rounded-t-[24px] bg-background px-5 pt-2"
+            style={{ paddingBottom: Math.max(insets.bottom + 20, 32) }}
+          >
+            <View className="mb-3 h-1 w-12 self-center rounded-full bg-muted/60" />
+            <BottomSheetHeader
+              title="Track pregnancy"
+              description="Follow your pregnancy week by week."
+              onClose={() => setIsTimelineModalOpen(false)}
+              closeLabel="Close pregnancy timeline"
+            />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
               <View className="mb-4 rounded-2xl bg-surface p-4">
                 <View className="flex-row items-start justify-between gap-3">
                   <View>
@@ -548,16 +566,23 @@ export default function DashboardScreen(): JSX.Element {
                 </View>
               </View>
               <Text className="mb-2 text-sm font-medium text-muted-foreground">Explore a week</Text>
-              <NativeViewGestureHandler disallowInterruption>
-                <ScrollView ref={weekScrollerRef} horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} className="mb-5 grow-0" contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
-                  {PREGNANCY_WEEKS.map(item => {
-                    const selected = item.week === timelineWeek;
-                    return <Pressable key={item.week} onPress={() => { triggerSelectionHaptic(); setSelectedTimelineWeek(item.week); }} accessibilityRole="button" accessibilityLabel={`Week ${item.week}`} accessibilityState={{ selected }} className={`min-h-11 min-w-11 items-center justify-center rounded-xl px-3 ${selected ? "bg-[#fffe8c]" : "bg-surface active:opacity-70"}`}>
+              <ScrollView ref={weekScrollerRef} horizontal showsHorizontalScrollIndicator={false} className="mb-5 grow-0" contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+                {PREGNANCY_WEEKS.map(item => {
+                  const selected = item.week === timelineWeek;
+                  return (
+                    <Pressable
+                      key={item.week}
+                      onPress={() => { triggerSelectionHaptic(); setSelectedTimelineWeek(item.week); }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Week ${item.week}`}
+                      accessibilityState={{ selected }}
+                      className={`min-h-11 min-w-11 items-center justify-center rounded-xl px-3 ${selected ? "bg-[#fffe8c]" : "bg-surface active:opacity-70"}`}
+                    >
                       <Text className={`text-sm font-semibold ${selected ? "text-[#171717]" : "text-muted-foreground"}`}>{item.week}</Text>
-                    </Pressable>;
-                  })}
-                </ScrollView>
-              </NativeViewGestureHandler>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
               <View className="gap-4">
                 <View className="rounded-2xl bg-surface p-4">
                   <Text className="text-sm font-medium text-muted-foreground">Baby’s development</Text>
@@ -585,19 +610,26 @@ export default function DashboardScreen(): JSX.Element {
                   </View>
                 )}
               </View>
-              </BottomSheetScrollView>
-            </View>
-          </BottomSheet.Content>
-        </BottomSheet.Portal>
-      </BottomSheet>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <MotherQRCodeModal
         visible={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
         user={user}
         motherRecord={motherRecord}
       />
-      <UploadRecordSheet visible={uploadSheetOpen} onClose={() => setUploadSheetOpen(false)} />
-      <AppointmentBookingSheet visible={appointmentSheetOpen} onClose={() => setAppointmentSheetOpen(false)} onCreated={loadAppointments} />
+      <UploadRecordSheet
+        visible={uploadSheetOpen}
+        onClose={() => setUploadSheetOpen(false)}
+      />
+      <AppointmentBookingSheet
+        visible={appointmentSheetOpen}
+        onClose={() => setAppointmentSheetOpen(false)}
+        onCreated={loadAppointments}
+      />
     </View>
   );
 }

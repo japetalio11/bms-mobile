@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, View } from "react-native";
-import { BottomSheet, Label, Text, useToast } from "heroui-native";
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, View } from "react-native";
+import { Label, Text, useToast } from "heroui-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton as Button, AppInput as Input, AppSelect, AppTextField as TextField } from "./FormControls";
 import * as DocumentPicker from "expo-document-picker";
@@ -102,33 +102,48 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
 
     setIsLoading(true);
     try {
-      let savedOffline = !isOnline || !token;
       if (isOnline && token) {
         try {
+          const fileToUpload = formatFormDataFile(
+            selectedFile.uri,
+            selectedFile.name || "ehr-document",
+            selectedFile.mimeType || "application/octet-stream"
+          );
           const formData = new FormData();
-          formData.append("file", formatFormDataFile(selectedFile.uri, selectedFile.name, selectedFile.mimeType) as any);
-          const uploaded = await uploadLabFileApi(formData, token);
-          const fileUrl = uploaded.file_url || uploaded.fileUrl;
-          const record = await createLabScreeningApi({ ...payload, file_url: fileUrl }, token);
-          if (record) await saveLabScreeningsLocal([record], true, motherId, false);
-        } catch (error) {
-          console.warn("Record upload queued locally:", error);
-          savedOffline = true;
+          formData.append("file", fileToUpload as any);
+          const uploadRes = await uploadLabFileApi(formData, token);
+          const finalUrl = uploadRes.file_url || uploadRes.fileUrl || "";
+          const created = await createLabScreeningApi({ ...payload, file_url: finalUrl }, token);
+          if (created) await saveLabScreeningsLocal([created], true, motherId);
+        } catch (apiErr: any) {
+          const msg = apiErr?.message || "";
+          const isNetworkError =
+            msg.includes("Network request failed") ||
+            msg.includes("Failed to fetch") ||
+            msg.includes("NetworkError") ||
+            msg.includes("timeout");
+          if (isNetworkError) {
+            await createLabScreeningLocal(payload, selectedFile.uri, selectedFile.size || null, false, motherId);
+          } else {
+            throw apiErr;
+          }
         }
+      } else {
+        await createLabScreeningLocal(payload, selectedFile.uri, selectedFile.size || null, false, motherId);
       }
-      if (savedOffline) {
-        await createLabScreeningLocal(payload, selectedFile.uri, selectedFile.size ?? null, false, motherId);
-      }
-
-      void refreshProfile?.().catch(() => {});
       toast.show({
-        label: savedOffline ? "Record saved on this device" : "EHR record uploaded",
-        description: savedOffline ? "It will sync when you are online." : "The record is now part of your EHR.",
+        label: isOnline ? "Record uploaded successfully" : "Record saved offline",
+        description: isOnline ? "Your file is securely attached to your profile." : "Saved locally on this device. Will sync once connected.",
         variant: "success",
       });
       resetSheet(true);
+      void refreshProfile();
     } catch (error) {
-      toast.show({ label: "Upload could not be saved", description: error instanceof Error ? error.message : "Please try again.", variant: "danger" });
+      toast.show({
+        label: "Could not upload record",
+        description: error instanceof Error ? error.message : "Please check your network and try again.",
+        variant: "danger",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -137,104 +152,99 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
   const fileIsImage = selectedFile?.mimeType?.startsWith("image/");
 
   return (
-    <BottomSheet isOpen={visible} onOpenChange={(open) => { if (!open) resetSheet(); }}>
-      <BottomSheet.Portal>
-        <BottomSheet.Overlay className="bg-black/60" />
-        <BottomSheet.Content
-          snapPoints={step === "file" ? ["52%"] : ["70%"]}
-          enableDynamicSizing={false}
-          enableOverDrag={false}
-          contentContainerClassName="h-full"
-          backgroundClassName="rounded-t-[24px] bg-background"
-          handleIndicatorClassName="bg-muted"
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => resetSheet()}
+    >
+      <View className="flex-1 justify-end bg-black/60">
+        <Pressable className="flex-1" onPress={() => resetSheet()} />
+        <View
+          className="max-h-[85%] rounded-t-[24px] bg-background px-5 pt-2"
+          style={{ paddingBottom: Math.max(insets.bottom + 20, 32) }}
         >
-          <View
-            className="flex-1 px-5 pt-1"
-            style={{ paddingBottom: Math.max(insets.bottom + 36, 56) }}
-          >
-            <BottomSheetHeader
-              title={step === "file" ? "Upload EHR record" : "Add record details"}
-              description={step === "file" ? "Choose a document or image." : "Add a name and category for this file."}
-              onClose={() => resetSheet()}
-              closeLabel="Close upload sheet"
-            />
+          <View className="mb-3 h-1 w-12 self-center rounded-full bg-muted/60" />
+          <BottomSheetHeader
+            title={step === "file" ? "Upload EHR record" : "Add record details"}
+            description={step === "file" ? "Choose a document or image." : "Add a name and category for this file."}
+            onClose={() => resetSheet()}
+            closeLabel="Close upload sheet"
+          />
 
-            <View className="mb-4 flex-row items-center gap-2" accessibilityLabel={step === "file" ? "Step 1 of 2: Select file" : "Step 2 of 2: Add details"}>
-              <View className="h-1 flex-1 overflow-hidden rounded-full bg-default">
-                <View className={`h-full rounded-full bg-[#fffe8c] ${step === "file" ? "w-1/2" : "w-full"}`} />
-              </View>
-              <Text className="text-sm font-medium text-muted-foreground">{step === "file" ? "1 of 2" : "2 of 2"}</Text>
+          <View className="mb-4 flex-row items-center gap-2" accessibilityLabel={step === "file" ? "Step 1 of 2: Select file" : "Step 2 of 2: Add details"}>
+            <View className="h-1 flex-1 overflow-hidden rounded-full bg-default">
+              <View className={`h-full rounded-full bg-[#fffe8c] ${step === "file" ? "w-1/2" : "w-full"}`} />
             </View>
+            <Text className="text-sm font-medium text-muted-foreground">{step === "file" ? "1 of 2" : "2 of 2"}</Text>
+          </View>
 
-            {step === "file" ? (
-              <View className="flex-1 justify-between pb-2">
-                <Pressable
-                  onPress={pickFile}
-                  accessibilityRole="button"
-                  className="min-h-[104px] flex-row items-center gap-3 rounded-2xl border border-dashed border-border bg-surface px-4 py-4 active:opacity-75"
-                >
-                  <View className="size-12 items-center justify-center rounded-2xl bg-[#fffe8c]">
-                    <AppIcon name="cloud-upload-outline" size={22} weight="bold" color="#171717" />
-                  </View>
-                  <View className="min-w-0 flex-1 gap-1">
-                    <Text className="text-sm font-semibold text-foreground">Browse files</Text>
-                    <Text className="text-sm leading-4 text-muted-foreground">PDF or image · Up to 10 MB</Text>
-                  </View>
-                  <AppIcon name="chevron-forward" size={18} weight="bold" color="#737373" />
-                </Pressable>
-
-                <View className="mt-6 mb-2">
-                  <Button variant="outline" className="w-full rounded-md" onPress={() => resetSheet()} isDisabled={isLoading}>
-                    <Button.Label>Cancel</Button.Label>
-                  </Button>
+          {step === "file" ? (
+            <View className="pb-2">
+              <Pressable
+                onPress={pickFile}
+                accessibilityRole="button"
+                className="min-h-[104px] flex-row items-center gap-3 rounded-2xl border border-dashed border-border bg-surface px-4 py-4 active:opacity-75"
+              >
+                <View className="size-12 items-center justify-center rounded-2xl bg-[#fffe8c]">
+                  <AppIcon name="cloud-upload-outline" size={22} weight="bold" color="#171717" />
                 </View>
+                <View className="min-w-0 flex-1 gap-1">
+                  <Text className="text-sm font-semibold text-foreground">Browse files</Text>
+                  <Text className="text-sm leading-4 text-muted-foreground">PDF or image · Up to 10 MB</Text>
+                </View>
+                <AppIcon name="chevron-forward" size={18} weight="bold" color="#737373" />
+              </Pressable>
+
+              <View className="mb-2 mt-6">
+                <Button variant="outline" className="w-full rounded-md" onPress={() => resetSheet()} isDisabled={isLoading}>
+                  <Button.Label>Cancel</Button.Label>
+                </Button>
               </View>
-            ) : (
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
-                {selectedFile && (
-                  <View className="mb-5 flex-row items-center gap-3 rounded-2xl bg-surface p-3">
-                    {fileIsImage ? (
-                      <Image source={{ uri: selectedFile.uri }} className="size-12 rounded-xl" />
-                    ) : (
-                      <View className="size-12 items-center justify-center rounded-xl bg-default">
-                        <AppIcon name="file-pdf" size={21} weight="regular" color="#737373" />
-                      </View>
-                    )}
-                    <View className="min-w-0 flex-1 gap-1">
-                      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{selectedFile.name}</Text>
-                      <Text className="text-sm text-muted-foreground">
-                        {selectedFile.size ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "Ready to upload"} · {fileIsImage ? "Image" : "PDF"}
-                      </Text>
+            </View>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 16 }}>
+              {selectedFile && (
+                <View className="mb-5 flex-row items-center gap-3 rounded-2xl bg-surface p-3">
+                  {fileIsImage ? (
+                    <Image source={{ uri: selectedFile.uri }} className="size-12 rounded-xl" />
+                  ) : (
+                    <View className="size-12 items-center justify-center rounded-xl bg-default">
+                      <AppIcon name="file-pdf" size={21} weight="regular" color="#737373" />
                     </View>
-                    <Pressable onPress={pickFile} accessibilityRole="button" accessibilityLabel="Choose a different file" className="min-h-11 justify-center rounded-full px-3 active:bg-default">
-                      <Text className="text-sm font-semibold text-foreground">Change</Text>
-                    </Pressable>
+                  )}
+                  <View className="min-w-0 flex-1 gap-1">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{selectedFile.name}</Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {selectedFile.size ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "Ready to upload"} · {fileIsImage ? "Image" : "PDF"}
+                    </Text>
                   </View>
-                )}
-
-                <View className="gap-2.5">
-                  <Text className="text-sm font-semibold text-foreground">Record type</Text>
-                  <AppSelect value={recordType} onValueChange={setRecordType} options={RECORD_TYPES} placeholder="Select record type" />
+                  <Pressable onPress={pickFile} accessibilityRole="button" accessibilityLabel="Choose a different file" className="min-h-11 justify-center rounded-full px-3 active:bg-default">
+                    <Text className="text-sm font-semibold text-foreground">Change</Text>
+                  </Pressable>
                 </View>
+              )}
 
-                <View className="mt-5">
-                  <TextField isRequired className="gap-2">
-                    <Label isRequired>
-                      <Label.Text className="text-sm font-semibold text-foreground">Record name</Label.Text>
-                    </Label>
-                    <Input
-                      value={recordName}
-                      onChangeText={setRecordName}
-                      placeholder="e.g. Complete blood count"
-                      autoCapitalize="sentences"
-                    />
-                  </TextField>
-                </View>
-              </ScrollView>
-            )}
+              <View className="gap-2.5">
+                <Text className="text-sm font-semibold text-foreground">Record type</Text>
+                <AppSelect value={recordType} onValueChange={setRecordType} options={RECORD_TYPES} placeholder="Select record type" />
+              </View>
 
-            {step === "details" && (
-              <View className="mt-3 flex-row items-center justify-between gap-3">
+              <View className="mt-5">
+                <TextField isRequired className="gap-2">
+                  <Label isRequired>
+                    <Label.Text className="text-sm font-semibold text-foreground">Record name</Label.Text>
+                  </Label>
+                  <Input
+                    value={recordName}
+                    onChangeText={setRecordName}
+                    placeholder="e.g. Complete blood count"
+                    autoCapitalize="sentences"
+                  />
+                </TextField>
+              </View>
+
+              <View className="mt-6 flex-row items-center justify-between gap-3">
                 <Button variant="outline" className="min-w-[104px] rounded-md" onPress={() => resetSheet()} isDisabled={isLoading}>
                   <Button.Label>Cancel</Button.Label>
                 </Button>
@@ -243,10 +253,10 @@ export function UploadRecordSheet({ visible, onClose }: { visible: boolean; onCl
                   <Button.Label className="text-[#171717]">{isLoading ? "Uploading…" : "Save record"}</Button.Label>
                 </Button>
               </View>
-            )}
-          </View>
-        </BottomSheet.Content>
-      </BottomSheet.Portal>
-    </BottomSheet>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }

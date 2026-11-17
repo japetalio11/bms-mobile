@@ -3,6 +3,14 @@ import { getOrCreateMasterCipherKey } from "./secureStorage";
 
 const PREFIX = "ENC_GCM:";
 
+let cachedKeyHex: string | null = null;
+let cachedCryptoKey: CryptoKey | null = null;
+
+export function clearCryptoKeyCache(): void {
+  cachedKeyHex = null;
+  cachedCryptoKey = null;
+}
+
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < bytes.length; i++) {
@@ -42,13 +50,20 @@ function bytesToString(bytes: Uint8Array): string {
 }
 
 async function getCryptoKey(keyHex: string): Promise<CryptoKey | null> {
+  if (cachedCryptoKey && cachedKeyHex === keyHex) {
+    return cachedCryptoKey;
+  }
+
   try {
     if (typeof crypto !== "undefined" && crypto.subtle) {
       const rawBytes = hexToBytes(keyHex);
-      return await crypto.subtle.importKey("raw", rawBytes as any, { name: "AES-GCM" }, false, [
+      const imported = await crypto.subtle.importKey("raw", rawBytes as any, { name: "AES-GCM" }, false, [
         "encrypt",
         "decrypt",
       ]);
+      cachedKeyHex = keyHex;
+      cachedCryptoKey = imported;
+      return imported;
     }
   } catch (e) {
     console.warn("[Crypto] Failed to import key into WebCrypto:", e);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Uniwind } from "uniwind";
@@ -78,67 +78,101 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     loadSettings();
   }, []);
 
-  const saveSettings = async (
-    updatedSettings: Partial<{
-      theme: "light" | "dark" | "system";
-      textSize: TextSize;
-      shareHealthData: boolean;
-      analyticsEnabled: boolean;
-      notifications: NotificationPreferences;
-    }>
-  ) => {
-    try {
-      const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
-      const existing = stored ? JSON.parse(stored) : {};
-      const newSettings = { ...existing, ...updatedSettings };
-      await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
-    } catch (err) {
-      console.error("Failed to persist user settings:", err);
-    }
-  };
+  const saveSettings = useCallback(
+    async (
+      updatedSettings: Partial<{
+        theme: "light" | "dark" | "system";
+        textSize: TextSize;
+        shareHealthData: boolean;
+        analyticsEnabled: boolean;
+        notifications: NotificationPreferences;
+      }>
+    ) => {
+      try {
+        const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+        const existing = stored ? JSON.parse(stored) : {};
+        const newSettings = { ...existing, ...updatedSettings };
+        await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
+      } catch (err) {
+        console.error("Failed to persist user settings:", err);
+      }
+    },
+    []
+  );
 
-  const setTheme = async (_newTheme: "light" | "dark" | "system") => {
-    setThemeState("light");
-    Uniwind.setTheme("light");
-    await saveSettings({ theme: "light" });
-  };
+  const setTheme = useCallback(
+    async (_newTheme: "light" | "dark" | "system") => {
+      setThemeState("light");
+      Uniwind.setTheme("light");
+      await saveSettings({ theme: "light" });
+    },
+    [saveSettings]
+  );
 
-  const setTextSize = async (size: TextSize) => {
-    setTextSizeState(size);
-    await saveSettings({ textSize: size });
-  };
+  const setTextSize = useCallback(
+    async (size: TextSize) => {
+      setTextSizeState(size);
+      await saveSettings({ textSize: size });
+    },
+    [saveSettings]
+  );
 
-  const setShareHealthData = async (enabled: boolean) => {
-    setShareHealthDataState(enabled);
-    await saveSettings({ shareHealthData: enabled });
-  };
+  const setShareHealthData = useCallback(
+    async (enabled: boolean) => {
+      setShareHealthDataState(enabled);
+      await saveSettings({ shareHealthData: enabled });
+    },
+    [saveSettings]
+  );
 
-  const setAnalyticsEnabled = async (enabled: boolean) => {
-    setAnalyticsEnabledState(enabled);
-    await saveSettings({ analyticsEnabled: enabled });
-  };
+  const setAnalyticsEnabled = useCallback(
+    async (enabled: boolean) => {
+      setAnalyticsEnabledState(enabled);
+      await saveSettings({ analyticsEnabled: enabled });
+    },
+    [saveSettings]
+  );
 
-  const setNotificationSetting = async (key: keyof NotificationPreferences, value: boolean) => {
-    const updatedNotifications = { ...notifications, [key]: value };
-    setNotificationsState(updatedNotifications);
-    await saveSettings({ notifications: updatedNotifications });
-  };
+  const setNotificationSetting = useCallback(
+    async (key: keyof NotificationPreferences, value: boolean) => {
+      setNotificationsState((prev) => {
+        const updated = { ...prev, [key]: value };
+        void saveSettings({ notifications: updated });
+        return updated;
+      });
+    },
+    [saveSettings]
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      theme,
+      textSize,
+      shareHealthData,
+      analyticsEnabled,
+      notifications,
+      setTheme,
+      setTextSize,
+      setShareHealthData,
+      setAnalyticsEnabled,
+      setNotificationSetting,
+    }),
+    [
+      theme,
+      textSize,
+      shareHealthData,
+      analyticsEnabled,
+      notifications,
+      setTheme,
+      setTextSize,
+      setShareHealthData,
+      setAnalyticsEnabled,
+      setNotificationSetting,
+    ]
+  );
 
   return (
-    <SettingsContext.Provider
-      value={{
-        theme,
-        textSize,
-        shareHealthData,
-        analyticsEnabled,
-        notifications,
-        setTheme,
-        setTextSize,
-        setShareHealthData,
-        setAnalyticsEnabled,
-        setNotificationSetting,
-      }}
-    >
+    <SettingsContext.Provider value={contextValue}>
       {children}
     </SettingsContext.Provider>
   );

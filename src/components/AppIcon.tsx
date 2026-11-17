@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { memo, type ComponentType } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { useUniwind } from "uniwind";
 import { ArrowClockwiseIcon } from "phosphor-react-native/src/icons/ArrowClockwise";
@@ -204,7 +204,7 @@ const iconMap: Record<string, ComponentType<any>> = {
   "woman-outline": GenderFemaleIcon,
 };
 
-export function AppIcon({ name, size = 20, color, weight = "fill", style }: AppIconProps) {
+function AppIconComponent({ name, size = 20, color, weight = "fill", style }: AppIconProps) {
   const { theme } = useUniwind();
   const Icon = iconMap[name] ?? FileTextIcon;
   const resolvedWeight =
@@ -221,3 +221,5 @@ export function AppIcon({ name, size = 20, color, weight = "fill", style }: AppI
     />
   );
 }
+
+export const AppIcon = memo(AppIconComponent);

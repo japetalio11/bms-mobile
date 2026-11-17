@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -18,6 +18,7 @@ import {
 } from "../db/repository";
 import { clearAllTablesLocal } from "../db/db";
 import { triggerOutboxSync } from "../services/syncEngine";
+import { loadStaffSchedule } from "../services/facilityScheduleService";
 import { getSecureToken, setSecureToken, deleteSecureToken } from "../lib/secureStorage";
 import { signOutNativeGoogle } from "../lib/googleAuthUtils";
 
@@ -202,6 +203,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setMotherRecord(mRecord);
           await AsyncStorage.setItem(STORAGE_KEYS.MOTHER_RECORD, JSON.stringify(mRecord));
 
+          const assignedWorkerId = mRecord.assigned_worker_id || mRecord.assignedWorker?.user_id || mRecord.created_by_id || mRecord.creator?.user_id;
+          if (assignedWorkerId) {
+            loadStaffSchedule(assignedWorkerId, authToken).catch(() => {});
+          }
+
           if (data.result.pregnancies && data.result.pregnancies.length > 0) {
             const firstPregnancy = data.result.pregnancies[0];
             setActivePregnancy(firstPregnancy);
@@ -294,6 +300,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (storedMotherJson) {
             const parsedMother = JSON.parse(storedMotherJson);
             setMotherRecord((prev) => prev || parsedMother);
+            const wId = parsedMother?.assigned_worker_id || parsedMother?.assignedWorker?.user_id;
+            if (wId && storedToken) {
+              loadStaffSchedule(wId, storedToken).catch(() => {});
+            }
           }
 
           if (storedPregnancyJson) {
@@ -317,7 +327,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     loadStoredAuth();
   }, [fetchProfile, refreshNotifications, logout]);
 
-  const login = async (userData: AuthUser, authToken: string) => {
+  const login = useCallback(async (userData: AuthUser, authToken: string) => {
     const formatted = formatUser(userData);
     setUser(formatted);
     setToken(authToken);
@@ -331,29 +341,45 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Failed to store user session:", err);
     }
-  };
+  }, [fetchProfile, refreshNotifications]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (token) {
       await fetchProfile(token, user.user_id);
     }
-  };
+  }, [token, fetchProfile, user.user_id]);
 
-  const value: UserContextType = {
-    user,
-    token,
-    motherRecord,
-    activePregnancy,
-    isAuthenticated: !!token,
-    isLoadingStorage,
-    isOnline,
-    unreadCount,
-    login,
-    logout,
-    refreshProfile,
-    refreshNotifications,
-    markAllNotificationsRead,
-  };
+  const value: UserContextType = useMemo(
+    () => ({
+      user,
+      token,
+      motherRecord,
+      activePregnancy,
+      isAuthenticated: !!token,
+      isLoadingStorage,
+      isOnline,
+      unreadCount,
+      login,
+      logout,
+      refreshProfile,
+      refreshNotifications,
+      markAllNotificationsRead,
+    }),
+    [
+      user,
+      token,
+      motherRecord,
+      activePregnancy,
+      isLoadingStorage,
+      isOnline,
+      unreadCount,
+      login,
+      logout,
+      refreshProfile,
+      refreshNotifications,
+      markAllNotificationsRead,
+    ]
+  );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
