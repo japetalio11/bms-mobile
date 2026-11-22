@@ -282,6 +282,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             rawUser.role?.trim().toLowerCase() !== "mother"
           ) {
             await logout();
+            setIsLoadingStorage(false);
             return;
           }
 
@@ -311,15 +312,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setActivePregnancy((prev) => prev || parsedPreg);
           }
 
+          setIsLoadingStorage(false);
+
           if (currentUserId) {
             triggerOutboxSync(storedToken, currentUserId);
           }
-          await fetchProfile(storedToken, currentUserId);
-          refreshNotifications();
+          fetchProfile(storedToken, currentUserId).catch(() => {});
+          refreshNotifications().catch(() => {});
+        } else {
+          setIsLoadingStorage(false);
         }
       } catch (err) {
         console.error("Failed to load stored authentication:", err);
-      } finally {
         setIsLoadingStorage(false);
       }
     };

@@ -33,6 +33,12 @@ function RootNavigator(): JSX.Element {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isLoadingStorage) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoadingStorage]);
+
+  useEffect(() => {
     if (isLoadingStorage) return;
 
     const inAuthGroup = segments[0] === "(auth)";
@@ -74,10 +80,17 @@ export default function RootLayout(): JSX.Element | null {
   });
 
   useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
+    if (error) {
+      SplashScreen.hideAsync().catch(() => {});
     }
-  }, [loaded, error]);
+  }, [error]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!loaded && !error) {
     return null;
