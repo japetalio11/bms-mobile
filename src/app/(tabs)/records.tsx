@@ -10,7 +10,7 @@ import {
   TextInput,
   Platform,
 } from "react-native";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { JSX } from "react";
 import { BottomSheet, Card, Text, useToast } from "heroui-native";
 import { AppIcon as Ionicons } from "../../components/AppIcon";
@@ -73,6 +73,8 @@ export default function RecordsScreen(): JSX.Element {
   const [recordToDelete, setRecordToDelete] = useState<LabScreeningRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const recordsLoadRef = useRef(0);
+  const recordsOwnerRef = useRef<string | null>(null);
 
   const isPdfOrDocument = (url: string, lab?: LabScreeningRecord | null): boolean => {
     const cleanUrl = (url || "").split("?")[0].toLowerCase();
@@ -250,7 +252,14 @@ export default function RecordsScreen(): JSX.Element {
   };
 
   const loadData = useCallback(async () => {
-    if (!motherRecord?.mother_id) {
+    const loadId = ++recordsLoadRef.current;
+    const motherId = motherRecord?.mother_id || null;
+    if (recordsOwnerRef.current !== motherId) {
+      recordsOwnerRef.current = motherId;
+      setLabScreenings([]);
+      setSupplements([]);
+    }
+    if (!motherId) {
       setLabScreenings([]);
       setSupplements([]);
       return;
@@ -258,10 +267,11 @@ export default function RecordsScreen(): JSX.Element {
 
     try {
       const [localLabs, localSupps] = await Promise.all([
-        getLabScreeningsLocal(motherRecord.mother_id),
-        getSupplementsLocal(motherRecord.mother_id),
+        getLabScreeningsLocal(motherId),
+        getSupplementsLocal(motherId),
       ]);
 
+      if (loadId !== recordsLoadRef.current) return;
       setLabScreenings(localLabs || []);
       setSupplements(localSupps || []);
       if (localLabs?.length) {
@@ -269,17 +279,19 @@ export default function RecordsScreen(): JSX.Element {
         prefetchMediaFiles(localUrls);
       }
     } catch (e) {
+      if (loadId !== recordsLoadRef.current) return;
       console.warn("Local records load error:", e);
     }
 
     if (isOnline && token) {
       setIsLoading(true);
       Promise.all([
-        getLabScreeningsByMotherApi(motherRecord.mother_id, token),
-        getSupplementsByMotherApi(motherRecord.mother_id, token),
-        getMotherEhrDocumentsApi(motherRecord.mother_id, token),
+        getLabScreeningsByMotherApi(motherId, token),
+        getSupplementsByMotherApi(motherId, token),
+        getMotherEhrDocumentsApi(motherId, token),
       ])
         .then(async ([labs, supps, ehrDocs]) => {
+          if (loadId !== recordsLoadRef.current) return;
           let allLabs: LabScreeningRecord[] = Array.isArray(labs) ? [...labs] : [];
 
           const existingIds = new Set<string>();
@@ -332,7 +344,8 @@ export default function RecordsScreen(): JSX.Element {
             allLabs = [...allLabs, ...mappedEhrDocs];
           }
 
-          const currentLocal = await getLabScreeningsLocal(motherRecord.mother_id);
+          const currentLocal = await getLabScreeningsLocal(motherId);
+          if (loadId !== recordsLoadRef.current) return;
           const pendingLabs = currentLocal.filter(
             (l: any) =>
               l.sync_status === "pending" &&
@@ -349,7 +362,7 @@ export default function RecordsScreen(): JSX.Element {
             prefetchMediaFiles(remoteUrls);
           }, 150);
           if (Array.isArray(labs) && labs.length > 0) {
-            await saveLabScreeningsLocal(labs, true, motherRecord.mother_id, true);
+            await saveLabScreeningsLocal(labs, true, motherId, true);
           }
 
           if (Array.isArray(supps)) {
@@ -361,10 +374,14 @@ export default function RecordsScreen(): JSX.Element {
           console.warn("API records fetch failed, preserving local data:", err);
         })
         .finally(() => {
-          setIsLoading(false);
+          if (loadId === recordsLoadRef.current) setIsLoading(false);
         });
     }
-  }, [motherRecord, token, isOnline]);
+  }, [motherRecord?.mother_id, token, isOnline]);
+
+  useEffect(() => {
+    recordsLoadRef.current += 1;
+  }, [motherRecord?.mother_id]);
 
   const onRefresh = async () => {
     setIsRefreshing(true);

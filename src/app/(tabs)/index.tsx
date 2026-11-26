@@ -48,6 +48,10 @@ export default function DashboardScreen(): JSX.Element {
   const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
   const [selectedTimelineWeek, setSelectedTimelineWeek] = useState<number | null>(null);
   const weekScrollerRef = useRef<ScrollViewInstance | null>(null);
+  const prescriptionLoadRef = useRef(0);
+  const doseLogLoadRef = useRef(0);
+  const prescriptionOwnerRef = useRef<string | null>(null);
+  const doseLogOwnerRef = useRef<string | null>(null);
   const hasFacility = Boolean(user?.facility_id || user?.facility?.facility_id);
 
   const gestationalData = useMemo(() => {
@@ -119,20 +123,29 @@ export default function DashboardScreen(): JSX.Element {
   }, [user, token, isOnline]);
 
   const loadPrescriptions = useCallback(async () => {
-    if (!motherRecord?.mother_id) {
+    const loadId = ++prescriptionLoadRef.current;
+    const motherId = motherRecord?.mother_id || null;
+    if (prescriptionOwnerRef.current !== motherId) {
+      prescriptionOwnerRef.current = motherId;
       setPrescriptions([]);
+      setSelectedPrescriptionId(null);
+    }
+    if (!motherId) {
       return;
     }
     try {
-      const localSupps = await getSupplementsLocal(motherRecord.mother_id);
+      const localSupps = await getSupplementsLocal(motherId);
+      if (loadId !== prescriptionLoadRef.current) return;
       setPrescriptions(localSupps);
     } catch (error) {
       console.warn("Could not read saved prescriptions:", error);
     }
     if (isOnline && token) {
       try {
-        const fresh = await getSupplementsByMotherApi(motherRecord.mother_id, token);
-        const currentLocal = await getSupplementsLocal(motherRecord.mother_id);
+        const fresh = await getSupplementsByMotherApi(motherId, token);
+        if (loadId !== prescriptionLoadRef.current) return;
+        const currentLocal = await getSupplementsLocal(motherId);
+        if (loadId !== prescriptionLoadRef.current) return;
         const pendingLocal = currentLocal.filter((s: any) => s.sync_status === "pending");
         const freshIds = new Set(fresh.map((s) => s.supplement_id));
         const merged = [
@@ -148,22 +161,36 @@ export default function DashboardScreen(): JSX.Element {
         console.warn("Could not refresh prescriptions:", error);
       }
     }
-  }, [motherRecord, isOnline, token]);
+  }, [motherRecord?.mother_id, isOnline, token]);
+
+  useEffect(() => {
+    prescriptionLoadRef.current += 1;
+    doseLogLoadRef.current += 1;
+  }, [motherRecord?.mother_id, user?.user_id]);
 
   const loadDoseLog = useCallback(async () => {
+    const loadId = ++doseLogLoadRef.current;
+    const userId = user?.user_id || null;
+    if (doseLogOwnerRef.current !== userId) {
+      doseLogOwnerRef.current = userId;
+      setTodayDoseIds([]);
+    }
     const date = localDoseDate();
     setDoseLogDate(date);
-    if (!user?.user_id) {
+    if (!userId) {
       setTodayDoseIds([]);
       return;
     }
     try {
-      setTodayDoseIds(await getLoggedDoseIds(user.user_id, date));
+      const doseIds = await getLoggedDoseIds(userId, date);
+      if (loadId !== doseLogLoadRef.current) return;
+      setTodayDoseIds(doseIds);
     } catch (error) {
+      if (loadId !== doseLogLoadRef.current) return;
       console.warn("Could not read today's dose log:", error);
       setTodayDoseIds([]);
     }
-  }, [user]);
+  }, [user?.user_id]);
 
   useEffect(() => {
     const unsubscribe = subscribeSyncEvents((event) => {

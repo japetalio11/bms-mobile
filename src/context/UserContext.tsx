@@ -203,7 +203,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setMotherRecord(mRecord);
           await AsyncStorage.setItem(STORAGE_KEYS.MOTHER_RECORD, JSON.stringify(mRecord));
 
-          const assignedWorkerId = mRecord.assigned_worker_id || mRecord.assignedWorker?.user_id || mRecord.created_by_id || mRecord.creator?.user_id;
+          const assignedWorkerId = mRecord.assigned_worker_id || mRecord.assignedWorker?.user_id;
           if (assignedWorkerId) {
             loadStaffSchedule(assignedWorkerId, authToken).catch(() => {});
           }

@@ -224,8 +224,6 @@ export default function ChatScreen(): JSX.Element {
   const assignedWorkerId =
     motherRecord?.assigned_worker_id ||
     motherRecord?.assignedWorker?.user_id ||
-    (motherRecord as any)?.created_by_id ||
-    (motherRecord as any)?.creator?.user_id ||
     null;
 
   const [staffList, setStaffList] = useState<ChatContact[]>([]);
@@ -235,7 +233,6 @@ export default function ChatScreen(): JSX.Element {
   const assignedStaff =
     staffList.find((staff) => staff.user_id === assignedWorkerId) ||
     motherRecord?.assignedWorker ||
-    motherRecord?.creator ||
     null;
 
   let mostRecentStaffContact: ChatContact | null = null;
@@ -263,7 +260,7 @@ export default function ChatScreen(): JSX.Element {
         last_name: "Care Provider",
         role: "Health Worker",
       }
-    : mostRecentStaffContact || (staffList.length > 0 ? staffList[0] : null);
+    : mostRecentStaffContact;
 
   const activeStaff = selectedStaff || (isStaffListVisible ? null : defaultStaffContact);
   const [searchQuery, setSearchQuery] = useState("");
@@ -356,8 +353,6 @@ export default function ChatScreen(): JSX.Element {
         const activeAssignedId =
           motherRecord?.assigned_worker_id ||
           motherRecord?.assignedWorker?.user_id ||
-          (motherRecord as any)?.created_by_id ||
-          (motherRecord as any)?.creator?.user_id ||
           null;
 
         const knownStaffIds = new Set(localStaff.map((s) => s.user_id));

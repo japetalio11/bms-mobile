@@ -625,17 +625,29 @@ export async function cancelAppointmentLocal(
 export async function getSupplementsLocal(motherId: string): Promise<SupplementRecord[]> {
   if (!motherId) return [];
   const db = await getDatabase();
-  const rows = await db.getAllAsync<SupplementRecord>(
-    `SELECT s.* FROM supplements s
-     LEFT JOIN pregnancies p ON s.pregnancy_id = p.pregnancy_id
-     WHERE p.mother_id = ? OR p.mother_id IS NULL OR s.pregnancy_id IN (SELECT pregnancy_id FROM pregnancies WHERE mother_id = ?)
-     ORDER BY s.date_given DESC`,
-    [motherId, motherId]
+  // Resolve ownership from cached relationships. This works in native SQLite
+  // and the web fallback, which does not evaluate JOINs/subqueries. Rows with
+  // no mother relationship must not be exposed to every mother's account.
+  const [rows, pregnancies, visits] = await Promise.all([
+    db.getAllAsync<SupplementRecord>(`SELECT * FROM supplements`),
+    db.getAllAsync<{ pregnancy_id: string; mother_id: string }>(`SELECT * FROM pregnancies`),
+    db.getAllAsync<{ visit_id: string; pregnancy_id: string }>(`SELECT * FROM prenatal_visits`),
+  ]);
+  const ownedPregnancyIds = new Set(
+    pregnancies.filter((p) => p.mother_id === motherId).map((p) => p.pregnancy_id)
   );
-  return rows.map((r: any) => ({
-    ...r,
-    is_completed: Boolean(r.is_completed),
-  }));
+  const pregnancyByVisitId = new Map(visits.map((visit) => [visit.visit_id, visit.pregnancy_id]));
+
+  return rows
+    .filter((row) => {
+      const pregnancyId = row.pregnancy_id || pregnancyByVisitId.get(row.visit_id || "");
+      return Boolean(pregnancyId && ownedPregnancyIds.has(pregnancyId));
+    })
+    .sort((a, b) => (b.date_given || "").localeCompare(a.date_given || ""))
+    .map((r: any) => ({
+      ...r,
+      is_completed: Boolean(r.is_completed),
+    }));
 }
 
 export async function saveSupplementsLocal(supplements: SupplementRecord[], isFromBackend = true) {
@@ -720,13 +732,20 @@ export async function getLabScreeningsLocal(motherId: string): Promise<LabScreen
     )
     .catch(() => {});
 
-  const rows = await db.getAllAsync<LabScreeningRecord>(
-    `SELECT ls.* FROM lab_screenings ls
-     LEFT JOIN pregnancies p ON ls.pregnancy_id = p.pregnancy_id
-     WHERE ls.mother_id = ? OR p.mother_id = ?
-     ORDER BY ls.date_of_screening DESC`,
-    [motherId, motherId]
+  // Use explicit relationship lookup for the web SQLite fallback, which
+  // cannot evaluate JOINs. Keep records scoped to their owning mother.
+  const [allRows, pregnancies] = await Promise.all([
+    db.getAllAsync<LabScreeningRecord & { mother_id?: string }>(
+      `SELECT * FROM lab_screenings`
+    ),
+    db.getAllAsync<{ pregnancy_id: string; mother_id: string }>(`SELECT * FROM pregnancies`),
+  ]);
+  const ownedPregnancyIds = new Set(
+    pregnancies.filter((p) => p.mother_id === motherId).map((p) => p.pregnancy_id)
   );
+  const rows = allRows
+    .filter((row) => row.mother_id === motherId || ownedPregnancyIds.has(row.pregnancy_id))
+    .sort((a, b) => (b.date_of_screening || "").localeCompare(a.date_of_screening || ""));
 
   for (const r of rows) {
     r.result = await decryptSensitiveText(r.result);
